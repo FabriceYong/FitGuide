@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="FitGuide - Your personal fitness companion. Track workouts, manage nutrition, and achieve your fitness goals with AI-powered insights.">
+  <meta name="keywords" content="fitness, workout, health, nutrition, exercise, wellness, gym, training">
+  <meta name="author" content="FitGuide">
+  <meta name="theme-color" content="#0A0C10">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="FitGuide - Transform Your Fitness Journey">
+  <meta property="og:description" content="Your personal fitness companion. Track workouts, manage nutrition, and achieve your fitness goals.">
+  <meta property="og:image" content="icons/Icon-512.png">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="FitGuide - Transform Your Fitness Journey">
+  <meta name="twitter:description" content="Your personal fitness companion. Track workouts, manage nutrition, and achieve your fitness goals.">
+  <meta name="twitter:image" content="icons/Icon-512.png">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FitGuide">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon.png">
+
+  <title>FitGuide - Transform Your Fitness Journey</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #0A0C10 0%, #131921 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      overflow: hidden;
+    }
+
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #0A0C10 0%, #131921 100%);
+    }
+
+    .loading-logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 32px;
+      background: linear-gradient(135deg, #EEFF00, #3E25F5);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulse 2s ease-in-out infinite;
+      box-shadow: 0 8px 32px rgba(238, 255, 0, 0.3);
+    }
+
+    .loading-text {
+      color: #FFFFFF;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      letter-spacing: 1px;
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(238, 255, 0, 0.1);
+      border-top: 4px solid #EEFF00;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 8px 32px rgba(238, 255, 0, 0.3);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 12px 48px rgba(238, 255, 0, 0.5);
+      }
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #flutter-view {
+      opacity: 0;
+      transition: opacity 0.3s ease-in;
+    }
+
+    #flutter-view.loaded {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-container" id="loading">
+    <div class="loading-logo">💪</div>
+    <div class="loading-text">FitGuide</div>
+    <div class="loading-spinner"></div>
+  </div>
+
+  <script>
+    window.addEventListener('flutter-first-frame', function() {
+      const loading = document.getElementById('loading');
+      const flutterView = document.getElementById('flutter-view');
+
+      if (loading) {
+        loading.style.opacity = '0';
+        setTimeout(() => loading.remove(), 300);
+      }
+
+      if (flutterView) {
+        flutterView.classList.add('loaded');
+      }
+    });
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

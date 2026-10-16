@@ -1,0 +1,399 @@
+/**
+ * API behaviour shared by both database modes. mock.test.js and mongo.test.js
+ * each run this suite in their own process.
+ */
+const { describe, it, before, after } = require('node:test');
+const assert = require('node:assert/strict');
+const request = require('supertest');
+const { createApp, createAppWith, useDatabase } = require('./helpers/setup');
+
+const ALLOWED_ORIGIN = 'http://localhost:3000';
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+
+let counter = 0;
+const newAccount = (name = 'Test User') => ({
+  name,
+  email: `user${Date.now()}-${(counter += 1)}@example.com`,
+  password: 'correct-horse-battery',
+});
+
+/** Find the auth cookie in a response, parsed into { value, attrs }. */
+function authCookie(res) {
+  const raw = (res.headers['set-cookie'] || []).find((c) => c.startsWith('fitguide_token='));
+  if (!raw) return null;
+  const [pair, ...attrs] = raw.split(';').map((s) => s.trim());
+  return { value: pair.slice('fitguide_token='.length), attrs: attrs.map((a) => a.toLowerCase()) };
+}
+
+function defineApiSuite(mode) {
+  describe(`FitGuide API (${mode} mode)`, () => {
+    let app;
+    let teardown;
+
+    // A registered user with a cookie-carrying agent, plus a second user.
+    let alice;
+    let bob;
+
+    /** Register an account and return { agent, user, creds }. */
+    async function signUp(name) {
+      const creds = newAccount(name);
+      const agent = request.agent(app);
+      const res = await agent.post('/api/auth/register').send(creds).expect(201);
+      return { agent, user: res.body.user, creds };
+    }
+
+    before(async () => {
+      teardown = await useDatabase(mode);
+      app = createApp();
+      alice = await signUp('Alice');
+      bob = await signUp('Bob');
+    });
+
+    after(async () => {
+      await teardown();
+    });
+
+    it('reports the database mode', async () => {
+      const res = await request(app).get('/api/health').expect(200);
+      assert.equal(res.body.databaseMode, mode === 'mock' ? 'mock' : 'mongodb');
+    });
+
+    describe('security headers', () => {
+      it('sets helmet headers and lets other origins embed uploads', async () => {
+        const res = await request(app).get('/api/health');
+        assert.equal(res.headers['x-content-type-options'], 'nosniff');
+        assert.equal(res.headers['cross-origin-resource-policy'], 'cross-origin');
+        assert.ok(res.headers['content-security-policy']);
+        assert.equal(res.headers['x-powered-by'], undefined);
+      });
+
+      it('allows credentialed CORS only from configured origins', async () => {
+        const ok = await request(app).get('/api/health').set('Origin', ALLOWED_ORIGIN);
+        assert.equal(ok.headers['access-control-allow-origin'], ALLOWED_ORIGIN);
+        assert.equal(ok.headers['access-control-allow-credentials'], 'true');
+        const bad = await request(app).get('/api/health').set('Origin', 'https://evil.example');
+        assert.equal(bad.headers['access-control-allow-origin'], undefined);
+      });
+    });
+
+    describe('auth', () => {
+      it('register sets an httpOnly SameSite cookie and keeps the token out of the body', async () => {
+        const res = await request(app).post('/api/auth/register').send(newAccount()).expect(201);
+        const cookie = authCookie(res);
+        assert.ok(cookie?.value, 'auth cookie set');
+        assert.ok(cookie.attrs.includes('httponly'));
+        assert.ok(cookie.attrs.includes('samesite=lax'));
+        assert.ok(cookie.attrs.includes('path=/'));
+        assert.ok(cookie.attrs.some((a) => a.startsWith('max-age=') || a.startsWith('expires=')));
+        assert.equal(res.body.token, undefined);
+        assert.equal(res.body.user.password, undefined);
+      });
+
+      it('returns the token in the body for bearer clients that ask for it', async () => {
+        const res = await request(app)
+          .post('/api/auth/register')
+          .set('X-Auth-Transport', 'bearer')
+          .send(newAccount('Mobile'))
+          .expect(201);
+        assert.ok(res.body.token);
+        const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${res.body.token}`).expect(200);
+        assert.equal(me.body.user.name, 'Mobile');
+      });
+
+      it('rejects duplicate emails', async () => {
+        await request(app).post('/api/auth/register').send(alice.creds).expect(409);
+      });
+
+      it('validates registration input', async () => {
+        await request(app).post('/api/auth/register').send({ name: 'X', email: 'not-an-email', password: 'secret1' }).expect(400);
+        await request(app).post('/api/auth/register').send({ ...newAccount(), password: '123' }).expect(400);
+      });
+
+      it('login checks the password and sets the cookie', async () => {
+        await request(app).post('/api/auth/login').send({ ...alice.creds, password: 'wrong-password' }).expect(401);
+        await request(app).post('/api/auth/login').send({ email: 'nobody@example.com', password: 'whatever' }).expect(401);
+
+        const agent = request.agent(app);
+        const res = await agent.post('/api/auth/login').send({ email: alice.creds.email, password: alice.creds.password }).expect(200);
+        assert.ok(authCookie(res)?.value);
+        assert.equal(res.body.token, undefined);
+        const me = await agent.get('/api/auth/me').expect(200);
+        assert.equal(me.body.user.id, alice.user.id);
+      });
+
+      it('/me requires a valid token', async () => {
+        await request(app).get('/api/auth/me').expect(401);
+        await request(app).get('/api/auth/me').set('Authorization', 'Bearer not-a-jwt').expect(401);
+        const res = await request(app).get('/api/auth/me').set('Cookie', 'fitguide_token=tampered.jwt.value').expect(401);
+        // A bad cookie is cleared so the browser stops sending it.
+        assert.equal(authCookie(res)?.value, '');
+      });
+
+      it('logout clears the cookie', async () => {
+        const { agent } = await signUp('Leaver');
+        await agent.get('/api/auth/me').expect(200);
+        const res = await agent.post('/api/auth/logout').expect(200);
+        const cookie = authCookie(res);
+        assert.equal(cookie?.value, '');
+        assert.ok(cookie.attrs.some((a) => a.startsWith('expires=thu, 01 jan 1970')));
+        await agent.get('/api/auth/me').expect(401);
+      });
+
+      it('rejects cookie-authenticated writes from foreign origins (CSRF)', async () => {
+        await alice.agent.put('/api/auth/profile').set('Origin', 'https://evil.example').send({ name: 'Pwned' }).expect(403);
+        await alice.agent.put('/api/auth/profile').set('Origin', ALLOWED_ORIGIN).send({ name: 'Alice' }).expect(200);
+        // Reads are fine from anywhere (CORS still hides the response).
+        await alice.agent.get('/api/auth/me').set('Origin', 'https://evil.example').expect(200);
+      });
+    });
+
+    describe('profile', () => {
+      it('updates only the signed-in user, whatever the body says', async () => {
+        const res = await alice.agent
+          .put('/api/auth/profile')
+          .send({ id: bob.user.id, _id: bob.user.id, email: bob.creds.email, name: 'Alice Updated', weight: 65 })
+          .expect(200);
+        assert.equal(res.body.user.id, alice.user.id);
+        assert.equal(res.body.user.name, 'Alice Updated');
+        assert.equal(res.body.user.email, alice.user.email);
+        assert.equal(res.body.user.weight, 65);
+
+        const bobNow = await bob.agent.get('/api/auth/me').expect(200);
+        assert.equal(bobNow.body.user.name, 'Bob');
+        assert.equal(bobNow.body.user.email, bob.user.email);
+      });
+
+      it('validates profile fields', async () => {
+        await alice.agent.put('/api/auth/profile').send({ gender: 'Robot' }).expect(400);
+        await alice.agent.put('/api/auth/profile').send({ height: 9999 }).expect(400);
+      });
+
+      it('requires auth', async () => {
+        await request(app).put('/api/auth/profile').send({ name: 'Anon' }).expect(401);
+      });
+
+      it('has no public users list', async () => {
+        await request(app).get('/api/auth/users').expect(404);
+      });
+    });
+
+    describe('workouts and search', () => {
+      let workouts;
+      before(async () => {
+        workouts = (await request(app).get('/api/workouts').expect(200)).body.workouts;
+      });
+
+      it('lists workouts identified by slug', () => {
+        assert.ok(workouts.length > 0);
+        for (const w of workouts) assert.ok(w.slug);
+      });
+
+      it('gets one workout by slug', async () => {
+        const res = await request(app).get(`/api/workouts/${workouts[0].slug}`).expect(200);
+        assert.equal(res.body.workout.slug, workouts[0].slug);
+        await request(app).get('/api/workouts/no-such-workout').expect(404);
+      });
+
+      it('finds workouts by a plain search term', async () => {
+        const word = workouts[0].title.split(' ')[0];
+        const res = await request(app).get('/api/workouts').query({ search: word }).expect(200);
+        assert.ok(res.body.workouts.some((w) => w.slug === workouts[0].slug));
+      });
+
+      it('treats regex metacharacters in search literally', async () => {
+        // As a regex, '.*' would match every workout; literally, it matches none.
+        const literalMatches = (q) => workouts.filter((w) => [w.title, w.description, ...(w.tags || [])]
+          .some((text) => text.toLowerCase().includes(q.toLowerCase()))).length;
+        for (const search of ['(', '[', '(a+)+$', '\\', '*', '.*']) {
+          const res = await request(app).get('/api/workouts').query({ search }).expect(200);
+          assert.equal(res.body.count, literalMatches(search), `search ${JSON.stringify(search)}`);
+        }
+        assert.equal(literalMatches('.*'), 0);
+      });
+
+      it('likes are idempotent per user', async () => {
+        const { slug } = workouts[1];
+        await request(app).post(`/api/workouts/${slug}/like`).expect(401);
+        const first = await alice.agent.post(`/api/workouts/${slug}/like`).expect(200);
+        const again = await alice.agent.post(`/api/workouts/${slug}/like`).expect(200);
+        assert.equal(again.body.likes, first.body.likes);
+        const other = await bob.agent.post(`/api/workouts/${slug}/like`).expect(200);
+        assert.equal(other.body.likes, first.body.likes + 1);
+        await alice.agent.post('/api/workouts/no-such-workout/like').expect(404);
+      });
+    });
+
+    describe('favorites', () => {
+      let slug;
+      before(async () => {
+        slug = (await request(app).get('/api/workouts').expect(200)).body.workouts[0].slug;
+      });
+
+      it('requires auth', async () => {
+        await request(app).get('/api/favorites').expect(401);
+        await request(app).post(`/api/favorites/${slug}`).expect(401);
+      });
+
+      it('adds by slug, idempotently', async () => {
+        const res = await alice.agent.post(`/api/favorites/${slug}`).expect(200);
+        assert.deepEqual(res.body.favoriteSlugs, [slug]);
+        assert.equal(res.body.favorites[0].slug, slug);
+
+        const again = await alice.agent.post(`/api/favorites/${slug}`).expect(200);
+        assert.deepEqual(again.body.favoriteSlugs, [slug]);
+
+        const check = await alice.agent.get(`/api/favorites/check/${slug}`).expect(200);
+        assert.equal(check.body.isFavorite, true);
+
+        const list = await alice.agent.get('/api/favorites').expect(200);
+        assert.deepEqual(list.body.favorites.map((w) => w.slug), [slug]);
+      });
+
+      it('rejects unknown slugs', async () => {
+        await alice.agent.post('/api/favorites/no-such-workout').expect(404);
+      });
+
+      it('keeps favorites per account', async () => {
+        const res = await bob.agent.get('/api/favorites').expect(200);
+        assert.deepEqual(res.body.favoriteSlugs, []);
+      });
+
+      it('removes by slug', async () => {
+        const res = await alice.agent.delete(`/api/favorites/${slug}`).expect(200);
+        assert.deepEqual(res.body.favoriteSlugs, []);
+        const check = await alice.agent.get(`/api/favorites/check/${slug}`).expect(200);
+        assert.equal(check.body.isFavorite, false);
+      });
+
+      it('works with a bearer token too', async () => {
+        const login = await request(app)
+          .post('/api/auth/login')
+          .set('X-Auth-Transport', 'bearer')
+          .send({ email: bob.creds.email, password: bob.creds.password })
+          .expect(200);
+        const res = await request(app)
+          .post(`/api/favorites/${slug}`)
+          .set('Authorization', `Bearer ${login.body.token}`)
+          .expect(200);
+        assert.deepEqual(res.body.favoriteSlugs, [slug]);
+      });
+    });
+
+    describe('reviews', () => {
+      let slug;
+      let reviewId;
+      before(async () => {
+        slug = (await request(app).get('/api/workouts').expect(200)).body.workouts[2].slug;
+      });
+
+      it('requires auth to post', async () => {
+        await request(app).post('/api/reviews').field('rating', '5').field('comment', 'Great').expect(401);
+      });
+
+      it('ties the review to the account, not the form', async () => {
+        const res = await alice.agent
+          .post('/api/reviews')
+          .field('rating', '4')
+          .field('comment', 'Solid workout')
+          .field('workoutId', slug)
+          .field('name', 'Somebody Else')
+          .field('userId', bob.user.id)
+          .attach('beforeImage', PNG, { filename: 'before.svg', contentType: 'image/png' })
+          .expect(201);
+        const { review } = res.body;
+        reviewId = String(review.id);
+        assert.equal(String(review.userId), alice.user.id);
+        assert.equal(review.name, 'Alice Updated');
+        assert.equal(review.workoutId, slug);
+        assert.match(review.beforeImage, /^\/uploads\/reviews\/[^/]+\.png$/);
+        assert.equal(review.likedBy, undefined);
+
+        const list = await request(app).get('/api/reviews').query({ workoutId: slug }).expect(200);
+        assert.ok(list.body.reviews.some((r) => String(r.id) === reviewId));
+      });
+
+      it('allows one review per user per workout', async () => {
+        await alice.agent.post('/api/reviews').field('rating', '5').field('comment', 'Again').field('workoutId', slug).expect(409);
+      });
+
+      it('validates rating and comment', async () => {
+        await alice.agent.post('/api/reviews').field('rating', '9').field('comment', 'x').expect(400);
+        await alice.agent.post('/api/reviews').field('rating', '3').field('comment', '   ').expect(400);
+      });
+
+      it('likes are idempotent per user', async () => {
+        await request(app).post(`/api/reviews/${reviewId}/like`).expect(401);
+        const first = await bob.agent.post(`/api/reviews/${reviewId}/like`).expect(200);
+        assert.equal(first.body.likes, 1);
+        const again = await bob.agent.post(`/api/reviews/${reviewId}/like`).expect(200);
+        assert.equal(again.body.likes, 1);
+        const other = await alice.agent.post(`/api/reviews/${reviewId}/like`).expect(200);
+        assert.equal(other.body.likes, 2);
+        await bob.agent.post('/api/reviews/000000000000000000000000/like').expect(404);
+        await bob.agent.post('/api/reviews/not-an-id/like').expect(404);
+      });
+    });
+
+    describe('uploads', () => {
+      it('requires auth', async () => {
+        await request(app).post('/api/upload/avatar').attach('avatar', PNG, { filename: 'a.png', contentType: 'image/png' }).expect(401);
+      });
+
+      it('stores the extension from the MIME type, not the filename', async () => {
+        const res = await alice.agent
+          .post('/api/upload/avatar')
+          .attach('avatar', PNG, { filename: 'evil.html', contentType: 'image/png' })
+          .expect(200);
+        assert.match(res.body.avatarUrl, /^\/uploads\/avatars\/[^/]+\.png$/);
+
+        const file = await request(app).get(res.body.avatarUrl).expect(200);
+        assert.equal(file.headers['content-type'], 'image/png');
+        assert.equal(file.headers['x-content-type-options'], 'nosniff');
+      });
+
+      it('rejects non-image MIME types', async () => {
+        for (const [filename, contentType] of [['x.html', 'text/html'], ['x.svg', 'image/svg+xml'], ['x.png', 'application/octet-stream']]) {
+          await alice.agent
+            .post('/api/upload/avatar')
+            .attach('avatar', Buffer.from('<svg onload="alert(1)"/>'), { filename, contentType })
+            .expect(400);
+        }
+      });
+
+      it('requires a file', async () => {
+        await alice.agent.post('/api/upload/avatar').expect(400);
+      });
+    });
+
+    describe('rate limits', () => {
+      it('limits failed logins', async () => {
+        const limited = createAppWith({ LOGIN_RATE_LIMIT_MAX: '3' });
+        const bad = { email: alice.creds.email, password: 'wrong-password' };
+        for (let i = 0; i < 3; i += 1) {
+          await request(limited).post('/api/auth/login').send(bad).expect(401);
+        }
+        const res = await request(limited).post('/api/auth/login').send(bad).expect(429);
+        assert.equal(res.body.success, false);
+        assert.ok(res.headers.ratelimit || res.headers['ratelimit-policy']);
+        // Even the right password is blocked until the window resets.
+        await request(limited).post('/api/auth/login').send(alice.creds).expect(429);
+      });
+
+      it('does not count successful logins', async () => {
+        const limited = createAppWith({ LOGIN_RATE_LIMIT_MAX: '2' });
+        for (let i = 0; i < 4; i += 1) {
+          await request(limited).post('/api/auth/login').send(alice.creds).expect(200);
+        }
+      });
+
+      it('limits registrations', async () => {
+        const limited = createAppWith({ REGISTER_RATE_LIMIT_MAX: '2' });
+        await request(limited).post('/api/auth/register').send(newAccount()).expect(201);
+        await request(limited).post('/api/auth/register').send(newAccount()).expect(201);
+        await request(limited).post('/api/auth/register').send(newAccount()).expect(429);
+      });
+    });
+  });
+}
+
+module.exports = { defineApiSuite };

@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
@@ -85,7 +86,7 @@ router.post(
       };
 
       if (isMock()) {
-        const review = { ...fields, id: `mock-review-${Date.now()}`, likedBy: [], createdAt: new Date().toISOString() };
+        const review = { ...fields, id: `mock-review-${crypto.randomUUID()}`, likedBy: [], createdAt: new Date().toISOString() };
         mockDb.addReview(review);
         return res.status(201).json({ success: true, message: 'Review submitted successfully!', review: publicMockReview(review) });
       }

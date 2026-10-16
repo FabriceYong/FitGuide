@@ -3,7 +3,7 @@
 /**
  * Single client for the FitGuide API.
  * Every request to the backend should go through apiRequest() so the base URL,
- * auth header, JSON handling and error shape are the same everywhere.
+ * credentials (auth cookie), JSON handling and error shape are the same everywhere.
  */
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api').replace(/\/+$/, '');
@@ -11,29 +11,33 @@ export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:50
 // Origin of the API server (without /api), used for files under /uploads.
 export const API_ORIGIN = API_BASE.replace(/\/api$/, '');
 
-const TOKEN_KEY = 'fitguide_token';
+// The session token lives in an httpOnly cookie set by the API, so scripts
+// never see it. We only remember (non-secret) that a session exists, so calls
+// that need an account can be skipped for guests without a network round trip.
+const SESSION_KEY = 'fitguide_session';
+// Written by older builds that kept the JWT in localStorage. Removed on load.
+const LEGACY_TOKEN_KEY = 'fitguide_token';
 export const UNAUTHORIZED_EVENT = 'fitguide:unauthorized';
 
-export function getToken() {
-    if (typeof window === 'undefined') return null;
+export function hasSession() {
+    if (typeof window === 'undefined') return false;
     try {
-        return localStorage.getItem(TOKEN_KEY);
+        return localStorage.getItem(SESSION_KEY) === '1';
     } catch {
-        return null;
+        return false;
     }
 }
 
-export function setToken(token) {
+export function setSession(active) {
     if (typeof window === 'undefined') return;
     try {
-        if (token) localStorage.setItem(TOKEN_KEY, token);
-        else localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(LEGACY_TOKEN_KEY);
+        if (active) localStorage.setItem(SESSION_KEY, '1');
+        else localStorage.removeItem(SESSION_KEY);
     } catch {
         // storage unavailable (private mode); the session just won't persist
     }
 }
-
-export const hasToken = () => Boolean(getToken());
 
 /**
  * Turn a stored asset path ("/uploads/avatars/x.png") into a full URL.
@@ -62,7 +66,8 @@ export class ApiError extends Error {
  * @param {object} [options.body]      JSON body
  * @param {FormData} [options.formData] Multipart body (file uploads)
  * @param {object} [options.query]     Query params; empty values are skipped
- * @param {boolean} [options.auth=false] Send the stored token
+ * @param {boolean} [options.auth=false] Needs a signed-in account: fails fast
+ *        without a session, and a 401 signs the user out
  * @returns {Promise<object>} Parsed JSON response
  * @throws {ApiError} On network failure (status 0) or a non-2xx response
  */
@@ -75,17 +80,16 @@ export async function apiRequest(path, { method = 'GET', body, formData, query, 
 
     const headers = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
-    const token = auth ? getToken() : null;
-    if (auth && !token) {
+    if (auth && !hasSession()) {
         throw new ApiError('Please sign in to continue.', 401);
     }
-    if (token) headers.Authorization = `Bearer ${token}`;
 
     let response;
     try {
         response = await fetch(url, {
             method,
             headers,
+            credentials: 'include', // send/receive the httpOnly auth cookie
             body: formData || (body !== undefined ? JSON.stringify(body) : undefined),
         });
     } catch {
@@ -101,7 +105,7 @@ export async function apiRequest(path, { method = 'GET', body, formData, query, 
 
     if (!response.ok) {
         if (response.status === 401 && auth && typeof window !== 'undefined') {
-            // Token missing, expired or revoked: let AuthContext sign the user out.
+            // Session cookie missing, expired or revoked: let AuthContext sign the user out.
             window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
         }
         const validation = Array.isArray(data?.errors) ? data.errors.map((e) => e.msg).join('. ') : null;

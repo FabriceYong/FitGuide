@@ -6,6 +6,7 @@ import { HeroCarousel } from '../../../components/HeroCarousel';
 import { EnhancedStatsCard } from '../../../components/EnhancedStatsCard';
 import { InteractiveFeatureShowcase } from '../../../components/InteractiveFeatureShowcase';
 import { useAuth } from '../../../contexts/AuthContext';
+import { apiRequest } from '../../../lib/api';
 import { useWorkouts } from '../../../context/WorkoutContext';
 import { ParqModal, PARQ_STORAGE_KEY } from '../../../components/ParqModal';
 import { ArticleDetailPage } from './ArticleDetailPage';
@@ -612,8 +613,9 @@ const FitnessTipsStrip = () => {
   </div>);
 };
 const RSS_SOURCES = [
-  { label: 'Healthline Fitness', url: 'https://www.healthline.com/rss/health-news', color: '#00C4B4', category: 'HEALTH' },
-  { label: 'Medical News Today', url: 'https://www.medicalnewstoday.com/rss', color: '#60A5FA', category: 'WELLNESS' },
+  // `feed` ids are the feeds the API proxies (fitguide_api/routes/articles.js).
+  { label: 'Healthline Fitness', feed: 'healthline', color: '#00C4B4', category: 'HEALTH' },
+  { label: 'Medical News Today', feed: 'mnt', color: '#60A5FA', category: 'WELLNESS' },
 ];
 const FALLBACK_ARTICLES = [
   {
@@ -658,20 +660,13 @@ const LiveArticleCards = ({ onSelectArticle }) => {
     setError(false);
     const source = RSS_SOURCES[idx];
     try {
-      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.url)}&api_key=xgdpyitogsouqotbvvbzrvcjn7mzlawbtbxsnbxi&count=3`;
-      const res = await fetch(apiUrl);
-      if (!res.ok)
-        throw new Error('RSS fetch failed');
-      const data = await res.json();
-      if (data.status !== 'ok' || !data.items?.length)
+      // Proxied through the API so the rss2json key stays server-side.
+      const data = await apiRequest('/articles', { query: { feed: source.feed, count: 3 } });
+      if (!data.articles?.length)
         throw new Error('No items');
-      const mapped = data.items.slice(0, 3).map((item) => ({
-        title: item.title,
-        link: item.link,
-        description: item.description?.replace(/<[^>]*>/g, '').slice(0, 120) + '...',
-        pubDate: item.pubDate,
-        thumbnail: item.thumbnail || item.enclosure?.link || '',
-        author: item.author,
+      const mapped = data.articles.map((item) => ({
+        ...item,
+        description: item.description.slice(0, 120) + '...',
         category: source.category,
       }));
       setArticles(mapped);

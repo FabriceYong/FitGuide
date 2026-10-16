@@ -15,10 +15,10 @@ export const AuthWrapper = ({ children }) => {
         return <>{children}</>;
     }
     if (showRegister) {
-        return (<OnboardingWizard onFinish={(user, token) => {
-                if (user && token) {
-                    // Registered account: sign in with the issued token
-                    login(user, token);
+        return (<OnboardingWizard onFinish={(user, options) => {
+                if (user && options?.registered) {
+                    // Registered account: the API already set the session cookie
+                    login(user);
                 }
                 else if (user) {
                     // Skipped account creation: browse as a guest

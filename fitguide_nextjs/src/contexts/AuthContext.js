@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { apiRequest, ApiError, getToken, setToken, UNAUTHORIZED_EVENT } from '../lib/api';
+import { apiRequest, ApiError, hasSession, setSession, UNAUTHORIZED_EVENT } from '../lib/api';
 
 const USER_KEY = 'fitguide_user';
 // Keys written by older builds (fake/mock tokens). Cleared on startup.
@@ -33,11 +33,22 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [ready, setReady] = useState(false);
 
-    const logout = useCallback(() => {
-        setToken(null);
+    // Forget the session locally (used when the server says it is no longer valid).
+    const clearSession = useCallback(() => {
+        setSession(false);
         storeUser(null);
         setUser(null);
     }, []);
+
+    /** Sign out: clear the httpOnly auth cookie on the server, then locally. */
+    const logout = useCallback(() => {
+        // Always ask the server, even if the local marker is gone: only it can
+        // clear an httpOnly cookie.
+        apiRequest('/auth/logout', { method: 'POST' }).catch((err) => {
+            console.warn('Sign-out request failed:', err.message);
+        });
+        clearSession();
+    }, [clearSession]);
 
     useEffect(() => {
         LEGACY_KEYS.forEach((key) => {
@@ -45,13 +56,12 @@ export const AuthProvider = ({ children }) => {
         });
 
         const stored = readStoredUser();
-        const token = getToken();
 
         if (stored?.isGuest) {
             setUser(stored);
-        } else if (stored && token) {
+        } else if (stored && hasSession()) {
             setUser(stored);
-            // Refresh the profile and confirm the token is still valid.
+            // Refresh the profile and confirm the session cookie is still valid.
             apiRequest('/auth/me', { auth: true })
                 .then((data) => {
                     storeUser(data.user);
@@ -63,28 +73,32 @@ export const AuthProvider = ({ children }) => {
                     if (!(err instanceof ApiError)) console.warn('Session refresh failed:', err);
                 });
         } else {
-            // A stored user without a token comes from an older build that never
-            // saved one; those sessions can't call the API, so sign in again.
+            // No session marker: either signed out, or an older build that kept
+            // the token in localStorage. Either way, sign in again.
+            setSession(false);
             storeUser(null);
         }
         setReady(true);
     }, []);
 
     useEffect(() => {
-        window.addEventListener(UNAUTHORIZED_EVENT, logout);
-        return () => window.removeEventListener(UNAUTHORIZED_EVENT, logout);
-    }, [logout]);
+        window.addEventListener(UNAUTHORIZED_EVENT, clearSession);
+        return () => window.removeEventListener(UNAUTHORIZED_EVENT, clearSession);
+    }, [clearSession]);
 
-    /** Sign in with an account returned by /auth/login or /auth/register. */
-    const login = useCallback((userData, token) => {
-        setToken(token);
+    /**
+     * Sign in with an account returned by /auth/login or /auth/register.
+     * The API has already set the session cookie on that response.
+     */
+    const login = useCallback((userData) => {
+        setSession(true);
         storeUser(userData);
         setUser(userData);
     }, []);
 
     /** Browse without an account. Nothing is saved on the server. */
     const startGuestSession = useCallback((profile) => {
-        setToken(null);
+        setSession(false);
         const guest = { ...profile, id: 'guest', isGuest: true };
         storeUser(guest);
         setUser(guest);

@@ -4,6 +4,7 @@
  * Every function returns plain objects; password hashes never leave this
  * module except through findByEmailWithPassword.
  */
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const User = require('../models/User');
@@ -77,7 +78,7 @@ async function create({ name, email, password, ...profile }) {
   if (isMock()) {
     const user = {
       ...fields,
-      id: `mock-user-${Date.now()}`,
+      id: `mock-user-${crypto.randomUUID()}`,
       password: await bcrypt.hash(password, 12),
       favoriteWorkouts: [],
       customWorkoutImages: [],

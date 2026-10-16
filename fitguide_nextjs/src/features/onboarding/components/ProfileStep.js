@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { User, Mail, Lock, Camera, Loader2, AlertCircle, Eye, EyeOff, Sparkles, CheckCircle2, ShieldCheck } from 'lucide-react';
 
-import { apiRequest, setToken } from '../../../lib/api';
+import { apiRequest, setSession } from '../../../lib/api';
 
 export const ProfileStep = ({ onboardingData, onComplete }) => {
     const [name, setName] = useState('');
@@ -40,10 +40,11 @@ export const ProfileStep = ({ onboardingData, onComplete }) => {
                 },
             });
 
+            // Registering set the session cookie; the account is signed in.
+            setSession(true);
             let user = data.user;
             if (avatarFile) {
                 // Uploads require an account, so the avatar is sent after registering.
-                setToken(data.token);
                 try {
                     const formData = new FormData();
                     formData.append('avatar', avatarFile);
@@ -54,7 +55,7 @@ export const ProfileStep = ({ onboardingData, onComplete }) => {
                     console.warn('Account created, but the avatar upload failed:', uploadErr.message);
                 }
             }
-            onComplete(user, data.token);
+            onComplete(user, { registered: true });
         } catch (err) {
             setError(err.message || 'Registration failed.');
         } finally {

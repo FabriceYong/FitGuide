@@ -4,11 +4,11 @@
  * Favorites API. Workouts are identified by slug.
  * All calls require a signed-in account (guests have no server-side favorites).
  */
-import { apiRequest, hasToken } from '../lib/api';
+import { apiRequest, hasSession } from '../lib/api';
 
 /** Get the user's favorite workouts; [] when signed out. */
 export const getFavorites = async () => {
-    if (!hasToken()) return [];
+    if (!hasSession()) return [];
     const data = await apiRequest('/favorites', { auth: true });
     return data.favorites || [];
 };
@@ -27,7 +27,7 @@ export const removeFromFavorites = async (slug) => {
 
 /** Check whether a workout is a favorite; false when signed out or on error. */
 export const checkIsFavorite = async (slug) => {
-    if (!hasToken()) return false;
+    if (!hasSession()) return false;
     try {
         const data = await apiRequest(`/favorites/check/${encodeURIComponent(slug)}`, { auth: true });
         return Boolean(data.isFavorite);

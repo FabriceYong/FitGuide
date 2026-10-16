@@ -2,7 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
+const UPLOADS_ROOT = process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : path.join(__dirname, '..', 'uploads');
 
 // The stored extension comes from the validated MIME type, never from the
 // client's filename, so an upload can't be saved as .html/.svg and served back

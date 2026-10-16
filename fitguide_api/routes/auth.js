@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const userStore = require('../stores/userStore');
-const { signToken } = require('../utils/jwt');
+const { signToken, setAuthCookie, clearAuthCookie } = require('../utils/jwt');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -24,6 +24,19 @@ const profileRules = [
   body('diet').optional().isIn(enumValues('diet')).withMessage('Invalid diet'),
   body('avatarUrl').optional({ values: 'null' }).isString().isLength({ max: 500 }),
 ];
+
+/**
+ * Start a session: browsers get the token as an httpOnly cookie and never see
+ * it. Clients that can't use cookies (e.g. a mobile app) send
+ * "X-Auth-Transport: bearer" to also get the token in the body, then pass it
+ * back as "Authorization: Bearer <token>".
+ */
+const sendSession = (req, res, status, message, user) => {
+  const token = signToken(user.id);
+  setAuthCookie(res, token);
+  const wantsBearer = String(req.get('X-Auth-Transport') || '').toLowerCase() === 'bearer';
+  return res.status(status).json({ success: true, message, user, ...(wantsBearer && { token }) });
+};
 
 const rejectInvalid = (req, res, next) => {
   const errors = validationResult(req);
@@ -47,12 +60,7 @@ router.post(
         return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
       }
       const user = await userStore.create(req.body);
-      return res.status(201).json({
-        success: true,
-        message: 'Account created successfully!',
-        user,
-        token: signToken(user.id),
-      });
+      return sendSession(req, res, 201, 'Account created successfully!', user);
     } catch (err) {
       next(err);
     }
@@ -74,17 +82,20 @@ router.post(
       if (!isMatch) {
         return res.status(401).json({ success: false, message: 'Invalid email or password.' });
       }
-      return res.status(200).json({
-        success: true,
-        message: 'Login successful!',
-        user: record.user,
-        token: signToken(record.user.id),
-      });
+      return sendSession(req, res, 200, 'Login successful!', record.user);
     } catch (err) {
       next(err);
     }
   }
 );
+
+// ─── POST /api/auth/logout ────────────────────────────────────────────────────
+// Clears the auth cookie. No auth required, so an expired session can still
+// be cleared. (Tokens are stateless: a Bearer client just discards its copy.)
+router.post('/logout', (_req, res) => {
+  clearAuthCookie(res);
+  res.status(200).json({ success: true, message: 'Signed out.' });
+});
 
 // ─── GET /api/auth/me ─────────────────────────────────────────────────────────
 // Validates the token and returns the current user's profile.

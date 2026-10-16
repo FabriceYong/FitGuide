@@ -17,7 +17,7 @@ export const LoginPage = ({ onLoginSuccess, onSwitchToRegister }) => {
         setIsLoading(true);
         try {
             const data = await apiRequest('/auth/login', { method: 'POST', body: { email, password } });
-            onLoginSuccess(data.user, data.token);
+            onLoginSuccess(data.user);
         } catch (error) {
             setError(error.message || 'Login failed. Please check your credentials.');
         } finally {

@@ -12,7 +12,7 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const gifCache = new Map();
 const inflight = new Map();
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+import { apiRequest } from '../../../lib/api';
 
 const CURATED_DEMO_LIBRARY = {
   warmup: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&auto=format&fit=crop&q=80',
@@ -95,13 +95,10 @@ async function fetchExerciseMedia(searchTerm, rawInstruction) {
   if (lsCached) return lsCached;
 
   try {
-    const res = await fetch(`${API_BASE}/exercise-media/gif?name=${encodeURIComponent(searchTerm)}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.gifUrl) {
-        setLocalStorageMedia(searchTerm, data.gifUrl);
-        return data.gifUrl;
-      }
+    const data = await apiRequest('/exercise-media/gif', { query: { name: searchTerm } });
+    if (data?.gifUrl) {
+      setLocalStorageMedia(searchTerm, data.gifUrl);
+      return data.gifUrl;
     }
   } catch (_) {}
 

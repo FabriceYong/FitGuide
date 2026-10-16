@@ -8,9 +8,9 @@
  * - Rich metadata extraction (MET, caloriesPerMinute, recommendedSets/Reps, joint_focus, intensity_level, movement_tags, etc.)
  */
 
-const WORKOUTX_API_BASE = process.env.NEXT_PUBLIC_WORKOUTX_API_BASE || 'https://workoutxapp.com/v1';
-const API_KEY = process.env.NEXT_PUBLIC_WORKOUTX_API_KEY || process.env.WORKOUTX_API_KEY || '';
-const MONGODB_API_BASE = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+// WorkoutX is reached through the FitGuide API (/api/exercise-library), which
+// holds the API key server-side.
+import { apiRequest } from '../lib/api';
 
 const CACHE_KEY = 'fitguide_workoutx_dataset_v2';
 const CACHE_META_KEY = 'fitguide_workoutx_meta_v2';
@@ -629,15 +629,7 @@ function mapMongoWorkoutToExercise(workout, idx) {
 async function fetchMongoDBWorkoutsAsExercises() {
   try {
     console.log('🗄️ Attempting to fetch workouts from MongoDB database...');
-    const response = await fetch(`${MONGODB_API_BASE}/workouts`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    if (!response.ok) {
-      console.warn(`⚠️ MongoDB API returned HTTP ${response.status}.`);
-      return null;
-    }
-    const json = await response.json();
+    const json = await apiRequest('/workouts');
     const rawWorkouts = json.workouts || json.data || [];
     if (!Array.isArray(rawWorkouts) || rawWorkouts.length === 0) {
       console.warn('⚠️ MongoDB returned no workouts.');
@@ -674,45 +666,29 @@ export async function getWorkoutXExercises(forceRefresh = false) {
     };
   }
 
-  // 2. Fetch mass dataset from WorkoutX API if key is present
-  if (API_KEY) {
-    try {
-      console.log('🌐 Fetching mass exercise dataset from WorkoutX API...');
-      const response = await fetch(`${WORKOUTX_API_BASE}/exercises?limit=100`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-WorkoutX-Key': API_KEY
-        }
-      });
+  // 2. Fetch mass dataset from WorkoutX (proxied by the FitGuide API)
+  try {
+    console.log('🌐 Fetching mass exercise dataset from WorkoutX API...');
+    const json = await apiRequest('/exercise-library', { query: { limit: 100 } });
+    const rawData = json.exercises;
 
-      if (response.ok) {
-        const json = await response.json();
-        const rawData = json.data || json.exercises || json;
-        
-        if (Array.isArray(rawData) && rawData.length > 0) {
-          const formatted = rawData.map(formatWorkoutXItem);
+    if (Array.isArray(rawData) && rawData.length > 0) {
+      const formatted = rawData.map(formatWorkoutXItem);
 
-          setLocalCache(formatted, `WorkoutX Cloud API (${json.total || formatted.length} total in DB)`);
-          return {
-            success: true,
-            exercises: formatted,
-            source: 'WorkoutX Cloud API',
-            totalAvailableInCloud: json.total || formatted.length,
-            cachedAt: new Date().toLocaleString(),
-            nextSyncAllowed: new Date(Date.now() + CACHE_TTL_MS).toLocaleString(),
-            isFromCache: false,
-            count: formatted.length
-          };
-        }
-      } else {
-        console.warn(`⚠️ WorkoutX API returned HTTP status ${response.status}. Trying MongoDB fallback.`);
-      }
-    } catch (err) {
-      console.warn('⚠️ Error reaching WorkoutX API:', err.message, '— Trying MongoDB fallback.');
+      setLocalCache(formatted, `WorkoutX Cloud API (${json.total || formatted.length} total in DB)`);
+      return {
+        success: true,
+        exercises: formatted,
+        source: 'WorkoutX Cloud API',
+        totalAvailableInCloud: json.total || formatted.length,
+        cachedAt: new Date().toLocaleString(),
+        nextSyncAllowed: new Date(Date.now() + CACHE_TTL_MS).toLocaleString(),
+        isFromCache: false,
+        count: formatted.length
+      };
     }
-  } else {
-    console.log('ℹ️ No WorkoutX API Key configured. Trying MongoDB database fallback.');
+  } catch (err) {
+    console.warn('⚠️ WorkoutX library unavailable:', err.message, '— Trying MongoDB fallback.');
   }
 
   // 3. MongoDB database fallback

@@ -2,14 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Heart, PlayCircle, Loader, Lock } from 'lucide-react';
-import { getFavorites, isAuthenticated } from '../../../services/favoriteService';
+import { getFavorites } from '../../../services/favoriteService';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useWorkoutImage } from '../../../hooks/useWorkoutImage';
 
 export const FavoritesTab = ({ onSelectWorkout }) => {
     const [favoriteWorkouts, setFavoriteWorkouts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [isLoggedIn] = useState(isAuthenticated());
+    const { hasAccount: isLoggedIn } = useAuth();
 
     useEffect(() => {
         loadFavorites();
@@ -23,7 +24,7 @@ export const FavoritesTab = ({ onSelectWorkout }) => {
             setFavoriteWorkouts(favorites);
         } catch (err) {
             console.error('Error loading favorites:', err);
-            setError(err.response?.data?.message || 'Failed to load favorite workouts');
+            setError(err.message || 'Failed to load favorite workouts');
         } finally {
             setLoading(false);
         }
@@ -106,7 +107,7 @@ export const FavoritesTab = ({ onSelectWorkout }) => {
                     const color = getCategoryColor(workout.category);
                     return (
                         <FavoriteWorkoutCard
-                            key={workout._id || workout.id}
+                            key={workout.slug}
                             workout={workout}
                             color={color}
                             onSelect={() => onSelectWorkout(workout.slug, color)}

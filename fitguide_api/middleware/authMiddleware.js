@@ -1,68 +1,34 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { verifyToken } = require('../utils/jwt');
+const userStore = require('../stores/userStore');
 
 /**
  * Authentication Middleware
- * Verifies JWT token from Authorization header
- * Attaches user info to req.user
+ * Verifies the JWT from the Authorization header and attaches the public user
+ * profile to req.user. Works in both MongoDB and mock-DB modes.
  */
 const authMiddleware = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: 'No token provided. Authorization required.' });
+  }
+
+  let decoded;
   try {
-    // Get token from header
-    const authHeader = req.headers.authorization;
+    decoded = verifyToken(authHeader.substring(7));
+  } catch (error) {
+    const message = error.name === 'TokenExpiredError' ? 'Token expired. Please login again.' : 'Invalid token.';
+    return res.status(401).json({ success: false, message });
+  }
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        message: 'No token provided. Authorization required.'
-      });
-    }
-
-    // Extract token
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-
-    // Get user from database
-    const user = await User.findById(decoded.id).select('-password');
-
+  try {
+    const user = await userStore.findById(decoded.id);
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not found. Invalid token.'
-      });
+      return res.status(401).json({ success: false, message: 'User not found. Invalid token.' });
     }
-
-    // Attach user to request
-    req.user = {
-      id: user._id.toString(),
-      email: user.email,
-      name: user.name,
-    };
-
+    req.user = user;
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
-
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token.'
-      });
-    }
-
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Token expired. Please login again.'
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: 'Authentication failed.'
-    });
+    next(error);
   }
 };
 

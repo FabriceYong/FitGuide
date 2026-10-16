@@ -130,6 +130,11 @@ const workoutSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    likedBy: {
+      type: [String], // user ids, so each user can like a workout once
+      default: [],
+      select: false,
+    },
     averageRating: {
       type: Number,
       default: 0,
@@ -150,7 +155,6 @@ const workoutSchema = new mongoose.Schema(
 workoutSchema.index({ category: 1 });
 workoutSchema.index({ difficulty: 1 });
 workoutSchema.index({ tags: 1 });
-workoutSchema.index({ slug: 1 });
 workoutSchema.index({ isPublished: 1 });
 
 // Method to generate slug from title

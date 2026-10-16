@@ -3,18 +3,18 @@
 import React, { useState, useRef } from 'react';
 import { User, Mail, Lock, Camera, Loader2, AlertCircle, Eye, EyeOff, Sparkles, CheckCircle2, ShieldCheck } from 'lucide-react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+import { apiRequest, setToken } from '../../../lib/api';
 
 export const ProfileStep = ({ onboardingData, onComplete }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [avatar, setAvatar] = useState(null);
+    const [avatarFile, setAvatarFile] = useState(null);
     const [avatarPreview, setAvatarPreview] = useState(null);
-    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-    const fileInputRef = useRef(null);
     const [isLoading, setIsLoading] = useState(false);
+    const isUploadingAvatar = isLoading && Boolean(avatarFile);
+    const fileInputRef = useRef(null);
     const [error, setError] = useState(null);
 
     const handleSubmit = async (e) => {
@@ -23,10 +23,9 @@ export const ProfileStep = ({ onboardingData, onComplete }) => {
         setIsLoading(true);
 
         try {
-            const response = await fetch(`${API_BASE}/auth/register`, {
+            const data = await apiRequest('/auth/register', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+                body: {
                     name,
                     email,
                     password,
@@ -38,44 +37,26 @@ export const ProfileStep = ({ onboardingData, onComplete }) => {
                     activityStatus: onboardingData.activityStatus || 'Active',
                     goal: onboardingData.goal || 'Vitality',
                     diet: onboardingData.diet || 'Mediterranean Diet',
-                    avatarUrl: avatar,
-                }),
+                },
             });
 
-            const data = await response.json();
-            if (!response.ok) {
-                if (data.errors && Array.isArray(data.errors)) {
-                    const messages = data.errors.map((err) => err.msg).join('. ');
-                    throw new Error(messages);
+            let user = data.user;
+            if (avatarFile) {
+                // Uploads require an account, so the avatar is sent after registering.
+                setToken(data.token);
+                try {
+                    const formData = new FormData();
+                    formData.append('avatar', avatarFile);
+                    const upload = await apiRequest('/upload/avatar', { method: 'POST', formData, auth: true });
+                    const updated = await apiRequest('/auth/profile', { method: 'PUT', body: { avatarUrl: upload.avatarUrl }, auth: true });
+                    user = updated.user;
+                } catch (uploadErr) {
+                    console.warn('Account created, but the avatar upload failed:', uploadErr.message);
                 }
-                throw new Error(data.message || 'Registration failed.');
             }
-
-            console.log('✅ User registered successfully:', data.user);
-            onComplete(data.user);
+            onComplete(user, data.token);
         } catch (err) {
-            console.warn('⚠️ Server offline during onboarding. Creating local session profile:', err.message);
-            // Fallback for offline demo mode
-            const mockUser = {
-                id: `user-${Date.now()}`,
-                name: name || 'Fitness Enthusiast',
-                email: email || 'user@fitguide.com',
-                gender: onboardingData.gender || 'Prefer not to say',
-                height: onboardingData.height || 170,
-                weight: onboardingData.weight || 70,
-                targetWeight: onboardingData.targetWeight || 70,
-                fitnessLevel: onboardingData.fitnessLevel || 'Beginner',
-                activityStatus: onboardingData.activityStatus || 'Active',
-                goal: onboardingData.goal || 'Vitality',
-                diet: onboardingData.diet || 'Mediterranean Diet',
-                avatarUrl: avatarPreview,
-                token: `mock-token-${Date.now()}`
-            };
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('token', mockUser.token);
-                localStorage.setItem('user', JSON.stringify(mockUser));
-            }
-            onComplete(mockUser);
+            setError(err.message || 'Registration failed.');
         } finally {
             setIsLoading(false);
         }
@@ -100,30 +81,10 @@ export const ProfileStep = ({ onboardingData, onComplete }) => {
             return;
         }
 
-        const localPreview = URL.createObjectURL(file);
-        setAvatarPreview(localPreview);
+        setAvatarPreview(URL.createObjectURL(file));
+        setAvatarFile(file);
         setError(null);
-        setIsUploadingAvatar(true);
-
-        try {
-            const formData = new FormData();
-            formData.append('avatar', file);
-            const response = await fetch(`${API_BASE}/upload/avatar`, {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Upload failed.');
-
-            const backendHost = API_BASE.replace('/api', '');
-            setAvatar(`${backendHost}${data.avatarUrl}`);
-        } catch (err) {
-            console.warn('⚠️ Avatar server upload skipped. Using local preview.');
-            setAvatar(localPreview);
-        } finally {
-            setIsUploadingAvatar(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     return (

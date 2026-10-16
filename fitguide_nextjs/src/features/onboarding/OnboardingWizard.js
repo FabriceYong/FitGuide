@@ -53,12 +53,11 @@ export const OnboardingWizard = ({ onFinish, onBackToLogin }) => {
         if (step < totalSteps - 1) {
             setStep(totalSteps - 1);
         } else {
+            // No account: continue as a guest (no token, nothing saved server-side)
             onFinish({
-                id: `guest-${Date.now()}`,
                 name: 'Fitness Enthusiast',
-                email: 'guest@fitguide.com',
+                email: null,
                 ...onboardingData,
-                token: `guest-token-${Date.now()}`
             });
         }
     };

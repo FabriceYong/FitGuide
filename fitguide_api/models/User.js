@@ -70,14 +70,16 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Workout slugs. Slugs are stable across MongoDB and the seed-data fallback,
+    // unlike ObjectIds, so favorites work in every database mode.
     favoriteWorkouts: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Workout',
+      type: String,
+      trim: true,
     }],
     customWorkoutImages: [{
       workoutId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Workout',
+        type: String, // workout slug
+        trim: true,
       },
       customImageUrl: {
         type: String,

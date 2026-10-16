@@ -4,7 +4,7 @@
  * Workout Service
  * Centralized API calls for workout-related operations
  */
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+import { apiRequest, ApiError } from '../lib/api';
 
 const FALLBACK_WORKOUTS = [
   // ── ADVANCED ─────────────────────────────────────────────────────────────────
@@ -252,21 +252,7 @@ const FALLBACK_WORKOUTS = [
 
 export async function fetchWorkouts(filters) {
     try {
-        const queryParams = new URLSearchParams();
-        if (filters) {
-            Object.entries(filters).forEach(([key, value]) => {
-                if (value !== undefined && value !== null && value !== '') {
-                    queryParams.append(key, String(value));
-                }
-            });
-        }
-        const url = `${API_BASE}/workouts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        return data;
+        return await apiRequest('/workouts', { query: filters });
     }
     catch (error) {
         console.warn('⚠️ Local API offline/unreachable. Using rich default workouts library:', error.message);
@@ -280,14 +266,12 @@ export async function fetchWorkouts(filters) {
 
 export async function fetchWorkoutBySlug(slug) {
     try {
-        const response = await fetch(`${API_BASE}/workouts/${slug}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        return data;
+        return await apiRequest(`/workouts/${encodeURIComponent(slug)}`);
     }
     catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+            return { success: false, message: 'Workout not found' };
+        }
         console.warn(`⚠️ Local API offline/unreachable for slug ${slug}. Looking up in fallback dataset.`);
         const found = FALLBACK_WORKOUTS.find(w => w.slug === slug);
         if (found) {
@@ -299,12 +283,7 @@ export async function fetchWorkoutBySlug(slug) {
 
 export async function likeWorkout(slug) {
     try {
-        const response = await fetch(`${API_BASE}/workouts/${slug}/like`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-        });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return await response.json();
+        return await apiRequest(`/workouts/${encodeURIComponent(slug)}/like`, { method: 'POST', auth: true });
     } catch (error) {
         console.error(`Error liking workout ${slug}:`, error);
         throw error;
@@ -313,9 +292,7 @@ export async function likeWorkout(slug) {
 
 export async function fetchCategories() {
     try {
-        const response = await fetch(`${API_BASE}/workouts/categories/list`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return await response.json();
+        return await apiRequest('/workouts/categories/list');
     } catch (error) {
         console.error('Error fetching categories:', error);
         throw error;

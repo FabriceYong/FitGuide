@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 
 const reviewSchema = new mongoose.Schema(
   {
+    userId: {
+      type: String,
+      default: null,
+      index: true,
+    },
     name: {
       type: String,
       required: [true, 'Name is required'],
@@ -47,6 +52,11 @@ const reviewSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    likedBy: {
+      type: [String], // user ids, so each user can like a review once
+      default: [],
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -57,6 +67,7 @@ const reviewSchema = new mongoose.Schema(
 reviewSchema.methods.toPublicObject = function () {
   return {
     id: this._id,
+    userId: this.userId,
     name: this.name,
     userAvatar: this.userAvatar,
     rating: this.rating,

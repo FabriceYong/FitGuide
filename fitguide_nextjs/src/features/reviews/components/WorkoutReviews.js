@@ -3,9 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { Star, ThumbsUp, Plus, Image as ImageIcon, X, Check, User } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5001/api';
+import { apiRequest, assetUrl } from '../../../lib/api';
+import { useAuth } from '../../../contexts/AuthContext';
 
-export const WorkoutReviews = ({ workoutId, workoutTitle, user }) => {
+export const WorkoutReviews = ({ workoutId, workoutTitle }) => {
+    const { hasAccount } = useAuth();
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -15,20 +17,13 @@ export const WorkoutReviews = ({ workoutId, workoutTitle, user }) => {
     const fetchReviews = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_BASE}/reviews/workout/${workoutId}`);
-            const data = await response.json();
-            if (data.success) {
-                setReviews(data.data);
-                if (data.data.length > 0) {
-                    const total = data.data.reduce((sum, r) => sum + r.rating, 0);
-                    setAverageRating(total / data.data.length);
-                }
-            } else {
-                setError(data.message || 'Failed to load reviews');
-            }
+            setError(null);
+            const data = await apiRequest('/reviews', { query: { workoutId } });
+            setReviews(data.reviews);
+            const total = data.reviews.reduce((sum, r) => sum + r.rating, 0);
+            setAverageRating(data.reviews.length > 0 ? total / data.reviews.length : 0);
         } catch (err) {
-            console.error('Error fetching reviews:', err);
-            setError('Could not connect to review service');
+            setError(err.message || 'Could not connect to review service');
         } finally {
             setLoading(false);
         }
@@ -42,17 +37,9 @@ export const WorkoutReviews = ({ workoutId, workoutTitle, user }) => {
 
     const handleLikeReview = async (reviewId) => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${API_BASE}/reviews/${reviewId}/like`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            const data = await response.json();
-            if (data.success) {
-                setReviews(reviews.map(r => r.id === reviewId ? { ...r, likes: data.likes } : r));
-            }
+            if (!hasAccount) return;
+            const data = await apiRequest(`/reviews/${reviewId}/like`, { method: 'POST', auth: true });
+            setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, likes: data.likes } : r));
         } catch (err) {
             console.error('Error liking review:', err);
         }
@@ -84,7 +71,7 @@ export const WorkoutReviews = ({ workoutId, workoutTitle, user }) => {
                     </div>
                 </div>
 
-                {user && (
+                {hasAccount && (
                     <button
                         onClick={() => setShowAddReview(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-lime-light text-noir-eclipse rounded-xl font-bold text-sm hover:bg-lime-light/90 transition-all cursor-pointer border border-lime-light/30"
@@ -109,7 +96,7 @@ export const WorkoutReviews = ({ workoutId, workoutTitle, user }) => {
                     </div>
                     <h4 className="text-lg font-bold text-white mb-2">No reviews yet</h4>
                     <p className="text-white-70 text-sm mb-4">Be the first to share your experience with this workout!</p>
-                    {user && (
+                    {hasAccount && (
                         <button
                             onClick={() => setShowAddReview(true)}
                             className="px-6 py-3 bg-lime-light text-noir-eclipse rounded-xl font-bold text-sm hover:bg-lime-light/90 transition-all cursor-pointer border border-lime-light/30"
@@ -158,7 +145,7 @@ const ReviewCard = ({ review, onLike }) => {
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-noir-eclipse rounded-full flex items-center justify-center border border-white-30/20">
                         {review.userAvatar ? (
-                            <img src={`${API_BASE}${review.userAvatar}`} alt={review.name} className="w-full h-full rounded-full object-cover" />
+                            <img src={assetUrl(review.userAvatar)} alt={review.name} className="w-full h-full rounded-full object-cover" />
                         ) : (
                             <User className="w-5 h-5 text-white-70" />
                         )}
@@ -183,7 +170,7 @@ const ReviewCard = ({ review, onLike }) => {
             <p className="text-white-90 text-sm leading-relaxed mb-4">{review.comment}</p>
 
             {/* Photos (Before / After) */}
-            {(review.beforePhoto || review.afterPhoto) && (
+            {(review.beforeImage || review.afterImage) && (
                 <div className="mb-4">
                     <div className="flex items-center gap-2 mb-2">
                         <ImageIcon className="w-4 h-4 text-lime-light" />
@@ -191,17 +178,17 @@ const ReviewCard = ({ review, onLike }) => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                        {review.beforePhoto && (
+                        {review.beforeImage && (
                             <div className="relative rounded-xl overflow-hidden aspect-video bg-noir-eclipse border border-white-30/10">
-                                <img src={`${API_BASE}${review.beforePhoto}`} alt="Before" className="w-full h-full object-cover" />
+                                <img src={assetUrl(review.beforeImage)} alt="Before" className="w-full h-full object-cover" />
                                 <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-noir-eclipse/80 backdrop-blur-sm rounded text-[10px] text-white font-bold">
                                     Before
                                 </span>
                             </div>
                         )}
-                        {review.afterPhoto && (
+                        {review.afterImage && (
                             <div className="relative rounded-xl overflow-hidden aspect-video bg-noir-eclipse border border-lime-light/30">
-                                <img src={`${API_BASE}${review.afterPhoto}`} alt="After" className="w-full h-full object-cover" />
+                                <img src={assetUrl(review.afterImage)} alt="After" className="w-full h-full object-cover" />
                                 <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-lime-light text-noir-eclipse rounded text-[10px] font-bold">
                                     After
                                 </span>
@@ -254,27 +241,13 @@ const AddReviewModal = ({ workoutId, workoutTitle, onClose, onReviewSubmitted })
             formData.append('rating', rating);
             formData.append('comment', comment);
 
-            if (beforePhoto) formData.append('beforePhoto', beforePhoto);
-            if (afterPhoto) formData.append('afterPhoto', afterPhoto);
+            if (beforePhoto) formData.append('beforeImage', beforePhoto);
+            if (afterPhoto) formData.append('afterImage', afterPhoto);
 
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${API_BASE}/reviews`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                body: formData
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                onReviewSubmitted();
-            } else {
-                setError(data.message || 'Failed to submit review');
-            }
+            await apiRequest('/reviews', { method: 'POST', formData, auth: true });
+            onReviewSubmitted();
         } catch (err) {
-            console.error('Error submitting review:', err);
-            setError('Could not connect to server');
+            setError(err.message || 'Failed to submit review');
         } finally {
             setSubmitting(false);
         }

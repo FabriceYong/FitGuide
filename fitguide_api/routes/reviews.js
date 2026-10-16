@@ -1,232 +1,136 @@
 const express = require('express');
-const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose');
 const Review = require('../models/Review');
 const mockDb = require('../models/mockDb');
+const { authMiddleware } = require('../middleware/authMiddleware');
+const { UPLOADS_ROOT, imageUpload, uploadErrorHandler } = require('../utils/uploads');
 
 const router = express.Router();
+const isMock = () => process.env.MOCK_DB === 'true';
+const upload = imageUpload('reviews', 'progress');
 
-// Ensure reviews uploads directory exists
-const reviewsUploadsDir = path.join(__dirname, '..', 'uploads', 'reviews');
-if (!fs.existsSync(reviewsUploadsDir)) {
-  fs.mkdirSync(reviewsUploadsDir, { recursive: true });
+// Placeholder progress pictures referenced by the seeded mock reviews.
+const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+for (const name of ['before-example.jpg', 'after-example.jpg']) {
+  const file = path.join(UPLOADS_ROOT, 'reviews', name);
+  if (!fs.existsSync(file)) fs.writeFileSync(file, tinyPng);
 }
 
-// Write mock progress pictures if they do not exist, so they are loaded properly
-const beforeExamplePath = path.join(reviewsUploadsDir, 'before-example.jpg');
-const afterExamplePath = path.join(reviewsUploadsDir, 'after-example.jpg');
-const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+// Strip internal fields (like the list of users who liked a review) from mock reviews.
+const publicMockReview = ({ likedBy, ...review }) => review;
 
-if (!fs.existsSync(beforeExamplePath)) {
-  fs.writeFileSync(beforeExamplePath, Buffer.from(tinyPngBase64, 'base64'));
-}
-if (!fs.existsSync(afterExamplePath)) {
-  fs.writeFileSync(afterExamplePath, Buffer.from(tinyPngBase64, 'base64'));
-}
-
-// Multer Storage Configuration
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, reviewsUploadsDir);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `progress-${file.fieldname}-${uniqueSuffix}${ext}`);
-  },
-});
-
-const fileFilter = (_req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files are allowed (JPEG, PNG, WebP, GIF).'), false);
-  }
-};
-
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5 MB max per file
-  },
-});
-
-// GET /api/reviews
-router.get('/', async (req, res) => {
+// GET /api/reviews?workoutId=<slug>
+router.get('/', async (req, res, next) => {
   try {
-    const { workoutId } = req.query;
+    const workoutId = req.query.workoutId ? String(req.query.workoutId) : null;
 
-    if (process.env.MOCK_DB === 'true') {
-      let reviews = mockDb.getReviews();
-
-      // Filter by workout if workoutId is provided
-      if (workoutId) {
-        reviews = reviews.filter(review => review.workoutId === workoutId);
-      }
-
-      const sortedReviews = [...reviews].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      return res.status(200).json({ success: true, count: sortedReviews.length, reviews: sortedReviews });
+    if (isMock()) {
+      const reviews = mockDb.getReviews()
+        .filter((r) => !workoutId || r.workoutId === workoutId)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(publicMockReview);
+      return res.status(200).json({ success: true, count: reviews.length, reviews });
     }
 
-    let query = {};
-    if (workoutId) {
-      query.workoutId = workoutId;
-    }
-
-    const reviews = await Review.find(query).sort({ createdAt: -1 });
-    return res.status(200).json({
-      success: true,
-      count: reviews.length,
-      reviews: reviews.map(r => r.toPublicObject()),
-    });
+    const reviews = await Review.find(workoutId ? { workoutId } : {}).sort({ createdAt: -1 });
+    return res.status(200).json({ success: true, count: reviews.length, reviews: reviews.map((r) => r.toPublicObject()) });
   } catch (err) {
-    console.error('[Get Reviews Error]', err);
-    return res.status(500).json({ success: false, message: 'Server error retrieving reviews.' });
+    next(err);
   }
 });
 
-// POST /api/reviews
+// POST /api/reviews — signed-in users only. The author name and avatar come
+// from the account, not from the form, so nobody can post as someone else.
 router.post(
   '/',
+  authMiddleware,
   upload.fields([
     { name: 'beforeImage', maxCount: 1 },
     { name: 'afterImage', maxCount: 1 },
   ]),
-  async (req, res) => {
+  async (req, res, next) => {
     try {
-      const { name, rating, comment, workoutRegiment, userAvatar, workoutId } = req.body;
+      const rating = Number(req.body.rating);
+      const comment = typeof req.body.comment === 'string' ? req.body.comment.trim() : '';
+      const workoutId = req.body.workoutId ? String(req.body.workoutId) : null;
 
-      if (!name || !rating || !comment) {
-        return res.status(400).json({
-          success: false,
-          message: 'Name, rating, and comment are required.',
-        });
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5 || !comment || comment.length > 1000) {
+        return res.status(400).json({ success: false, message: 'A rating from 1 to 5 and a comment (max 1000 characters) are required.' });
       }
 
-      // Extract uploaded files if any
-      let beforeImageUrl = null;
-      let afterImageUrl = null;
-
-      if (req.files) {
-        if (req.files.beforeImage && req.files.beforeImage[0]) {
-          beforeImageUrl = `/uploads/reviews/${req.files.beforeImage[0].filename}`;
-        }
-        if (req.files.afterImage && req.files.afterImage[0]) {
-          afterImageUrl = `/uploads/reviews/${req.files.afterImage[0].filename}`;
+      // One review per user per workout.
+      if (workoutId) {
+        const duplicate = isMock()
+          ? mockDb.getReviews().some((r) => r.userId === req.user.id && r.workoutId === workoutId)
+          : await Review.exists({ userId: req.user.id, workoutId });
+        if (duplicate) {
+          return res.status(409).json({ success: false, message: 'You have already reviewed this workout.' });
         }
       }
 
-      if (process.env.MOCK_DB === 'true') {
-        const newReview = {
-          id: `mock-review-${Date.now()}`,
-          name,
-          userAvatar: userAvatar || null,
-          rating: Number(rating),
-          comment,
-          workoutRegiment: workoutRegiment || null,
-          workoutId: workoutId || null,
-          beforeImage: beforeImageUrl,
-          afterImage: afterImageUrl,
-          likes: 0,
-          createdAt: new Date().toISOString(),
-        };
-
-        mockDb.addReview(newReview);
-
-        return res.status(201).json({
-          success: true,
-          message: 'Review submitted successfully (Mock DB)!',
-          review: newReview,
-        });
-      }
-
-      const review = new Review({
-        name,
-        userAvatar: userAvatar || null,
-        rating: Number(rating),
+      const fileUrl = (field) => (req.files?.[field]?.[0] ? `/uploads/reviews/${req.files[field][0].filename}` : null);
+      const fields = {
+        userId: req.user.id,
+        name: req.user.name,
+        userAvatar: req.user.avatarUrl || null,
+        rating,
         comment,
-        workoutRegiment: workoutRegiment || null,
-        workoutId: workoutId || null,
-        beforeImage: beforeImageUrl,
-        afterImage: afterImageUrl,
+        workoutRegiment: req.body.workoutRegiment ? String(req.body.workoutRegiment).slice(0, 200) : null,
+        workoutId,
+        beforeImage: fileUrl('beforeImage'),
+        afterImage: fileUrl('afterImage'),
         likes: 0,
-      });
+      };
 
-      await review.save();
+      if (isMock()) {
+        const review = { ...fields, id: `mock-review-${Date.now()}`, likedBy: [], createdAt: new Date().toISOString() };
+        mockDb.addReview(review);
+        return res.status(201).json({ success: true, message: 'Review submitted successfully!', review: publicMockReview(review) });
+      }
 
-      return res.status(201).json({
-        success: true,
-        message: 'Review submitted successfully!',
-        review: review.toPublicObject(),
-      });
+      const review = await Review.create(fields);
+      return res.status(201).json({ success: true, message: 'Review submitted successfully!', review: review.toPublicObject() });
     } catch (err) {
-      console.error('[Submit Review Error]', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Server error. Review submission failed.',
-      });
+      next(err);
     }
   }
 );
 
-// POST /api/reviews/:id/like
-router.post('/:id/like', async (req, res) => {
+// POST /api/reviews/:id/like — signed-in users only; each user counts once.
+router.post('/:id/like', authMiddleware, async (req, res, next) => {
   const { id } = req.params;
+  const userId = req.user.id;
 
   try {
-    if (process.env.MOCK_DB === 'true') {
-      const updatedReview = mockDb.updateReview(id, (review) => {
-        review.likes = (review.likes || 0) + 1;
+    if (isMock()) {
+      const review = mockDb.updateReview(id, (r) => {
+        r.likedBy = r.likedBy || [];
+        if (!r.likedBy.includes(userId)) {
+          r.likedBy.push(userId);
+          r.likes = (r.likes || 0) + 1;
+        }
       });
-
-      if (!updatedReview) {
-        return res.status(404).json({ success: false, message: 'Review not found.' });
-      }
-
-      return res.status(200).json({ success: true, likes: updatedReview.likes });
+      if (!review) return res.status(404).json({ success: false, message: 'Review not found.' });
+      return res.status(200).json({ success: true, likes: review.likes });
     }
 
-    const review = await Review.findById(id);
-    if (!review) {
+    if (!mongoose.isValidObjectId(id)) {
       return res.status(404).json({ success: false, message: 'Review not found.' });
     }
-
-    review.likes += 1;
-    await review.save();
-
+    const review = await Review.findOneAndUpdate(
+      { _id: id, likedBy: { $ne: userId } },
+      { $addToSet: { likedBy: userId }, $inc: { likes: 1 } },
+      { new: true }
+    ) || await Review.findById(id);
+    if (!review) return res.status(404).json({ success: false, message: 'Review not found.' });
     return res.status(200).json({ success: true, likes: review.likes });
   } catch (err) {
-    console.error('[Like Review Error]', err);
-    return res.status(500).json({ success: false, message: 'Server error liking review.' });
+    next(err);
   }
 });
 
-// Error handling middleware for multer errors
-router.use((err, _req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({
-        success: false,
-        message: 'File is too large. Maximum size is 5 MB per image.',
-      });
-    }
-    return res.status(400).json({
-      success: false,
-      message: err.message,
-    });
-  }
-
-  if (err) {
-    return res.status(400).json({
-      success: false,
-      message: err.message || 'File upload failed.',
-    });
-  }
-
-  next();
-});
+router.use(uploadErrorHandler);
 
 module.exports = router;

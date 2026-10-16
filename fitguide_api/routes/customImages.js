@@ -1,177 +1,73 @@
 const express = require('express');
-const router = express.Router();
-const User = require('../models/User');
-const Workout = require('../models/Workout');
+const userStore = require('../stores/userStore');
+const workoutStore = require('../stores/workoutStore');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
-/**
- * @route   POST /api/custom-images/:workoutId
- * @desc    Set custom image for a workout
- * @access  Private
- */
-router.post('/:workoutId', authMiddleware, async (req, res) => {
-  try {
-    const { workoutId } = req.params;
-    const { customImageUrl } = req.body;
+const router = express.Router();
 
-    if (!customImageUrl) {
-      return res.status(400).json({
-        success: false,
-        message: 'Custom image URL is required'
-      });
-    }
+// Per-user custom images for workouts, keyed by workout slug.
+router.use(authMiddleware);
 
-    // Verify workout exists
-    const workout = await Workout.findById(workoutId);
-    if (!workout) {
-      return res.status(404).json({
-        success: false,
-        message: 'Workout not found'
-      });
-    }
-
-    // Update or add custom image for user
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Check if custom image already exists for this workout
-    const existingIndex = user.customWorkoutImages?.findIndex(
-      img => img.workoutId.toString() === workoutId
-    );
-
-    if (existingIndex !== undefined && existingIndex >= 0) {
-      user.customWorkoutImages[existingIndex].customImageUrl = customImageUrl;
-    } else {
-      if (!user.customWorkoutImages) {
-        user.customWorkoutImages = [];
-      }
-      user.customWorkoutImages.push({
-        workoutId,
-        customImageUrl,
-      });
-    }
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: 'Custom image set successfully',
-      customImage: { workoutId, customImageUrl },
-    });
-  } catch (error) {
-    console.error('Error setting custom image:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
-  }
-});
-
-/**
- * @route   GET /api/custom-images/:workoutId
- * @desc    Get custom image for a workout
- * @access  Private
- */
-router.get('/:workoutId', authMiddleware, async (req, res) => {
-  try {
-    const { workoutId } = req.params;
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    const customImage = user.customWorkoutImages?.find(
-      img => img.workoutId.toString() === workoutId
-    );
-
-    res.json({
-      success: true,
-      customImageUrl: customImage?.customImageUrl || null,
-    });
-  } catch (error) {
-    console.error('Error getting custom image:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
-  }
-});
-
-/**
- * @route   DELETE /api/custom-images/:workoutId
- * @desc    Remove custom image for a workout
- * @access  Private
- */
-router.delete('/:workoutId', authMiddleware, async (req, res) => {
-  try {
-    const { workoutId } = req.params;
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    user.customWorkoutImages = user.customWorkoutImages?.filter(
-      img => img.workoutId.toString() !== workoutId
-    ) || [];
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: 'Custom image removed successfully',
-    });
-  } catch (error) {
-    console.error('Error removing custom image:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
-  }
-});
+const getImages = (userId) => userStore.getField(userId, 'customWorkoutImages');
 
 /**
  * @route   GET /api/custom-images
- * @desc    Get all custom images for user
- * @access  Private
+ * @desc    Get all custom images for the user
  */
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
+    res.json({ success: true, customImages: await getImages(req.user.id) });
+  } catch (err) {
+    next(err);
+  }
+});
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+/**
+ * @route   GET /api/custom-images/:slug
+ * @desc    Get the user's custom image for a workout
+ */
+router.get('/:slug', async (req, res, next) => {
+  try {
+    const image = (await getImages(req.user.id)).find((img) => img.workoutId === req.params.slug);
+    res.json({ success: true, customImageUrl: image?.customImageUrl || null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * @route   POST /api/custom-images/:slug
+ * @desc    Set a custom image for a workout
+ */
+router.post('/:slug', async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+    const { customImageUrl } = req.body;
+    if (!customImageUrl || typeof customImageUrl !== 'string' || customImageUrl.length > 500) {
+      return res.status(400).json({ success: false, message: 'A custom image URL (max 500 characters) is required' });
     }
+    if (!(await workoutStore.exists(slug))) {
+      return res.status(404).json({ success: false, message: 'Workout not found' });
+    }
+    const others = (await getImages(req.user.id)).filter((img) => img.workoutId !== slug);
+    await userStore.setField(req.user.id, 'customWorkoutImages', [...others, { workoutId: slug, customImageUrl }]);
+    res.json({ success: true, message: 'Custom image set successfully', customImage: { workoutId: slug, customImageUrl } });
+  } catch (err) {
+    next(err);
+  }
+});
 
-    res.json({
-      success: true,
-      customImages: user.customWorkoutImages || [],
-    });
-  } catch (error) {
-    console.error('Error getting custom images:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
+/**
+ * @route   DELETE /api/custom-images/:slug
+ * @desc    Remove the user's custom image for a workout
+ */
+router.delete('/:slug', async (req, res, next) => {
+  try {
+    const remaining = (await getImages(req.user.id)).filter((img) => img.workoutId !== req.params.slug);
+    await userStore.setField(req.user.id, 'customWorkoutImages', remaining);
+    res.json({ success: true, message: 'Custom image removed successfully' });
+  } catch (err) {
+    next(err);
   }
 });
 

@@ -6,12 +6,14 @@ import { WorkoutReviews } from '../reviews/components/WorkoutReviews';
 import { fetchWorkoutBySlug } from '../../services/workoutService';
 import { addToFavorites, removeFromFavorites, checkIsFavorite } from '../../services/favoriteService';
 import { useWorkoutImage } from '../../hooks/useWorkoutImage';
+import { useAuth } from '../../contexts/AuthContext';
 export const WorkoutDetails = ({ workoutSlug, tintColor, onBack, onBegin, }) => {
     const [workout, setWorkout] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isFavorite, setIsFavorite] = useState(false);
     const [favoriteLoading, setFavoriteLoading] = useState(false);
+    const { hasAccount } = useAuth();
     // Use dynamic image hook for workout details
     const { imageUrl, isLoading: imageLoading, photographer, photographerUrl } = useWorkoutImage({
         workoutId: workout?.id || '',
@@ -30,8 +32,8 @@ export const WorkoutDetails = ({ workoutSlug, tintColor, onBack, onBegin, }) => 
             if (response.success) {
                 setWorkout(response.workout);
                 // Check if workout is in favorites
-                if (response.workout.id) {
-                    const favoriteStatus = await checkIsFavorite(response.workout.id);
+                if (response.workout.slug) {
+                    const favoriteStatus = await checkIsFavorite(response.workout.slug);
                     setIsFavorite(favoriteStatus);
                 }
             }
@@ -48,16 +50,16 @@ export const WorkoutDetails = ({ workoutSlug, tintColor, onBack, onBegin, }) => 
         }
     };
     const handleToggleFavorite = async () => {
-        if (!workout?.id || favoriteLoading)
+        if (!workout?.slug || favoriteLoading || !hasAccount)
             return;
         try {
             setFavoriteLoading(true);
             if (isFavorite) {
-                await removeFromFavorites(workout.id);
+                await removeFromFavorites(workout.slug);
                 setIsFavorite(false);
             }
             else {
-                await addToFavorites(workout.id);
+                await addToFavorites(workout.slug);
                 setIsFavorite(true);
             }
         }
@@ -112,7 +114,7 @@ export const WorkoutDetails = ({ workoutSlug, tintColor, onBack, onBegin, }) => 
           <button onClick={onBack} className="w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white transition-colors backdrop-blur-sm">
             <ArrowLeft className="w-6 h-6"/>
           </button>
-          <button onClick={handleToggleFavorite} disabled={favoriteLoading} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all backdrop-blur-sm ${isFavorite
+          <button onClick={handleToggleFavorite} disabled={favoriteLoading || !hasAccount} title={hasAccount ? (isFavorite ? 'Remove from favorites' : 'Add to favorites') : 'Create an account to save favorites'} aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all backdrop-blur-sm ${isFavorite
             ? 'bg-red-500/90 hover:bg-red-600'
             : 'bg-black/30 hover:bg-black/50'} ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <Heart className={`w-6 h-6 transition-all ${isFavorite ? 'fill-white text-white' : 'text-white'}`}/>

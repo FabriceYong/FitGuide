@@ -2,49 +2,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Star, MessageSquare, ThumbsUp, Loader2, Sparkles, Upload, X, AlertCircle, Award } from 'lucide-react';
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
-
-const DEFAULT_REVIEWS = [
-    {
-        id: 'fallback-1',
-        name: 'Sarah Connor',
-        rating: 5,
-        comment: 'High-Intensity Tabata Burn changed my routine completely! Lost 8 lbs in 4 weeks and my endurance is through the roof.',
-        workoutRegiment: 'High-Intensity Tabata Burn',
-        userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-        likes: 24,
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-    },
-    {
-        id: 'fallback-2',
-        name: 'Marcus Vance',
-        rating: 5,
-        comment: 'The Upper Body Pump Session is top notch. Great form cues and tempo instructions. Highly recommended!',
-        workoutRegiment: 'Upper Body Pump Session',
-        userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-        likes: 18,
-        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-    },
-    {
-        id: 'fallback-3',
-        name: 'Elena Rostova',
-        rating: 5,
-        comment: 'Morning Zen Yoga Flow is my daily essential. Perfect stretch after long desk hours.',
-        workoutRegiment: 'Morning Zen Yoga Flow',
-        userAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80',
-        likes: 31,
-        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
-    }
-];
+import { apiRequest, assetUrl } from '../../../lib/api';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export const ReviewsTab = () => {
+    const { user, hasAccount } = useAuth();
     const [reviews, setReviews] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
     // Form State
     const [showForm, setShowForm] = useState(false);
-    const [name, setName] = useState('Sarah Connor');
     const [rating, setRating] = useState(5);
     const [hoverRating, setHoverRating] = useState(null);
     const [comment, setComment] = useState('');
@@ -69,14 +37,12 @@ export const ReviewsTab = () => {
     // Fetch reviews
     const fetchReviews = async () => {
         try {
-            const response = await fetch(`${API_BASE}/reviews`);
-            if (!response.ok) throw new Error('Failed to fetch reviews.');
-            const data = await response.json();
-            setReviews(data.reviews && data.reviews.length > 0 ? data.reviews : DEFAULT_REVIEWS);
+            setError(null);
+            const data = await apiRequest('/reviews');
+            setReviews(data.reviews || []);
         }
         catch (err) {
-            console.warn('⚠️ API offline/unreachable for reviews. Using community reviews:', err.message);
-            setReviews(DEFAULT_REVIEWS);
+            setError(err.message || 'Failed to load reviews.');
         }
         finally {
             setIsLoading(false);
@@ -90,16 +56,11 @@ export const ReviewsTab = () => {
     }, []);
     // Handle Likes
     const handleLike = async (id) => {
+        if (!hasAccount)
+            return;
         try {
-            // Optimistic update
-            setReviews(prev => prev.map(r => (r.id === id ? { ...r, likes: r.likes + 1 } : r)));
-            const response = await fetch(`${API_BASE}/reviews/${id}/like`, {
-                method: 'POST',
-            });
-            const data = await response.json();
-            if (!response.ok)
-                throw new Error(data.message);
-            // Update with exact backend value
+            const data = await apiRequest(`/reviews/${id}/like`, { method: 'POST', auth: true });
+            // Update with exact backend value (a user's like counts once)
             setReviews(prev => prev.map(r => (r.id === id ? { ...r, likes: data.likes } : r)));
         }
         catch (err) {
@@ -156,7 +117,6 @@ export const ReviewsTab = () => {
         setIsSubmitting(true);
         try {
             const formData = new FormData();
-            formData.append('name', name);
             formData.append('rating', String(rating));
             formData.append('comment', comment);
             if (workoutRegiment)
@@ -167,13 +127,7 @@ export const ReviewsTab = () => {
             if (afterImageFile) {
                 formData.append('afterImage', afterImageFile);
             }
-            const response = await fetch(`${API_BASE}/reviews`, {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await response.json();
-            if (!response.ok)
-                throw new Error(data.message || 'Submission failed.');
+            const data = await apiRequest('/reviews', { method: 'POST', formData, auth: true });
             // Refresh list, close form, and reset values
             setShowForm(false);
             setComment('');
@@ -213,10 +167,10 @@ export const ReviewsTab = () => {
             Real stories, real progress from the FitGuide community.
           </p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="bg-lime-light text-noir-eclipse font-bold px-6 py-3 rounded-full hover:shadow-[0_0_15px_rgba(0, 196, 180,0.3)] transition-all uppercase tracking-wider text-xs flex items-center gap-2">
+        {hasAccount && <button onClick={() => setShowForm(!showForm)} className="bg-lime-light text-noir-eclipse font-bold px-6 py-3 rounded-full hover:shadow-[0_0_15px_rgba(0, 196, 180,0.3)] transition-all uppercase tracking-wider text-xs flex items-center gap-2">
           <Sparkles className="w-4 h-4"/>
           {showForm ? 'Cancel Review' : 'Write a Review'}
-        </button>
+        </button>}
       </div>
 
       {/* Top statistics summary cards */}
@@ -275,7 +229,7 @@ export const ReviewsTab = () => {
                 <label className="text-xs font-bold text-white-70 uppercase tracking-widest">
                   Your Name
                 </label>
-                <input type="text" placeholder="Your Name" value={name} onChange={(e) => setName(e.target.value)} className="bg-noir-eclipse text-white w-full border border-white-30/40 rounded-2xl px-4 py-3.5 focus:outline-none focus:border-lime-light text-sm font-medium" required/>
+                <p className="bg-noir-eclipse text-white w-full border border-white-30/40 rounded-2xl px-4 py-3.5 text-sm font-medium">{user?.name}</p>
               </div>
 
               <div className="space-y-2">
@@ -383,9 +337,7 @@ export const ReviewsTab = () => {
                 <div className="flex items-center gap-3">
                   {/* Glowing user avatar */}
                   <div className="w-12 h-12 rounded-full border border-white-30 bg-noir-eclipse flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {item.userAvatar ? (<img src={item.userAvatar.startsWith('http')
-                        ? item.userAvatar
-                        : `http://localhost:5001${item.userAvatar}`} alt={item.name} className="w-full h-full object-cover"/>) : (<span className="font-extrabold text-sm text-lime-light">
+                    {item.userAvatar ? (<img src={assetUrl(item.userAvatar)} alt={item.name} className="w-full h-full object-cover"/>) : (<span className="font-extrabold text-sm text-lime-light">
                         {item.name.charAt(0).toUpperCase()}
                       </span>)}
                   </div>
@@ -425,7 +377,7 @@ export const ReviewsTab = () => {
               {(item.beforeImage || item.afterImage) && (<div className="grid grid-cols-2 gap-4 max-w-md w-full mt-2">
                   {/* Before Panel */}
                   {item.beforeImage && (<div className="relative rounded-[16px] overflow-hidden border border-white-30/10 aspect-video md:aspect-[4/3] group shadow-md bg-noir-eclipse">
-                      <img src={`http://localhost:5001${item.beforeImage}`} alt="Before progress" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
+                      <img src={assetUrl(item.beforeImage)} alt="Before progress" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
                       <div className="absolute top-3 left-3 px-2 py-0.5 bg-black/60 text-white-70 text-[10px] font-bold rounded uppercase tracking-wider">
                         Before
                       </div>
@@ -433,7 +385,7 @@ export const ReviewsTab = () => {
 
                   {/* After Panel */}
                   {item.afterImage && (<div className="relative rounded-[16px] overflow-hidden border border-lime-light/30 aspect-video md:aspect-[4/3] group shadow-[0_4px_15px_rgba(0, 196, 180,0.1)] bg-noir-eclipse">
-                      <img src={`http://localhost:5001${item.afterImage}`} alt="After progress" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
+                      <img src={assetUrl(item.afterImage)} alt="After progress" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
                       <div className="absolute top-3 left-3 px-2.5 py-0.5 bg-lime-light text-noir-eclipse text-[10px] font-black rounded uppercase tracking-wider">
                         After
                       </div>
@@ -442,7 +394,7 @@ export const ReviewsTab = () => {
 
               {/* Like / Interactions Row */}
               <div className="flex items-center gap-4 pt-3 border-t border-white-30/10 mt-2">
-                <button onClick={() => handleLike(item.id)} className="flex items-center gap-2 text-white-30 hover:text-lime-light transition-colors text-xs font-bold group">
+                <button onClick={() => handleLike(item.id)} disabled={!hasAccount} title={hasAccount ? 'Like' : 'Sign in to like reviews'} className="flex items-center gap-2 text-white-30 hover:text-lime-light transition-colors text-xs font-bold group">
                   <ThumbsUp className="w-4.5 h-4.5 group-hover:scale-110 transition-transform"/>
                   <span>{item.likes} Likes</span>
                 </button>

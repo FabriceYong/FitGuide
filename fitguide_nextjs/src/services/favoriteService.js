@@ -1,81 +1,37 @@
 'use client';
 
-import axios from 'axios';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
-
-const getAuthHeader = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
 /**
- * Check if user has a valid auth token
+ * Favorites API. Workouts are identified by slug.
+ * All calls require a signed-in account (guests have no server-side favorites).
  */
-export const isAuthenticated = () => {
-    if (typeof window === 'undefined') return false;
-    return !!localStorage.getItem('token');
-};
+import { apiRequest, hasToken } from '../lib/api';
 
-/**
- * Get user's favorite workouts — returns [] if not authenticated
- */
+/** Get the user's favorite workouts; [] when signed out. */
 export const getFavorites = async () => {
-    if (!isAuthenticated()) return [];
-    try {
-        const response = await axios.get(`${API_URL}/favorites`, {
-            headers: getAuthHeader(),
-        });
-        return response.data.favorites || [];
-    } catch (error) {
-        if (error.response?.status === 401) return [];
-        console.error('Error fetching favorites:', error.response?.data || error.message);
-        return [];
-    }
+    if (!hasToken()) return [];
+    const data = await apiRequest('/favorites', { auth: true });
+    return data.favorites || [];
 };
 
-/**
- * Add a workout to favorites
- */
-export const addToFavorites = async (workoutId) => {
-    try {
-        const response = await axios.post(`${API_URL}/favorites/${workoutId}`, {}, {
-            headers: getAuthHeader(),
-        });
-        return response.data.favorites || [];
-    } catch (error) {
-        if (error.response?.status === 401) return [];
-        console.error('Error adding to favorites:', error.response?.data || error.message);
-        throw error;
-    }
+/** Add a workout to favorites. Returns the updated favorite workouts. */
+export const addToFavorites = async (slug) => {
+    const data = await apiRequest(`/favorites/${encodeURIComponent(slug)}`, { method: 'POST', auth: true });
+    return data.favorites || [];
 };
 
-/**
- * Remove a workout from favorites
- */
-export const removeFromFavorites = async (workoutId) => {
-    try {
-        const response = await axios.delete(`${API_URL}/favorites/${workoutId}`, {
-            headers: getAuthHeader(),
-        });
-        return response.data.favorites || [];
-    } catch (error) {
-        if (error.response?.status === 401) return [];
-        console.error('Error removing from favorites:', error.response?.data || error.message);
-        throw error;
-    }
+/** Remove a workout from favorites. Returns the updated favorite workouts. */
+export const removeFromFavorites = async (slug) => {
+    const data = await apiRequest(`/favorites/${encodeURIComponent(slug)}`, { method: 'DELETE', auth: true });
+    return data.favorites || [];
 };
 
-/**
- * Check if a workout is in favorites
- */
-export const checkIsFavorite = async (workoutId) => {
-    if (!isAuthenticated()) return false;
+/** Check whether a workout is a favorite; false when signed out or on error. */
+export const checkIsFavorite = async (slug) => {
+    if (!hasToken()) return false;
     try {
-        const response = await axios.get(`${API_URL}/favorites/check/${workoutId}`, {
-            headers: getAuthHeader(),
-        });
-        return response.data.isFavorite || false;
-    } catch (error) {
+        const data = await apiRequest(`/favorites/check/${encodeURIComponent(slug)}`, { auth: true });
+        return Boolean(data.isFavorite);
+    } catch {
         return false;
     }
 };

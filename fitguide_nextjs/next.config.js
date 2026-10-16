@@ -13,9 +13,8 @@ const nextConfig = {
       },
     ],
   },
-  env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000',
-  },
+  // NEXT_PUBLIC_* variables from .env are inlined automatically; the API URL
+  // default lives in src/lib/api.js.
 };
 
 module.exports = nextConfig;

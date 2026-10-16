@@ -1,138 +1,77 @@
 const express = require('express');
-const router = express.Router();
-const User = require('../models/User');
-const Workout = require('../models/Workout');
+const userStore = require('../stores/userStore');
+const workoutStore = require('../stores/workoutStore');
 const { authMiddleware } = require('../middleware/authMiddleware');
+
+const router = express.Router();
+
+// Every favorites route requires a signed-in user. Workouts are referenced by slug.
+router.use(authMiddleware);
+
+const respondWithFavorites = async (res, slugs, message) => {
+  res.json({
+    success: true,
+    ...(message && { message }),
+    favoriteSlugs: slugs,
+    favorites: await workoutStore.getManyBySlugs(slugs),
+  });
+};
 
 /**
  * @route   GET /api/favorites
- * @desc    Get user's favorite workouts
- * @access  Private
+ * @desc    Get the user's favorite workouts
  */
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).populate('favoriteWorkouts');
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({
-      success: true,
-      favorites: user.favoriteWorkouts || [],
-    });
-  } catch (error) {
-    console.error('Error fetching favorites:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    const slugs = await userStore.getField(req.user.id, 'favoriteWorkouts');
+    await respondWithFavorites(res, slugs);
+  } catch (err) {
+    next(err);
   }
 });
 
 /**
- * @route   POST /api/favorites/:workoutId
- * @desc    Add workout to favorites
- * @access  Private
+ * @route   GET /api/favorites/check/:slug
+ * @desc    Check whether a workout is in the user's favorites
  */
-router.post('/:workoutId', authMiddleware, async (req, res) => {
+router.get('/check/:slug', async (req, res, next) => {
   try {
-    const { workoutId } = req.params;
-
-    // Verify workout exists
-    const workout = await Workout.findById(workoutId);
-    if (!workout) {
-      return res.status(404).json({ message: 'Workout not found' });
-    }
-
-    // Add to user's favorites if not already there
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    if (!user.favoriteWorkouts) {
-      user.favoriteWorkouts = [];
-    }
-
-    if (user.favoriteWorkouts.includes(workoutId)) {
-      return res.status(400).json({ message: 'Workout already in favorites' });
-    }
-
-    user.favoriteWorkouts.push(workoutId);
-    await user.save();
-
-    // Populate and return updated favorites
-    await user.populate('favoriteWorkouts');
-
-    res.json({
-      success: true,
-      message: 'Workout added to favorites',
-      favorites: user.favoriteWorkouts,
-    });
-  } catch (error) {
-    console.error('Error adding to favorites:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    const slugs = await userStore.getField(req.user.id, 'favoriteWorkouts');
+    res.json({ success: true, isFavorite: slugs.includes(req.params.slug) });
+  } catch (err) {
+    next(err);
   }
 });
 
 /**
- * @route   DELETE /api/favorites/:workoutId
- * @desc    Remove workout from favorites
- * @access  Private
+ * @route   POST /api/favorites/:slug
+ * @desc    Add a workout to favorites (idempotent)
  */
-router.delete('/:workoutId', authMiddleware, async (req, res) => {
+router.post('/:slug', async (req, res, next) => {
   try {
-    const { workoutId } = req.params;
-
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    const { slug } = req.params;
+    if (!(await workoutStore.exists(slug))) {
+      return res.status(404).json({ success: false, message: 'Workout not found' });
     }
-
-    if (!user.favoriteWorkouts || !user.favoriteWorkouts.includes(workoutId)) {
-      return res.status(400).json({ message: 'Workout not in favorites' });
-    }
-
-    user.favoriteWorkouts = user.favoriteWorkouts.filter(
-      (id) => id.toString() !== workoutId
-    );
-    await user.save();
-
-    // Populate and return updated favorites
-    await user.populate('favoriteWorkouts');
-
-    res.json({
-      success: true,
-      message: 'Workout removed from favorites',
-      favorites: user.favoriteWorkouts,
-    });
-  } catch (error) {
-    console.error('Error removing from favorites:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    const slugs = await userStore.getField(req.user.id, 'favoriteWorkouts');
+    const updated = slugs.includes(slug) ? slugs : await userStore.setField(req.user.id, 'favoriteWorkouts', [...slugs, slug]);
+    await respondWithFavorites(res, updated, 'Workout added to favorites');
+  } catch (err) {
+    next(err);
   }
 });
 
 /**
- * @route   GET /api/favorites/check/:workoutId
- * @desc    Check if workout is in user's favorites
- * @access  Private
+ * @route   DELETE /api/favorites/:slug
+ * @desc    Remove a workout from favorites (idempotent)
  */
-router.get('/check/:workoutId', authMiddleware, async (req, res) => {
+router.delete('/:slug', async (req, res, next) => {
   try {
-    const { workoutId } = req.params;
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const isFavorite = user.favoriteWorkouts && user.favoriteWorkouts.includes(workoutId);
-
-    res.json({
-      success: true,
-      isFavorite,
-    });
-  } catch (error) {
-    console.error('Error checking favorite status:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    const slugs = await userStore.getField(req.user.id, 'favoriteWorkouts');
+    const updated = await userStore.setField(req.user.id, 'favoriteWorkouts', slugs.filter((s) => s !== req.params.slug));
+    await respondWithFavorites(res, updated, 'Workout removed from favorites');
+  } catch (err) {
+    next(err);
   }
 });
 

@@ -1,156 +1,60 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 const bcrypt = require('bcryptjs');
-const mockDb = require('../models/mockDb');
+const { body, validationResult } = require('express-validator');
+const User = require('../models/User');
+const userStore = require('../stores/userStore');
+const { signToken } = require('../utils/jwt');
+const { authMiddleware } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// Helper function to generate JWT token
-const generateToken = (userId) => {
-  return jwt.sign(
-    { id: userId },
-    process.env.JWT_SECRET || 'your-secret-key-change-in-production',
-    { expiresIn: '7d' }
-  );
+const enumValues = (field) => User.schema.path(field).enumValues;
+
+// Optional profile fields share the same rules on register and profile update,
+// so mock mode enforces the same constraints as the Mongoose schema.
+const profileRules = [
+  body('name').optional().trim().notEmpty().withMessage('Name cannot be empty').isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
+  body('gender').optional().isIn(enumValues('gender')).withMessage('Invalid gender'),
+  body('height').optional().isFloat({ min: 50, max: 250 }).withMessage('Height must be between 50 and 250 cm'),
+  body('weight').optional().isFloat({ min: 30, max: 250 }).withMessage('Weight must be between 30 and 250 kg'),
+  body('targetWeight').optional().isFloat({ min: 30, max: 250 }).withMessage('Target weight must be between 30 and 250 kg'),
+  body('fitnessLevel').optional().isIn(enumValues('fitnessLevel')).withMessage('Invalid fitness level'),
+  body('activityStatus').optional().isIn(enumValues('activityStatus')).withMessage('Invalid activity status'),
+  body('goal').optional().isIn(enumValues('goal')).withMessage('Invalid goal'),
+  body('diet').optional().isIn(enumValues('diet')).withMessage('Invalid diet'),
+  body('avatarUrl').optional({ values: 'null' }).isString().isLength({ max: 500 }),
+];
+
+const rejectInvalid = (req, res, next) => {
+  const errors = validationResult(req);
+  if (errors.isEmpty()) return next();
+  return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
 };
 
 // ─── POST /api/auth/register ──────────────────────────────────────────────────
 router.post(
   '/register',
   [
-    body('name')
-      .trim()
-      .notEmpty()
-      .withMessage('Name is required')
-      .isLength({ max: 100 })
-      .withMessage('Name cannot exceed 100 characters'),
-
-    body('email')
-      .trim()
-      .notEmpty()
-      .withMessage('Email is required')
-      .isEmail()
-      .withMessage('Please provide a valid email address')
-      .normalizeEmail(),
-
-    body('password')
-      .notEmpty()
-      .withMessage('Password is required')
-      .isLength({ min: 6 })
-      .withMessage('Password must be at least 6 characters'),
+    body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
+    body('email').trim().notEmpty().withMessage('Email is required').isEmail().withMessage('Please provide a valid email address').normalizeEmail(),
+    body('password').isString().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    ...profileRules,
   ],
-  async (req, res) => {
-    // 1. Validate request body
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array(),
-      });
-    }
-
-    const {
-      name,
-      email,
-      password,
-      gender,
-      height,
-      weight,
-      targetWeight,
-      fitnessLevel,
-      activityStatus,
-      goal,
-      diet,
-      avatarUrl,
-    } = req.body;
-
+  rejectInvalid,
+  async (req, res, next) => {
     try {
-      if (process.env.MOCK_DB === 'true') {
-        const users = mockDb.getUsers();
-        const existingUser = users.find((u) => u.email === email.toLowerCase());
-        if (existingUser) {
-          return res.status(409).json({
-            success: false,
-            message: 'An account with this email already exists.',
-          });
-        }
-
-        const salt = await bcrypt.genSalt(12);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        const newUser = {
-          id: `mock-user-${Date.now()}`,
-          name,
-          email: email.toLowerCase(),
-          password: hashedPassword,
-          gender: gender || 'Prefer not to say',
-          height: height || 170,
-          weight: weight || 70,
-          targetWeight: targetWeight || 70,
-          fitnessLevel: fitnessLevel || 'Beginner',
-          activityStatus: activityStatus || 'Active',
-          goal: goal || 'Vitality',
-          diet: diet || 'Mediterranean Diet',
-          avatarUrl: avatarUrl || null,
-          createdAt: new Date().toISOString(),
-        };
-
-        mockDb.addUser(newUser);
-
-        const { password: _, ...publicUser } = newUser;
-        const token = generateToken(newUser.id);
-
-        return res.status(201).json({
-          success: true,
-          message: 'Account created successfully (Mock DB)!',
-          user: publicUser,
-          token,
-        });
+      if (await userStore.emailExists(req.body.email)) {
+        return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
       }
-
-      // MongoDB Mode
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.status(409).json({
-          success: false,
-          message: 'An account with this email already exists.',
-        });
-      }
-
-      const user = new User({
-        name,
-        email,
-        password,
-        gender: gender || 'Prefer not to say',
-        height: height || 170,
-        weight: weight || 70,
-        targetWeight: targetWeight || 70,
-        fitnessLevel: fitnessLevel || 'Beginner',
-        activityStatus: activityStatus || 'Active',
-        goal: goal || 'Vitality',
-        diet: diet || 'Mediterranean Diet',
-        avatarUrl: avatarUrl || null,
-      });
-
-      await user.save();
-
-      const token = generateToken(user._id.toString());
-
+      const user = await userStore.create(req.body);
       return res.status(201).json({
         success: true,
-        message: 'Account created successfully in MongoDB!',
-        user: user.toPublicProfile(),
-        token,
+        message: 'Account created successfully!',
+        user,
+        token: signToken(user.id),
       });
     } catch (err) {
-      console.error('[Register Error]', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Server error. Please try again later.',
-      });
+      next(err);
     }
   }
 );
@@ -159,191 +63,48 @@ router.post(
 router.post(
   '/login',
   [
-    body('email')
-      .trim()
-      .notEmpty()
-      .withMessage('Email is required')
-      .isEmail()
-      .withMessage('Please provide a valid email address')
-      .normalizeEmail(),
-
-    body('password').notEmpty().withMessage('Password is required'),
+    body('email').trim().notEmpty().withMessage('Email is required').isEmail().withMessage('Please provide a valid email address').normalizeEmail(),
+    body('password').isString().notEmpty().withMessage('Password is required'),
   ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array(),
-      });
-    }
-
-    const { email, password } = req.body;
-
+  rejectInvalid,
+  async (req, res, next) => {
     try {
-      if (process.env.MOCK_DB === 'true') {
-        const users = mockDb.getUsers();
-        const user = users.find((u) => u.email === email.toLowerCase());
-        if (!user) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid email or password.',
-          });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid email or password.',
-          });
-        }
-
-        const { password: _, ...publicUser } = user;
-        const token = generateToken(user.id);
-
-        return res.status(200).json({
-          success: true,
-          message: 'Login successful!',
-          user: publicUser,
-          token,
-        });
-      }
-
-      // MongoDB Mode
-      const user = await User.findOne({ email }).select('+password');
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid email or password.',
-        });
-      }
-
-      const isMatch = await user.comparePassword(password);
+      const record = await userStore.findByEmailWithPassword(req.body.email);
+      const isMatch = record && await bcrypt.compare(req.body.password, record.passwordHash);
       if (!isMatch) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid email or password.',
-        });
+        return res.status(401).json({ success: false, message: 'Invalid email or password.' });
       }
-
-      const token = generateToken(user._id.toString());
-
       return res.status(200).json({
         success: true,
         message: 'Login successful!',
-        user: user.toPublicProfile(),
-        token,
+        user: record.user,
+        token: signToken(record.user.id),
       });
     } catch (err) {
-      console.error('[Login Error]', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Server error. Please try again later.',
-      });
+      next(err);
     }
   }
 );
 
-// ─── PUT /api/auth/profile ────────────────────────────────────────────────────
-// Update user profile parameters in MongoDB / Mock DB
-router.put('/profile', async (req, res) => {
-  const {
-    id,
-    email,
-    name,
-    gender,
-    height,
-    weight,
-    targetWeight,
-    fitnessLevel,
-    activityStatus,
-    goal,
-    diet,
-    avatarUrl,
-  } = req.body;
-
-  try {
-    if (process.env.MOCK_DB === 'true') {
-      const users = mockDb.getUsers();
-      const targetUser = users.find((u) => u.id === id || u.email === email);
-      if (!targetUser) {
-        return res.status(44).json({ success: false, message: 'User not found' });
-      }
-
-      const updatedFields = {
-        name: name || targetUser.name,
-        gender: gender || targetUser.gender,
-        height: height ? Number(height) : targetUser.height,
-        weight: weight ? Number(weight) : targetUser.weight,
-        targetWeight: targetWeight ? Number(targetWeight) : targetUser.targetWeight,
-        fitnessLevel: fitnessLevel || targetUser.fitnessLevel,
-        activityStatus: activityStatus || targetUser.activityStatus,
-        goal: goal || targetUser.goal,
-        diet: diet || targetUser.diet,
-        avatarUrl: avatarUrl !== undefined ? avatarUrl : targetUser.avatarUrl,
-      };
-
-      const updated = mockDb.updateUser(targetUser.id, updatedFields);
-      const { password: _, ...publicUser } = updated;
-
-      return res.status(200).json({
-        success: true,
-        message: 'Profile updated successfully!',
-        user: publicUser,
-      });
-    }
-
-    // MongoDB Mode
-    const query = id ? { _id: id } : { email };
-    const user = await User.findOne(query);
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found in MongoDB' });
-    }
-
-    if (name) user.name = name;
-    if (gender) user.gender = gender;
-    if (height) user.height = Number(height);
-    if (weight) user.weight = Number(weight);
-    if (targetWeight) user.targetWeight = Number(targetWeight);
-    if (fitnessLevel) user.fitnessLevel = fitnessLevel;
-    if (activityStatus) user.activityStatus = activityStatus;
-    if (goal) user.goal = goal;
-    if (diet) user.diet = diet;
-    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
-
-    await user.save();
-
-    return res.status(200).json({
-      success: true,
-      message: 'Profile updated successfully in MongoDB!',
-      user: user.toPublicProfile(),
-    });
-  } catch (err) {
-    console.error('[Profile Update Error]', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error updating profile.',
-    });
-  }
+// ─── GET /api/auth/me ─────────────────────────────────────────────────────────
+// Validates the token and returns the current user's profile.
+router.get('/me', authMiddleware, (req, res) => {
+  res.status(200).json({ success: true, user: req.user });
 });
 
-// ─── GET /api/auth/users ─────────────────────────────────────────────────────
-if (process.env.NODE_ENV !== 'production') {
-  router.get('/users', async (_req, res) => {
-    try {
-      if (process.env.MOCK_DB === 'true') {
-        const users = mockDb.getUsers();
-        return res.status(200).json({ success: true, count: users.length, users });
-      }
-      const users = await User.find({}).sort({ createdAt: -1 });
-      return res.status(200).json({ success: true, count: users.length, users });
-    } catch (err) {
-      return res.status(500).json({ success: false, message: 'Server error.' });
+// ─── PUT /api/auth/profile ────────────────────────────────────────────────────
+// Updates the signed-in user's own profile. The target user always comes from
+// the token, never from the request body.
+router.put('/profile', authMiddleware, profileRules, rejectInvalid, async (req, res, next) => {
+  try {
+    const user = await userStore.updateProfile(req.user.id, req.body);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
-  });
-}
+    return res.status(200).json({ success: true, message: 'Profile updated successfully!', user });
+  } catch (err) {
+    next(err);
+  }
+});
 
 module.exports = router;

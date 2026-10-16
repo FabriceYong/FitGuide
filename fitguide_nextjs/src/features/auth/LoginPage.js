@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Dumbbell, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
-const API_BASE = 'http://localhost:5001/api';
+import { apiRequest } from '../../lib/api';
 
 export const LoginPage = ({ onLoginSuccess, onSwitchToRegister }) => {
     const [email, setEmail] = useState('');
@@ -16,20 +16,10 @@ export const LoginPage = ({ onLoginSuccess, onSwitchToRegister }) => {
         setError(null);
         setIsLoading(true);
         try {
-            const response = await fetch(`${API_BASE}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
-            });
-            const data = await response.json();
-            if (data.success) {
-                onLoginSuccess(data.user);
-            } else {
-                setError(data.message || 'Login failed. Please check your credentials.');
-            }
+            const data = await apiRequest('/auth/login', { method: 'POST', body: { email, password } });
+            onLoginSuccess(data.user, data.token);
         } catch (error) {
-            setError('Network error. Please check your connection and try again.');
-            console.error('Login error:', error);
+            setError(error.message || 'Login failed. Please check your credentials.');
         } finally {
             setIsLoading(false);
         }

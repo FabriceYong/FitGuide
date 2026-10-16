@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+import { apiRequest, assetUrl } from '../../../lib/api';
 
 // BMI calculation helper
 function calcBMI(weight, height) {
@@ -48,7 +48,7 @@ const ACTIVITY_STATUS_CONFIG = {
 };
 
 export const ProfileTab = ({ onLogout }) => {
-    const { user, login } = useAuth();
+    const { user, isGuest, updateUser } = useAuth();
     const [showEditModal, setShowEditModal] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState(null);
@@ -100,16 +100,15 @@ export const ProfileTab = ({ onLogout }) => {
         if (!file) return;
         const localPreview = URL.createObjectURL(file);
         setEditForm((prev) => ({ ...prev, avatarUrl: localPreview }));
+        if (isGuest) return; // guests keep a local preview only
         try {
             const formData = new FormData();
             formData.append('avatar', file);
-            const res = await fetch(`${API_BASE}/upload/avatar`, { method: 'POST', body: formData });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message);
-            const backendHost = API_BASE.replace('/api', '');
-            setEditForm((prev) => ({ ...prev, avatarUrl: `${backendHost}${data.avatarUrl}` }));
-        } catch {
-            // keep local preview
+            const data = await apiRequest('/upload/avatar', { method: 'POST', formData, auth: true });
+            setEditForm((prev) => ({ ...prev, avatarUrl: data.avatarUrl }));
+        } catch (err) {
+            setSaveError(err.message);
+            setEditForm((prev) => ({ ...prev, avatarUrl: user?.avatarUrl || null }));
         }
     };
 
@@ -118,30 +117,17 @@ export const ProfileTab = ({ onLogout }) => {
         setSaveSuccess(false);
         setIsSaving(true);
         try {
-            const payload = {
-                id: user?.id || user?._id,
-                email: user?.email,
-                ...editForm,
-            };
-            const res = await fetch(`${API_BASE}/auth/profile`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Failed to update profile.');
-
-            // Merge updated fields into user context
-            const updatedUser = { ...user, ...data.user, ...editForm };
-            login(updatedUser);
+            if (isGuest) {
+                // Guests have no server profile; keep the changes on this device.
+                updateUser(editForm);
+            } else {
+                const data = await apiRequest('/auth/profile', { method: 'PUT', body: editForm, auth: true });
+                updateUser(data.user);
+            }
             setSaveSuccess(true);
             setTimeout(() => setShowEditModal(false), 1200);
         } catch (err) {
-            // Gracefully update locally even if API fails (offline mode)
-            const updatedUser = { ...user, ...editForm };
-            login(updatedUser);
-            setSaveSuccess(true);
-            setTimeout(() => setShowEditModal(false), 1200);
+            setSaveError(err.message || 'Failed to update profile.');
         } finally {
             setIsSaving(false);
         }
@@ -154,7 +140,7 @@ export const ProfileTab = ({ onLogout }) => {
                 <div className="relative">
                     <div className="w-24 h-24 rounded-full border-2 border-lime-light flex items-center justify-center bg-obsidian-wave overflow-hidden">
                         {user?.avatarUrl ? (
-                            <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                            <img src={assetUrl(user.avatarUrl)} alt="Avatar" className="w-full h-full object-cover" />
                         ) : (
                             <User className="w-10 h-10 text-white-30" />
                         )}
@@ -376,7 +362,7 @@ export const ProfileTab = ({ onLogout }) => {
                             <div className="relative">
                                 <div className="w-20 h-20 rounded-full bg-noir-eclipse border-2 border-lime-light overflow-hidden flex items-center justify-center">
                                     {editForm.avatarUrl ? (
-                                        <img src={editForm.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                        <img src={assetUrl(editForm.avatarUrl)} alt="Avatar" className="w-full h-full object-cover" />
                                     ) : (
                                         <User className="w-8 h-8 text-white-30" />
                                     )}

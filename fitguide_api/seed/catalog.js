@@ -8,6 +8,7 @@ const { prisma } = require('../db/prisma');
 const workoutsData = require('./workoutSeeder');
 const exercisesData = require('./exerciseSeeder');
 const programsData = require('./programSeeder');
+const foodsData = require('./foodSeeder');
 
 const WORKOUT_FIELDS = [
   'title', 'description', 'shortDescription', 'category', 'difficulty', 'duration', 'calories', 'intensity',
@@ -18,6 +19,7 @@ const EXERCISE_FIELDS = [
   'name', 'aliases', 'category', 'trackingType', 'primaryMuscles', 'equipment', 'instructions', 'formCues', 'commonMistakes',
 ];
 const PROGRAM_FIELDS = ['title', 'description', 'level', 'goal', 'weeks', 'daysPerWeek'];
+const FOOD_FIELDS = ['name', 'category', 'servingLabel', 'servingSize', 'servingUnit', 'calories', 'protein', 'carbs', 'fat', 'fiber', 'diets'];
 
 const pick = (source, keys) => Object.fromEntries(keys.filter((k) => source[k] !== undefined).map((k) => [k, source[k]]));
 
@@ -58,12 +60,25 @@ async function seedCatalog() {
     });
   }
 
-  return { workouts: workoutsData.length, exercises: exercisesData.length, programs: programsData.length };
+  for (const [i, f] of foodsData.entries()) {
+    const data = pick(f, FOOD_FIELDS);
+    await prisma.food.upsert({
+      where: { slug: f.slug },
+      create: { ...data, slug: f.slug, createdAt: createdAt(i) },
+      update: data,
+    });
+  }
+
+  return { workouts: workoutsData.length, exercises: exercisesData.length, programs: programsData.length, foods: foodsData.length };
 }
 
-/** Seed only when the catalog is empty (first start against a new database). */
+/**
+ * Seed when part of the catalog is missing: a new database, or one created
+ * before a catalog type (e.g. foods) existed.
+ */
 async function seedCatalogIfEmpty() {
-  if (await prisma.workout.count()) return null;
+  const counts = await Promise.all([prisma.workout.count(), prisma.exercise.count(), prisma.program.count({ where: { ownerId: null } }), prisma.food.count({ where: { ownerId: null } })]);
+  if (counts.every((n) => n > 0)) return null;
   return seedCatalog();
 }
 

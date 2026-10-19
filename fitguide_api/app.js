@@ -23,6 +23,7 @@ const bodyMetricsRoutes = require('./routes/bodyMetrics');
 const progressRoutes = require('./routes/progress');
 const planRoutes = require('./routes/plan');
 const coachRoutes = require('./routes/coach');
+const nutritionRoutes = require('./routes/nutrition');
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -101,6 +102,7 @@ function createApp() {
   app.use('/api/progress', progressRoutes);
   app.use('/api/plan', planRoutes);
   app.use('/api/coach', coachRoutes);
+  app.use('/api/nutrition', nutritionRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

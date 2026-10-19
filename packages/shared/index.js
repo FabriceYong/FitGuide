@@ -18,6 +18,9 @@ const PROFILE = {
   WEIGHT_KG: [30, 250],
   NAME_MAX: 100,
   PASSWORD_MIN: 6,
+  // Users must be at least 13.
+  MIN_BIRTH_YEAR: 1900,
+  MIN_AGE: 13,
 };
 
 const CATALOG = {
@@ -45,4 +48,18 @@ const TRAINING = {
   NOTES_MAX: 1000,
 };
 
-module.exports = { PROFILE, CATALOG, TRAINING };
+const NUTRITION = {
+  MEALS: ['breakfast', 'lunch', 'dinner', 'snack'],
+  FOOD_CATEGORIES: ['protein', 'legume', 'grain', 'fruit', 'vegetable', 'fat', 'dairy', 'snack', 'custom'],
+  // Food tag each profile diet maps to.
+  DIET_TAGS: {
+    'Keto Diet': 'keto',
+    'Mediterranean Diet': 'mediterranean',
+    'Paleo Diet': 'paleo',
+    'Intermittent Fasting': 'flexible',
+    'Flexible Balanced Plan': 'flexible',
+  },
+  MAX_SERVINGS: 20,
+};
+
+module.exports = { PROFILE, CATALOG, TRAINING, NUTRITION };

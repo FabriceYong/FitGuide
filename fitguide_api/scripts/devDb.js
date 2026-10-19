@@ -16,7 +16,7 @@ async function main() {
   const { seedCatalogIfEmpty } = require('../seed/catalog');
   const { prisma } = require('../db/prisma');
   const seeded = await seedCatalogIfEmpty();
-  if (seeded) console.log(`Loaded ${seeded.workouts} workouts, ${seeded.exercises} exercises, ${seeded.programs} programs.`);
+  if (seeded) console.log(`Loaded ${seeded.workouts} workouts, ${seeded.exercises} exercises, ${seeded.programs} programs, ${seeded.foods} foods.`);
   await prisma.$disconnect();
 
   console.log('Postgres is running. In fitguide_api/.env set:');

@@ -2,16 +2,22 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "fitguide-web",
+      "name": "fitguide-db",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "fitguide_nextjs", "run", "dev"],
-      "port": 3000
+      "runtimeArgs": ["--prefix", "fitguide_api", "run", "db:dev"],
+      "port": 5433
     },
     {
       "name": "fitguide-api",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "fitguide_api", "start"],
       "port": 5001
+    },
+    {
+      "name": "fitguide-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "fitguide_nextjs", "run", "dev"],
+      "port": 3000
     }
   ]
 }

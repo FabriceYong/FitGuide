@@ -20,7 +20,7 @@ async function start() {
   try {
     await prisma.$connect();
     const seeded = await seedCatalogIfEmpty();
-    if (seeded) console.log(`🌱 Empty catalog: loaded ${seeded.workouts} workouts, ${seeded.exercises} exercises, ${seeded.programs} programs.`);
+    if (seeded) console.log(`🌱 Catalog loaded: ${seeded.workouts} workouts, ${seeded.exercises} exercises, ${seeded.programs} programs, ${seeded.foods} foods.`);
   } catch (err) {
     console.error('❌ Could not use the database:', err.message);
     console.error('   Start one with `npm run db:dev` (or Docker), then `npm run db:deploy`.');

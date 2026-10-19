@@ -29,6 +29,7 @@ model User {
   goal           String   @default("Vitality")
   diet           String   @default("Mediterranean Diet")
   role           String   @default("user") // user | admin
+  birthYear      Int?
   avatarUrl      String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -44,6 +45,8 @@ model User {
   refreshTokens RefreshToken[]
   ownPrograms   Program[]            @relation("ProgramOwner")
   coachMessages CoachMessage[]
+  foods         Food[]
+  foodLogs      FoodLog[]
 
   @@map("users")
 }
@@ -362,4 +365,52 @@ model CoachMessage {
 
   @@index([userId, createdAt])
   @@map("coach_messages")
+}
+
+// ─── Nutrition ───────────────────────────────────────────────────────────────
+
+// Catalog foods (ownerId null) and foods a user added for themselves.
+// Nutrition values are per serving.
+model Food {
+  id           String   @id @default(uuid())
+  slug         String   @unique
+  name         String   @db.VarChar(120)
+  category     String // protein | legume | grain | fruit | vegetable | fat | dairy | snack | custom
+  servingLabel String   @db.VarChar(60)
+  servingSize  Float
+  servingUnit  String   @default("g")
+  calories     Float
+  protein      Float
+  carbs        Float
+  fat          Float
+  fiber        Float    @default(0)
+  diets        String[] // diets the food fits: mediterranean, keto, paleo, flexible, vegetarian, vegan
+  ownerId      String?
+  createdAt    DateTime @default(now())
+
+  owner User? @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@map("foods")
+}
+
+// One logged food. Name and totals are copied in, so the log survives catalog edits.
+model FoodLog {
+  id        String   @id @default(uuid())
+  userId    String
+  date      String   @db.VarChar(10) // YYYY-MM-DD, user's local date
+  meal      String // breakfast | lunch | dinner | snack
+  foodSlug  String?
+  name      String   @db.VarChar(120)
+  servings  Float
+  calories  Float
+  protein   Float
+  carbs     Float
+  fat       Float
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@map("food_logs")
 }

@@ -14,6 +14,7 @@ const { CATALOG } = require('@fitguide/shared');
 const plans = require('./plans');
 const { sessionStore } = require('../stores/records');
 const { localDate } = require('../utils/dates');
+const nutrition = require('./nutrition');
 
 const MODEL = () => process.env.COACH_MODEL || 'claude-opus-5-5';
 const EFFORT = () => process.env.COACH_EFFORT || 'low';
@@ -112,10 +113,12 @@ const compactPlan = (plan) => plan && {
 
 /** What the coach should know this turn, as a system message. */
 async function snapshot(user, todayYmd, tzOffset) {
-  const [plan, sessions] = await Promise.all([
+  const [plan, sessions, foodToday] = await Promise.all([
     plans.current(user.id, todayYmd),
     sessionStore.list(user.id, { sortField: 'completedAt', limit: 8 }),
+    prisma.foodLog.findMany({ where: { userId: user.id, date: todayYmd } }),
   ]);
+  const target = nutrition.targets(user);
   const context = {
     today: todayYmd,
     profile: {
@@ -127,8 +130,13 @@ async function snapshot(user, todayYmd, tzOffset) {
       weightKg: user.weight,
       targetWeightKg: user.targetWeight,
       diet: user.diet,
+      birthYear: user.birthYear,
     },
     plan: plan ? { title: plan.programTitle, currentWeek: plan.currentWeek, weeks: plan.weeks, adherencePct: plan.adherencePct, nextDays: plan.schedule.filter((d) => d.status !== 'done').slice(0, 5).map((d) => ({ week: d.week, day: d.day, date: d.date, title: d.title, status: d.status })) } : null,
+    nutritionToday: {
+      target: { calories: target.calories, protein: target.protein, carbs: target.carbs, fat: target.fat },
+      logged: nutrition.totals(foodToday),
+    },
     recentSessions: sessions.map((s) => ({
       date: localDate(s.completedAt, tzOffset),
       workout: s.workoutTitle,

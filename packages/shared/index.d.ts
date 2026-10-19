@@ -10,6 +10,8 @@ export declare const PROFILE: {
   readonly WEIGHT_KG: Range;
   readonly NAME_MAX: number;
   readonly PASSWORD_MIN: number;
+  readonly MIN_BIRTH_YEAR: number;
+  readonly MIN_AGE: number;
 };
 
 export declare const CATALOG: {
@@ -32,3 +34,12 @@ export declare const TRAINING: {
 export type Goal = (typeof PROFILE.GOALS)[number];
 export type FitnessLevel = (typeof PROFILE.FITNESS_LEVELS)[number];
 export type Diet = (typeof PROFILE.DIETS)[number];
+
+export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export declare const NUTRITION: {
+  readonly MEALS: readonly Meal[];
+  readonly FOOD_CATEGORIES: readonly string[];
+  readonly DIET_TAGS: Readonly<Record<string, string>>;
+  readonly MAX_SERVINGS: number;
+};

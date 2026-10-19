@@ -67,6 +67,7 @@ export const ProfileTab = ({ onLogout }) => {
         goal: user?.goal || 'Vitality',
         diet: user?.diet || 'Mediterranean Diet',
         avatarUrl: user?.avatarUrl || null,
+        birthYear: user?.birthYear || '',
     });
 
     const bmi = calcBMI(user?.weight, user?.height);
@@ -89,6 +90,7 @@ export const ProfileTab = ({ onLogout }) => {
             goal: user?.goal || 'Vitality',
             diet: user?.diet || 'Mediterranean Diet',
             avatarUrl: user?.avatarUrl || null,
+            birthYear: user?.birthYear || '',
         });
         setSaveError(null);
         setSaveSuccess(false);
@@ -121,7 +123,8 @@ export const ProfileTab = ({ onLogout }) => {
                 // Guests have no server profile; keep the changes on this device.
                 updateUser(editForm);
             } else {
-                const data = await apiRequest('/auth/profile', { method: 'PUT', body: editForm, auth: true });
+                const body = { ...editForm, birthYear: editForm.birthYear === '' ? null : editForm.birthYear };
+                const data = await apiRequest('/auth/profile', { method: 'PUT', body, auth: true });
                 updateUser(data.user);
             }
             setSaveSuccess(true);
@@ -430,6 +433,18 @@ export const ProfileTab = ({ onLogout }) => {
                                 value={editForm.weight}
                                 onChange={(e) => setEditForm((p) => ({ ...p, weight: Number(e.target.value) }))}
                                 className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-lime-light"
+                            />
+                        </div>
+
+                        {/* Birth year (for calorie targets) */}
+                        <div className="space-y-2">
+                            <label htmlFor="profile-birth-year" className="text-[10px] font-extrabold text-white-50 uppercase tracking-widest">Birth year</label>
+                            <input
+                                id="profile-birth-year" type="number" inputMode="numeric" min="1900" max={new Date().getFullYear() - 13}
+                                placeholder="Used for calorie targets"
+                                value={editForm.birthYear}
+                                onChange={(e) => setEditForm((p) => ({ ...p, birthYear: e.target.value === '' ? '' : Number(e.target.value) }))}
+                                className="w-full bg-white/5 border border-white-30/15 rounded-xl px-4 py-2.5 text-sm text-white"
                             />
                         </div>
 

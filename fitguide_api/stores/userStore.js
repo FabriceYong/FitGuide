@@ -17,11 +17,12 @@ const PROFILE_DEFAULTS = {
   goal: 'Vitality',
   diet: 'Mediterranean Diet',
   avatarUrl: null,
+  birthYear: null,
 };
 
 // Fields a user may change about themselves through the profile endpoint.
-const EDITABLE_FIELDS = ['name', 'gender', 'height', 'weight', 'targetWeight', 'fitnessLevel', 'activityStatus', 'goal', 'diet', 'avatarUrl'];
-const NUMERIC_FIELDS = new Set(['height', 'weight', 'targetWeight']);
+const EDITABLE_FIELDS = ['name', 'gender', 'height', 'weight', 'targetWeight', 'fitnessLevel', 'activityStatus', 'goal', 'diet', 'avatarUrl', 'birthYear'];
+const NUMERIC_FIELDS = new Set(['height', 'weight', 'targetWeight', 'birthYear']);
 
 const withFavorites = { favorites: { select: { workoutSlug: true }, orderBy: { createdAt: 'asc' } } };
 
@@ -44,7 +45,8 @@ function pickProfileUpdates(body) {
   const updates = {};
   for (const field of EDITABLE_FIELDS) {
     if (body[field] === undefined || body[field] === '') continue;
-    updates[field] = NUMERIC_FIELDS.has(field) ? Number(body[field]) : body[field];
+    if (body[field] === null) updates[field] = null; // clearing an optional field
+    else updates[field] = NUMERIC_FIELDS.has(field) ? Number(body[field]) : body[field];
   }
   return updates;
 }

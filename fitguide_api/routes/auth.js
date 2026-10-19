@@ -26,6 +26,10 @@ const profileRules = [
   body('goal').optional().isIn(GOALS).withMessage('Invalid goal'),
   body('diet').optional().isIn(DIETS).withMessage('Invalid diet'),
   body('avatarUrl').optional({ values: 'null' }).isString().isLength({ max: 500 }),
+  body('birthYear').optional({ values: 'null' }).custom((value) => {
+    const year = Number(value);
+    return Number.isInteger(year) && year >= PROFILE.MIN_BIRTH_YEAR && year <= new Date().getFullYear() - PROFILE.MIN_AGE;
+  }).withMessage(`You must be at least ${PROFILE.MIN_AGE} to use FitGuide`),
 ];
 
 const wantsBearer = (req) => String(req.get('X-Auth-Transport') || '').toLowerCase() === 'bearer';

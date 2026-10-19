@@ -178,8 +178,13 @@ function defineTrainingSuite(ctx) {
     });
 
     it('caps active time at the time between start and finish', async () => {
+      // One instant for both times, so they are exactly 5 minutes apart.
+      const now = Date.now();
       const res = await lifter.agent.post('/api/sessions').send(session('morning-yoga-flow', {
-        startedAt: minutesAgo(10), completedAt: minutesAgo(5), durationSec: 3600, status: 'partial',
+        startedAt: new Date(now - 10 * 60e3).toISOString(),
+        completedAt: new Date(now - 5 * 60e3).toISOString(),
+        durationSec: 3600,
+        status: 'partial',
       })).expect(201);
       assert.ok(res.body.session.durationSec <= 6 * 60);
       assert.equal(res.body.session.status, 'partial');

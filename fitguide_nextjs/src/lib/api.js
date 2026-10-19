@@ -49,6 +49,9 @@ export function assetUrl(path) {
     return `${API_ORIGIN}${path.startsWith('/') ? '' : '/'}${path}`;
 }
 
+// Calls that start or end a session; a 401 from them is final.
+const NO_REFRESH_PATHS = new Set(['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout']);
+
 // One refresh at a time: concurrent 401s share the same attempt.
 let refreshing = null;
 
@@ -112,7 +115,7 @@ export async function apiRequest(path, { method = 'GET', body, formData, query, 
     try {
         response = await send();
         // Access tokens are short-lived: on a 401, refresh once and retry.
-        if (response.status === 401 && hasSession() && !path.startsWith('/auth/') && await refreshSession()) {
+        if (response.status === 401 && hasSession() && !NO_REFRESH_PATHS.has(path) && await refreshSession()) {
             response = await send();
         }
     } catch {

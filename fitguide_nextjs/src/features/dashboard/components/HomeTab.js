@@ -11,10 +11,24 @@ import { useWorkouts } from '../../../context/WorkoutContext';
 import { ParqModal, PARQ_STORAGE_KEY } from '../../../components/ParqModal';
 import { ArticleDetailPage } from './ArticleDetailPage';
 import { FULL_ARTICLES } from '../data/articlesData';
+import { fetchProgressSummary } from '../../../services/trainingService';
 
 export const HomeTab = ({ onSelectWorkout, onHeroColorChange, heroColor = '#00C4B4', onNavigateToPrograms, onNavigateToExplore, onNavigateToProgress, onNavigateToProfile, onViewProgressDetail, }) => {
-  const { user } = useAuth();
+  const { user, hasAccount } = useAuth();
   const { workouts } = useWorkouts();
+  // Real stats from the user's logged sessions (null for guests or while loading).
+  const [progress, setProgress] = useState(null);
+  useEffect(() => {
+    if (!hasAccount) return;
+    fetchProgressSummary()
+      .then((data) => setProgress(data.summary))
+      .catch((err) => console.warn('Progress summary unavailable:', err.message));
+  }, [hasAccount]);
+  const lastWeek = progress?.days.slice(-7) || [];
+  // Sessions per 7-day block over the last 12 weeks, for the total-workouts sparkline.
+  const weeklySessions = progress
+    ? Array.from({ length: 12 }, (_, i) => progress.days.slice(i * 7, i * 7 + 7).reduce((n, d) => n + d.sessions, 0))
+    : [];
   const [visibleSections, setVisibleSections] = useState(new Set());
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [showParqModal, setShowParqModal] = useState(false);
@@ -159,10 +173,10 @@ export const HomeTab = ({ onSelectWorkout, onHeroColorChange, heroColor = '#00C4
         </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <EnhancedStatsCard icon={<Dumbbell className="w-6 h-6" />} label="Total Workouts" value={47} change={12} color="#00C4B4" data={[30, 35, 38, 42, 44, 45, 47]} chartType="area" target={50} comparison={{ label: 'last month', value: 35 }} />
-        <EnhancedStatsCard icon={<Clock className="w-6 h-6" />} label="Minutes This Week" value={320} suffix="min" change={8} color="#3E25F5" data={[280, 290, 295, 300, 305, 315, 320]} chartType="line" target={350} />
-        <EnhancedStatsCard icon={<Flame className="w-6 h-6" />} label="Calories Today" value={1240} suffix="cal" change={-3} color="#EF4444" data={[1100, 1150, 1200, 1180, 1220, 1260, 1240]} chartType="bar" target={1500} />
-        <EnhancedStatsCard icon={<Target className="w-6 h-6" />} label="Current Streak" value={12} suffix="days" color="#10B981" data={[5, 6, 7, 8, 9, 10, 11, 12]} chartType="area" target={30} comparison={{ label: 'best', value: 15 }} />
+        <EnhancedStatsCard icon={<Dumbbell className="w-6 h-6" />} label="Total Workouts" value={progress?.totals.sessions ?? 0} color="#00C4B4" data={weeklySessions} chartType="area" />
+        <EnhancedStatsCard icon={<Clock className="w-6 h-6" />} label="Minutes This Week" value={progress?.thisWeek.minutes ?? 0} suffix="min" color="#3E25F5" data={lastWeek.map((d) => d.minutes)} chartType="line" />
+        <EnhancedStatsCard icon={<Flame className="w-6 h-6" />} label="Calories This Week" value={progress?.thisWeek.calories ?? 0} suffix="cal" color="#EF4444" data={lastWeek.map((d) => d.calories)} chartType="bar" />
+        <EnhancedStatsCard icon={<Target className="w-6 h-6" />} label="Current Streak" value={progress?.streak.current ?? 0} suffix="days" color="#10B981" data={lastWeek.map((d) => d.sessions)} chartType="bar" comparison={progress ? { label: 'best', value: progress.streak.longest } : undefined} />
       </div>
     </section>
 

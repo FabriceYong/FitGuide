@@ -16,7 +16,11 @@ const loadData = () => {
   return {};
 };
 
+// User-owned record collections (workout sessions, enrollments, body metrics).
+const COLLECTIONS = ['workoutSessions', 'enrollments', 'bodyMetrics'];
+
 const data = { users: [], reviews: [], workoutStats: {}, ...loadData() };
+for (const name of COLLECTIONS) data[name] = data[name] || [];
 // Workouts are always served from seed/workoutSeeder.js; drop any stale copy.
 delete data.workouts;
 
@@ -127,5 +131,28 @@ module.exports = {
     data.workoutStats[slug] = stats;
     saveData();
     return stats;
+  },
+
+  // Generic access to the user-owned collections in COLLECTIONS.
+  all: (collection) => data[collection],
+  insert: (collection, record) => {
+    data[collection].push(record);
+    saveData();
+    return record;
+  },
+  update: (collection, id, updateFn) => {
+    const record = data[collection].find((r) => r.id === id);
+    if (!record) return null;
+    updateFn(record);
+    record.updatedAt = new Date().toISOString();
+    saveData();
+    return record;
+  },
+  remove: (collection, id) => {
+    const idx = data[collection].findIndex((r) => r.id === id);
+    if (idx === -1) return false;
+    data[collection].splice(idx, 1);
+    saveData();
+    return true;
   },
 };

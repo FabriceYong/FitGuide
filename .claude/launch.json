@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "fitguide_nextjs", "run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "fitguide-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "fitguide_api", "start"],
+      "port": 5001
     }
   ]
 }

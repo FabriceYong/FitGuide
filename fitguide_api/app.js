@@ -15,6 +15,12 @@ const exerciseLibraryRoutes = require('./routes/exerciseLibrary');
 const articlesRoutes = require('./routes/articles');
 const favoritesRoutes = require('./routes/favorites');
 const customImagesRoutes = require('./routes/customImages');
+const exercisesRoutes = require('./routes/exercises');
+const programsRoutes = require('./routes/programs');
+const enrollmentsRoutes = require('./routes/enrollments');
+const sessionsRoutes = require('./routes/sessions');
+const bodyMetricsRoutes = require('./routes/bodyMetrics');
+const progressRoutes = require('./routes/progress');
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -85,6 +91,12 @@ function createApp() {
   app.use('/api/articles', articlesRoutes);
   app.use('/api/favorites', favoritesRoutes);
   app.use('/api/custom-images', customImagesRoutes);
+  app.use('/api/exercises', exercisesRoutes);
+  app.use('/api/programs', programsRoutes);
+  app.use('/api/enrollments', enrollmentsRoutes);
+  app.use('/api/sessions', sessionsRoutes);
+  app.use('/api/body-metrics', bodyMetricsRoutes);
+  app.use('/api/progress', progressRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

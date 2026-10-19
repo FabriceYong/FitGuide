@@ -1,0 +1,15 @@
+import { SiteHeader } from '../../components/SiteHeader';
+import { ProgressView } from '../../features/progress/ProgressView';
+
+export const metadata = { title: 'Your progress', robots: { index: false } };
+
+export default function ProgressPage() {
+  return (
+    <div className="min-h-screen bg-noir-eclipse text-white font-poppins">
+      <SiteHeader active="/progress" />
+      <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-10">
+        <ProgressView />
+      </main>
+    </div>
+  );
+}

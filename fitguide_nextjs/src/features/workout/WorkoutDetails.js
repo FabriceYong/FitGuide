@@ -7,9 +7,13 @@ import { fetchWorkoutBySlug } from '../../services/workoutService';
 import { addToFavorites, removeFromFavorites, checkIsFavorite } from '../../services/favoriteService';
 import { useWorkoutImage } from '../../hooks/useWorkoutImage';
 import { useAuth } from '../../contexts/AuthContext';
-export const WorkoutDetails = ({ workoutSlug, tintColor, onBack, onBegin, }) => {
-    const [workout, setWorkout] = useState(null);
-    const [loading, setLoading] = useState(true);
+/**
+ * @param {object} [props.initialWorkout] Workout already fetched (e.g. by the
+ *        server-rendered /workouts/[slug] page); skips the client fetch.
+ */
+export const WorkoutDetails = ({ workoutSlug, initialWorkout = null, tintColor, onBack, onBegin, }) => {
+    const [workout, setWorkout] = useState(initialWorkout);
+    const [loading, setLoading] = useState(!initialWorkout);
     const [error, setError] = useState(null);
     const [isFavorite, setIsFavorite] = useState(false);
     const [favoriteLoading, setFavoriteLoading] = useState(false);
@@ -23,8 +27,12 @@ export const WorkoutDetails = ({ workoutSlug, tintColor, onBack, onBegin, }) => 
         useDynamicImages: true,
     });
     useEffect(() => {
+        if (initialWorkout) {
+            checkIsFavorite(initialWorkout.slug).then(setIsFavorite).catch(() => {});
+            return;
+        }
         fetchWorkoutDetails();
-    }, [workoutSlug]);
+    }, [workoutSlug, initialWorkout]);
     const fetchWorkoutDetails = async () => {
         try {
             setLoading(true);

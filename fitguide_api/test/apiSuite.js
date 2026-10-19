@@ -6,6 +6,7 @@ const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { createApp, createAppWith, useDatabase } = require('./helpers/setup');
+const { defineTrainingSuite } = require('./trainingSuite');
 
 const ALLOWED_ORIGIN = 'http://localhost:3000';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
@@ -364,6 +365,8 @@ function defineApiSuite(mode) {
         await alice.agent.post('/api/upload/avatar').expect(400);
       });
     });
+
+    describe('training data', () => defineTrainingSuite(() => ({ app, signUp })));
 
     describe('rate limits', () => {
       it('limits failed logins', async () => {

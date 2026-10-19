@@ -1,13 +1,21 @@
-'use client';
-
 import './globals.css';
+import { Providers } from './providers';
+
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+
+export const metadata = {
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'FitGuide - Your Personal Fitness Companion',
+    template: '%s | FitGuide',
+  },
+  description: 'Guided workouts, multi-week training programs and progress tracking.',
+};
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-        <title>FitGuide - Your Personal Fitness Companion</title>
-        <meta name="description" content="Transform your fitness journey with personalized workout plans" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -16,7 +24,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

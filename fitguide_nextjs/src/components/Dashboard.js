@@ -1,18 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { AuthProvider } from '../contexts/AuthContext';
-import { AuthWrapper } from '../features/auth/AuthWrapper';
-import { WorkoutProvider } from '../context/WorkoutContext';
+import { useRouter } from 'next/navigation';
 import { HomeTab } from '../features/dashboard/components/HomeTab';
 import { ExploreTab } from '../features/dashboard/components/ExploreTab';
-import { ProgressTab } from '../features/dashboard/components/ProgressTab';
-import { ProgressDetailPage } from '../features/dashboard/components/ProgressDetailPage';
+import { ProgressView } from '../features/progress/ProgressView';
 import { ProfileTab } from '../features/profile/components/ProfileTab';
 import { FavoritesTab } from '../features/dashboard/components/FavoritesTab';
 import { ProgramsTab } from '../features/programs/ProgramsTab';
-import { WorkoutDetails } from '../features/workout/WorkoutDetails';
-import { EnhancedWorkoutExecution } from '../features/workout/EnhancedWorkoutExecution';
 import { Home, Compass, BarChart3, User, Dumbbell, LogOut, Heart, Calculator, Star, BookOpen } from 'lucide-react';
 import { ReviewsTab } from '../features/dashboard/components/ReviewsTab';
 import { CalculatorsTab } from '../features/dashboard/components/CalculatorsTab';
@@ -21,14 +16,26 @@ import { LoadingScreen } from './LoadingScreen';
 import { ImageAttribution } from './ImageAttribution';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkouts } from '../context/WorkoutContext';
+const TABS = ['home', 'explore', 'programs', 'favorites', 'progress', 'reviews', 'tools', 'profile'];
+
+// The dashboard only renders in the browser (behind AuthWrapper), so it can
+// read the tab from the URL on first render.
+const tabFromUrl = () => {
+    const tab = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
+    return TABS.includes(tab) ? tab : 'home';
+};
+
 const Dashboard = () => {
+    const router = useRouter();
     const { user, logout } = useAuth();
     const { loading, error, initialized } = useWorkouts();
-    const [activeTab, setActiveTab] = useState('home');
-    const [showProgressDetail, setShowProgressDetail] = useState(false);
-    const [selectedWorkout, setSelectedWorkout] = useState(null);
-    const [executingWorkout, setExecutingWorkout] = useState(null);
+    const [activeTab, setActiveTabState] = useState(tabFromUrl);
     const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+    // Keep the tab in the URL (?tab=) so Back from a workout page returns to it.
+    const setActiveTab = (tab) => {
+        setActiveTabState(tab);
+        window.history.replaceState(null, '', tab === 'home' ? '/' : `/?tab=${tab}`);
+    };
     const [heroColor, setHeroColor] = useState('#00C4B4'); // Track hero dominant color
     // Show loading screen while initializing workouts (but only briefly)
     if (!initialized && loading) {
@@ -41,42 +48,19 @@ const Dashboard = () => {
     const handleLogout = () => {
         logout();
         setActiveTab('home');
-        setSelectedWorkout(null);
-        setExecutingWorkout(null);
-        setShowProgressDetail(false);
     };
 
     const handleLogoutClick = () => {
         setShowLogoutDialog(true);
     };
-    const handleSelectWorkout = (slug, color) => {
-        setSelectedWorkout({ slug, color });
-        setExecutingWorkout(null);
+    // Workouts have their own pages (/workouts/[slug]); the player is /workouts/[slug]/play.
+    const handleSelectWorkout = (slug) => {
+        router.push(`/workouts/${slug}`);
     };
-    const handleBeginWorkout = (workout) => {
-        setExecutingWorkout(workout);
-    };
-    const handleExitExecution = () => {
-        setExecutingWorkout(null);
-    };
-    // If executing workout, display execution page
-    if (executingWorkout) {
-        return (<EnhancedWorkoutExecution workout={executingWorkout} tintColor={selectedWorkout?.color || '#00C4B4'} onExit={handleExitExecution} onComplete={() => {
-                setExecutingWorkout(null);
-                setSelectedWorkout(null);
-            }}/>);
-    }
-    // If viewing workout details, display it
-    if (selectedWorkout) {
-        return (<WorkoutDetails workoutSlug={selectedWorkout.slug} tintColor={selectedWorkout.color} onBack={() => setSelectedWorkout(null)} onBegin={handleBeginWorkout}/>);
-    }
     const renderTabContent = () => {
-        if (showProgressDetail) {
-            return <ProgressDetailPage onBack={() => setShowProgressDetail(false)} />;
-        }
         switch (activeTab) {
             case 'home':
-                return (<HomeTab onSelectWorkout={handleSelectWorkout} onHeroColorChange={setHeroColor} heroColor={heroColor} onNavigateToPrograms={() => setActiveTab('programs')} onNavigateToExplore={() => setActiveTab('explore')} onNavigateToProgress={() => setActiveTab('progress')} onNavigateToProfile={() => setActiveTab('profile')} onViewProgressDetail={() => setShowProgressDetail(true)}/>);
+                return (<HomeTab onSelectWorkout={handleSelectWorkout} onHeroColorChange={setHeroColor} heroColor={heroColor} onNavigateToPrograms={() => setActiveTab('programs')} onNavigateToExplore={() => setActiveTab('explore')} onNavigateToProgress={() => setActiveTab('progress')} onNavigateToProfile={() => setActiveTab('profile')} onViewProgressDetail={() => setActiveTab('progress')}/>);
             case 'explore':
                 return <ExploreTab onSelectWorkout={handleSelectWorkout}/>;
             case 'programs':
@@ -84,7 +68,7 @@ const Dashboard = () => {
             case 'favorites':
                 return <FavoritesTab onSelectWorkout={handleSelectWorkout}/>;
             case 'progress':
-                return <ProgressTab />;
+                return <ProgressView />;
             case 'profile':
                 return <ProfileTab onLogout={handleLogoutClick}/>;
             case 'reviews':
@@ -165,7 +149,7 @@ const Dashboard = () => {
             {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
-            return (<button key={item.id} onClick={() => { setActiveTab(item.id); setShowProgressDetail(false); }} className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all ${isActive
+            return (<button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all ${isActive
                     ? 'text-noir-eclipse'
                     : 'text-white-50 hover:text-white hover:bg-white-30/10'}`} style={isActive
                     ? {
@@ -216,7 +200,7 @@ const Dashboard = () => {
         {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
-            return (<button key={item.id} onClick={() => { setActiveTab(item.id); setShowProgressDetail(false); }} className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center">
+            return (<button key={item.id} onClick={() => setActiveTab(item.id)} className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center">
               <Icon className={`w-6 h-6 transition-colors duration-200 ${isActive ? 'text-lime-light' : 'text-white-30'}`}/>
               <span className={`text-[9px] mt-1 font-bold tracking-wider uppercase ${isActive ? 'text-white' : 'text-white-30'}`}>
                 {item.label}

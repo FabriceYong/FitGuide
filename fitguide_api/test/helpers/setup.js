@@ -48,6 +48,8 @@ async function useDatabase(mode) {
   const Workout = require('../../models/Workout');
   const User = require('../../models/User');
   const seedWorkouts = require('../../seed/workoutSeeder');
+  const Exercise = require('../../models/Exercise');
+  const Program = require('../../models/Program');
 
   const mongod = await MongoMemoryServer.create();
   const uri = mongod.getUri();
@@ -57,9 +59,11 @@ async function useDatabase(mode) {
   }
   await mongoose.connect(uri);
   process.env.MOCK_DB = 'false';
-  // Seed the collection so workouts are served by the Mongo code path rather
-  // than the seed-data fallback.
+  // Seed the catalog collections so they are served by the Mongo code path
+  // rather than the seed-data fallback.
   await Workout.insertMany(seedWorkouts);
+  await Exercise.insertMany(require('../../seed/exerciseSeeder'));
+  await Program.insertMany(require('../../seed/programSeeder'));
   await User.init(); // build the unique email index
 
   return async () => {

@@ -4,12 +4,13 @@
  * Enhanced Workout Execution Component
  * Professional Dark UI Redesign (FitGuide Next.js)
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useExerciseGif } from './hooks/useExerciseGif';
+import { SessionSummary } from './SessionSummary';
 import {
   X, Play, Pause, ChevronLeft, ChevronRight, Check, Clock,
   Flame, Target, AlertTriangle, Volume2, VolumeX, Info,
-  Zap, Activity, Award
+  Zap, Activity
 } from 'lucide-react';
 
 // Circular Timer SVG Component
@@ -47,7 +48,14 @@ function CircularTimer({ timeRemaining, totalDuration, color, isPlaying }) {
   );
 }
 
-export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', onExit, onComplete }) => {
+/**
+ * Guided workout player. When the workout ends (or the user stops early and
+ * chooses to save) it opens SessionSummary, which saves the session.
+ *
+ * @param {object} [props.program]  { enrollmentId, week, day } when this is a scheduled program day
+ * @param {(result?: object) => void} props.onComplete  Called when the user leaves the summary
+ */
+export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', program = null, onExit, onComplete }) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -56,7 +64,12 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', onExi
   const [completedSteps, setCompletedSteps] = useState(new Set());
   const [isResting, setIsResting] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
-  const [showCelebration, setShowCelebration] = useState(false);
+  // { status: 'completed' | 'partial', completedAt } while the end-of-session summary is open
+  const [summary, setSummary] = useState(null);
+  // Optional reps/weight the user logged per step: { [stepIndex]: { reps, weightKg } }
+  const [setInputs, setSetInputs] = useState({});
+  const startedAtRef = useRef(new Date().toISOString());
+  const stepSecondsRef = useRef({}); // active seconds spent on each step
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [gifLoaded, setGifLoaded] = useState(false);
 
@@ -272,6 +285,7 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', onExi
           return prev - 1;
         });
         setTotalElapsedTime(prev => prev + 1);
+        if (!isResting) stepSecondsRef.current[currentStepIndex] = (stepSecondsRef.current[currentStepIndex] || 0) + 1;
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -317,9 +331,50 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', onExi
 
   const handleWorkoutComplete = () => {
     setIsPlaying(false);
-    setShowCelebration(true);
+    setCompletedSteps(prev => new Set(prev).add(currentStepIndex));
     if (soundEnabled) playBeep();
-    setTimeout(() => onComplete(), 3500);
+    setSummary({ status: 'completed', completedAt: new Date().toISOString() });
+  };
+
+  const handleSaveAndExit = () => {
+    setShowExitDialog(false);
+    setIsPlaying(false);
+    setSummary({ status: 'partial', completedAt: new Date().toISOString() });
+  };
+
+  const updateSetInput = (field, value) => {
+    setSetInputs(prev => ({ ...prev, [currentStepIndex]: { ...prev[currentStepIndex], [field]: value } }));
+  };
+
+  /** The session as the API expects it (effort and notes are added by SessionSummary). */
+  const buildSessionDraft = () => {
+    const parse = (value, fn) => (value === undefined || value === '' ? undefined : fn(value));
+    const wallClockSec = Math.round((Date.parse(summary.completedAt) - Date.parse(startedAtRef.current)) / 1000);
+    const sets = steps.map((step, idx) => {
+      const seconds = stepSecondsRef.current[idx] || 0;
+      const input = setInputs[idx] || {};
+      const reps = parse(input.reps, (v) => Math.max(0, parseInt(v, 10)));
+      const weightKg = parse(input.weightKg, (v) => Math.max(0, parseFloat(v)));
+      if (!completedSteps.has(idx) && !seconds && reps === undefined && weightKg === undefined) return null;
+      return {
+        exerciseName: String(step.exerciseName || step.instruction || `Step ${idx + 1}`).slice(0, 200),
+        reps: Number.isFinite(reps) ? reps : undefined,
+        weightKg: Number.isFinite(weightKg) ? weightKg : undefined,
+        durationSec: seconds || undefined,
+      };
+    }).filter(Boolean);
+    return {
+      workoutSlug: workout.slug,
+      workoutTitle: workout.title,
+      startedAt: startedAtRef.current,
+      completedAt: summary.completedAt,
+      // Timer time if the timer was used, otherwise time since the player opened.
+      durationSec: totalElapsedTime > 0 ? totalElapsedTime : wallClockSec,
+      stepsCompleted: completedSteps.size,
+      totalSteps,
+      sets,
+      ...(program && { enrollmentId: program.enrollmentId, programWeek: program.week, programDay: program.day }),
+    };
   };
 
   const handleExit = () => {
@@ -385,31 +440,15 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', onExi
       )}
 
       {/* ── CELEBRATION OVERLAY ── */}
-      {showCelebration && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-[#0A0C10] via-[#131921] to-[#0A0C10] animate-fade-in">
-          <div className="text-center px-6">
-            <div className="text-7xl mb-6 animate-bounce">🏆</div>
-            <h2 className="text-5xl font-black mb-3" style={{ color: tintColor }}>Workout Complete!</h2>
-            <p className="text-xl text-white/60 mb-10">Outstanding performance! You crushed it!</p>
-            <div className="flex justify-center gap-6">
-              <div className="bg-white/5 border border-white/10 px-6 py-5 rounded-2xl min-w-[110px]">
-                <Clock className="w-6 h-6 mx-auto mb-2 text-blue-400" />
-                <span className="text-3xl font-black">{Math.floor(totalElapsedTime / 60)}</span>
-                <p className="text-xs text-white/40 mt-1">Minutes</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 px-6 py-5 rounded-2xl min-w-[110px]">
-                <Flame className="w-6 h-6 mx-auto mb-2 text-orange-400" />
-                <span className="text-3xl font-black">{estimatedCaloriesBurned}</span>
-                <p className="text-xs text-white/40 mt-1">Calories</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 px-6 py-5 rounded-2xl min-w-[110px]">
-                <Award className="w-6 h-6 mx-auto mb-2" style={{ color: tintColor }} />
-                <span className="text-3xl font-black">{completedSteps.size}</span>
-                <p className="text-xs text-white/40 mt-1">Completed</p>
-              </div>
-            </div>
-          </div>
-        </div>
+      {summary && (
+        <SessionSummary
+          draft={buildSessionDraft()}
+          status={summary.status}
+          caloriesPerMinute={(workout?.calories || 0) / (workout?.duration || 1)}
+          tintColor={tintColor}
+          onDone={(result) => (summary.status === 'completed' || result ? onComplete(result) : onExit())}
+          onResume={summary.status === 'partial' ? () => setSummary(null) : undefined}
+        />
       )}
 
       {/* ── MAIN SPLIT CONTENT ── */}
@@ -788,6 +827,33 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', onExi
               </div>
             </div>
 
+            {/* Optional set log for the current step */}
+            <div className="bg-[#131921] border border-white/10 rounded-xl p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-white/40 mb-2">Log this set (optional)</p>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
+                  <input
+                    type="number" min="0" max="1000" inputMode="numeric" aria-label="Reps"
+                    value={setInputs[currentStepIndex]?.reps ?? ''}
+                    onChange={(e) => updateSetInput('reps', e.target.value)}
+                    className="w-full bg-transparent text-sm font-bold text-white outline-none"
+                    placeholder="0"
+                  />
+                  <span className="text-xs text-white/40">reps</span>
+                </label>
+                <label className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
+                  <input
+                    type="number" min="0" max="1000" step="0.5" inputMode="decimal" aria-label="Weight in kilograms"
+                    value={setInputs[currentStepIndex]?.weightKg ?? ''}
+                    onChange={(e) => updateSetInput('weightKg', e.target.value)}
+                    className="w-full bg-transparent text-sm font-bold text-white outline-none"
+                    placeholder="0"
+                  />
+                  <span className="text-xs text-white/40">kg</span>
+                </label>
+              </div>
+            </div>
+
             {/* Mark Complete CTA */}
             <button
               onClick={handleWorkoutComplete}
@@ -853,6 +919,12 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', onExi
                 Exit
               </button>
             </div>
+            <button
+              onClick={handleSaveAndExit}
+              className="mt-3 w-full py-3 rounded-xl font-bold text-sm border border-white/15 hover:bg-white/5 transition-all"
+            >
+              Save progress &amp; exit
+            </button>
           </div>
         </div>
       )}

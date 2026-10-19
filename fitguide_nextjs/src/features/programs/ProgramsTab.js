@@ -3,9 +3,22 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, Flame, Target, TrendingUp, Clock, Filter, Search, LayoutGrid } from 'lucide-react';
 import { useWorkouts } from '../../context/WorkoutContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { fetchEnrollments, fetchPrograms } from '../../services/trainingService';
+import { ProgramCard } from './ProgramCard';
 
 export const ProgramsTab = ({ onSelectWorkout }) => {
     const { workouts } = useWorkouts();
+    const { hasAccount } = useAuth();
+    // Multi-week programs from the API, and the one the user is following.
+    const [programs, setPrograms] = useState([]);
+    const [activeSlug, setActiveSlug] = useState(null);
+    useEffect(() => {
+        fetchPrograms().then((d) => setPrograms(d.programs)).catch((err) => console.warn('Programs unavailable:', err.message));
+        if (hasAccount) {
+            fetchEnrollments().then((d) => setActiveSlug(d.active?.programSlug || null)).catch(() => {});
+        }
+    }, [hasAccount]);
     const [selectedLevel, setSelectedLevel] = useState('All Levels');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
@@ -95,7 +108,25 @@ export const ProgramsTab = ({ onSelectWorkout }) => {
                 </div>
             </section>
 
+            {/* Multi-week programs */}
+            {programs.length > 0 && (
+                <section className="py-10 space-y-5">
+                    <div>
+                        <h2 className="text-2xl font-extrabold text-white">Multi-week programs</h2>
+                        <p className="text-sm text-white-70 mt-1">A schedule of workouts, week by week, with your sessions tracked against it.</p>
+                    </div>
+                    <div className="grid gap-5 md:grid-cols-2">
+                        {[...programs]
+                            .sort((a, b) => (b.slug === activeSlug) - (a.slug === activeSlug))
+                            .map((p) => <ProgramCard key={p.slug} program={p} badge={p.slug === activeSlug ? 'Following' : null} />)}
+                    </div>
+                </section>
+            )}
+
             <div className="section-transition"/>
+
+            {/* Single workouts by level */}
+            <h2 className="text-2xl font-extrabold text-white pt-6">Single workouts by level</h2>
 
             {/* Filters */}
             <section className="section-container section-reveal py-12 md:py-14">

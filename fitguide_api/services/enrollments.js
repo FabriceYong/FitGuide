@@ -6,7 +6,7 @@ const { describeEnrollment } = require('./progress');
 
 /** All of a user's enrollments with their schedules: active first, then newest. */
 async function describeAll(userId, todayYmd) {
-  const [enrollments, programs] = await Promise.all([enrollmentStore.list(userId), programStore.all()]);
+  const [enrollments, programs] = await Promise.all([enrollmentStore.list(userId), programStore.all({ userId })]);
   const bySlug = new Map(programs.map((p) => [p.slug, p]));
   return enrollments
     .map((e) => describeEnrollment(e, bySlug.get(e.programSlug), todayYmd))
@@ -16,7 +16,7 @@ async function describeAll(userId, todayYmd) {
 async function describeOne(userId, id, todayYmd) {
   const enrollment = await enrollmentStore.findOwned(userId, id);
   if (!enrollment) return null;
-  return describeEnrollment(enrollment, await programStore.getBySlug(enrollment.programSlug), todayYmd);
+  return describeEnrollment(enrollment, await programStore.getBySlug(enrollment.programSlug, { userId }), todayYmd);
 }
 
 /**
@@ -28,7 +28,7 @@ async function checkProgramDay(userId, { enrollmentId, programWeek, programDay, 
   const enrollment = await enrollmentStore.findOwned(userId, enrollmentId);
   if (!enrollment) return { ok: false, message: 'Program enrollment not found.' };
   if (enrollment.status !== 'active') return { ok: false, message: 'That program is no longer active.' };
-  const program = await programStore.getBySlug(enrollment.programSlug);
+  const program = await programStore.getBySlug(enrollment.programSlug, { userId });
   const scheduled = program?.days.find((d) => d.week === programWeek && d.day === programDay);
   if (!scheduled) return { ok: false, message: 'That day is not part of the program.' };
   if (scheduled.workoutSlug !== workoutSlug) return { ok: false, message: 'This workout is not scheduled for that program day.' };
@@ -42,7 +42,7 @@ async function checkProgramDay(userId, { enrollmentId, programWeek, programDay, 
 async function markDayComplete(userId, session) {
   const enrollment = await enrollmentStore.findOwned(userId, session.enrollmentId);
   if (!enrollment) return;
-  const program = await programStore.getBySlug(enrollment.programSlug);
+  const program = await programStore.getBySlug(enrollment.programSlug, { userId });
   await enrollmentStore.update(userId, enrollment.id, (e) => {
     if (e.completedDays.some((d) => d.week === session.programWeek && d.day === session.programDay)) return;
     e.completedDays.push({ week: session.programWeek, day: session.programDay, sessionId: session.id, completedAt: session.completedAt });

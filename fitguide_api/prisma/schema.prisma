@@ -42,6 +42,8 @@ model User {
   enrollments   Enrollment[]
   bodyMetrics   BodyMetric[]
   refreshTokens RefreshToken[]
+  ownPrograms   Program[]            @relation("ProgramOwner")
+  coachMessages CoachMessage[]
 
   @@map("users")
 }
@@ -137,21 +139,27 @@ model Exercise {
 }
 
 model Program {
-  id          String   @id @default(uuid())
-  slug        String   @unique
-  title       String   @db.VarChar(100)
-  description String
-  level       String
-  goal        String
-  weeks       Int
-  daysPerWeek Int
-  isPublished Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(uuid())
+  slug          String   @unique
+  title         String   @db.VarChar(100)
+  description   String
+  level         String
+  goal          String
+  weeks         Int
+  daysPerWeek   Int
+  isPublished   Boolean  @default(true)
+  // Set for a personal plan made by the plan generator; only its owner sees it.
+  ownerId       String?
+  // How a personal plan was generated: { goal, level, daysPerWeek, minutesPerSession, equipment }
+  generatedFrom Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
+  owner       User?        @relation("ProgramOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   days        ProgramDay[]
   enrollments Enrollment[]
 
+  @@index([ownerId])
   @@map("programs")
 }
 
@@ -334,4 +342,24 @@ model BodyMetric {
 
   @@unique([userId, date])
   @@map("body_metrics")
+}
+
+// ─── AI coach ────────────────────────────────────────────────────────────────
+
+// One coach conversation per user, stored append-only: `content` holds the
+// exact Messages API content (including thinking and tool blocks), so the
+// history is replayed to the model unchanged.
+model CoachMessage {
+  id        String   @id @default(uuid())
+  userId    String
+  role      String // user | assistant | system
+  content   Json
+  // Text shown in the chat UI (user text, or the assistant's final reply).
+  display   String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("coach_messages")
 }

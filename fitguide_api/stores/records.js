@@ -30,22 +30,32 @@ const exerciseCatalog = {
 };
 
 const programInclude = { days: { orderBy: [{ week: 'asc' }, { day: 'asc' }] } };
-const programPublic = ({ days, ...program }) => ({
+const programPublic = ({ days, ownerId, generatedFrom, ...program }) => ({
   ...catalogPublic(program),
+  isPersonal: Boolean(ownerId),
+  ...(generatedFrom && { generatedFrom }),
   days: days.map(({ id: _id, programId: _p, notes, ...d }) => (notes ? { ...d, notes } : d)),
 });
 
+/**
+ * Published catalog programs, plus the user's own personal plans when a
+ * userId is given. Personal plans are never visible to anyone else.
+ */
+const visibleTo = (userId) => (userId
+  ? { OR: [{ isPublished: true, ownerId: null }, { ownerId: String(userId) }] }
+  : { isPublished: true, ownerId: null });
+
 const programStore = {
-  async all() {
+  async all({ userId } = {}) {
     const programs = await prisma.program.findMany({
-      where: { isPublished: true },
+      where: visibleTo(userId),
       include: programInclude,
       orderBy: [{ createdAt: 'asc' }, { slug: 'asc' }],
     });
     return programs.map(programPublic);
   },
-  async getBySlug(slug) {
-    const program = await prisma.program.findFirst({ where: { slug: String(slug), isPublished: true }, include: programInclude });
+  async getBySlug(slug, { userId } = {}) {
+    const program = await prisma.program.findFirst({ where: { ...visibleTo(userId), slug: String(slug) }, include: programInclude });
     return program ? programPublic(program) : null;
   },
 };

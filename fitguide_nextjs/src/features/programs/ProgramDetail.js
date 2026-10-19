@@ -8,14 +8,14 @@ import { ApiError } from '../../lib/api';
 import { enrollInProgram, fetchEnrollments, leaveProgram, localToday } from '../../services/trainingService';
 import { LEVEL_COLORS } from './ProgramCard';
 
-const STATUS_STYLES = {
+export const STATUS_STYLES = {
     done: { label: 'Done', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
     today: { label: 'Today', className: 'bg-lime-light/15 text-lime-light border-lime-light/40' },
     missed: { label: 'Missed', className: 'bg-red-500/10 text-red-300 border-red-500/30' },
     upcoming: { label: 'Upcoming', className: 'bg-white/5 text-white-70 border-white-30/20' },
 };
 
-const formatDate = (ymd) => new Date(`${ymd}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+export const formatDate = (ymd) => new Date(`${ymd}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
 export const playHref = (enrollment, day) => `/workouts/${day.workoutSlug}/play?${new URLSearchParams({
     enrollment: enrollment.id, week: String(day.week), day: String(day.day), program: enrollment.programSlug,

@@ -51,7 +51,7 @@ router.post(
         return res.status(400).json({ success: false, message: 'Start date must be within 90 days of today.' });
       }
 
-      const program = await programStore.getBySlug(req.body.programSlug);
+      const program = await programStore.getBySlug(req.body.programSlug, { userId: req.user.id });
       if (!program) return res.status(404).json({ success: false, message: 'Program not found.' });
 
       const [active] = await enrollmentStore.list(req.user.id, { where: { status: 'active' } });
@@ -60,7 +60,7 @@ router.post(
           return res.status(409).json({ success: false, code: 'ALREADY_ENROLLED', message: 'You are already following this program.' });
         }
         if (req.body.replace !== true) {
-          const current = await programStore.getBySlug(active.programSlug);
+          const current = await programStore.getBySlug(active.programSlug, { userId: req.user.id });
           return res.status(409).json({
             success: false,
             code: 'ACTIVE_ENROLLMENT',

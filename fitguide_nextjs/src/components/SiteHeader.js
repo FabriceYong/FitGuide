@@ -4,6 +4,7 @@ import { Dumbbell } from 'lucide-react';
 const LINKS = [
   { href: '/workouts', label: 'Workouts' },
   { href: '/programs', label: 'Programs' },
+  { href: '/plan', label: 'My plan' },
   { href: '/progress', label: 'Progress' },
 ];
 

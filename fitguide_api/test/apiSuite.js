@@ -7,6 +7,7 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { createApp, createAppWith, useDatabase } = require('./helpers/setup');
 const { defineTrainingSuite } = require('./trainingSuite');
+const { definePlanCoachSuite } = require('./planCoachSuite');
 
 const ALLOWED_ORIGIN = 'http://localhost:3000';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
@@ -446,6 +447,8 @@ function defineApiSuite() {
     });
 
     describe('training data', () => defineTrainingSuite(() => ({ app, signUp })));
+
+    describe('plans and coach', () => definePlanCoachSuite(() => ({ app, signUp })));
 
     describe('rate limits', () => {
       it('limits failed logins', async () => {

@@ -15,42 +15,50 @@ datasource db {
 // ─── Accounts ────────────────────────────────────────────────────────────────
 
 model User {
-  id             String   @id @default(uuid())
-  name           String   @db.VarChar(100)
-  email          String   @unique
-  passwordHash   String
+  id                 String   @id @default(uuid())
+  name               String   @db.VarChar(100)
+  email              String   @unique
+  passwordHash       String
   // Allowed values for the profile fields live in utils/enums.js.
-  gender         String   @default("Prefer not to say")
-  height         Float    @default(170)
-  weight         Float    @default(70)
-  targetWeight   Float    @default(70)
-  fitnessLevel   String   @default("Beginner")
-  activityStatus String   @default("Active")
-  goal           String   @default("Vitality")
-  diet           String   @default("Mediterranean Diet")
-  role           String   @default("user") // user | admin
-  birthYear      Int?
-  avatarUrl      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  gender             String   @default("Prefer not to say")
+  height             Float    @default(170)
+  weight             Float    @default(70)
+  targetWeight       Float    @default(70)
+  fitnessLevel       String   @default("Beginner")
+  activityStatus     String   @default("Active")
+  goal               String   @default("Vitality")
+  diet               String   @default("Mediterranean Diet")
+  role               String   @default("user") // user | admin
+  birthYear          Int?
+  // Shared to add friends; created on first use.
+  friendCode         String?  @unique
+  // Appear by first name + initial on challenge and friend leaderboards.
+  showOnLeaderboards Boolean  @default(true)
+  avatarUrl          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  favorites          Favorite[]
-  customImages       CustomWorkoutImage[]
-  workoutLikes       WorkoutLike[]
-  reviews            Review[]
-  reviewLikes        ReviewLike[]
-  sessions           WorkoutSession[]
-  enrollments        Enrollment[]
-  bodyMetrics        BodyMetric[]
-  refreshTokens      RefreshToken[]
-  ownPrograms        Program[]            @relation("ProgramOwner")
-  coachMessages      CoachMessage[]
-  foods              Food[]
-  foodLogs           FoodLog[]
-  dailyMetrics       DailyMetric[]
-  externalActivities ExternalActivity[]
-  connections        Connection[]
-  oauthStates        OAuthState[]
+  favorites              Favorite[]
+  customImages           CustomWorkoutImage[]
+  workoutLikes           WorkoutLike[]
+  reviews                Review[]
+  reviewLikes            ReviewLike[]
+  sessions               WorkoutSession[]
+  enrollments            Enrollment[]
+  bodyMetrics            BodyMetric[]
+  refreshTokens          RefreshToken[]
+  ownPrograms            Program[]            @relation("ProgramOwner")
+  coachMessages          CoachMessage[]
+  foods                  Food[]
+  foodLogs               FoodLog[]
+  dailyMetrics           DailyMetric[]
+  externalActivities     ExternalActivity[]
+  connections            Connection[]
+  oauthStates            OAuthState[]
+  friendRequestsSent     Friendship[]         @relation("FriendshipRequester")
+  friendRequestsReceived Friendship[]         @relation("FriendshipAddressee")
+  challengesCreated      Challenge[]
+  challengeMemberships   ChallengeMember[]
 
   @@map("users")
 }
@@ -497,4 +505,56 @@ model OAuthState {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("oauth_states")
+}
+
+// ─── Community ───────────────────────────────────────────────────────────────
+
+model Friendship {
+  id          String   @id @default(uuid())
+  requesterId String
+  addresseeId String
+  status      String   @default("pending") // pending | accepted
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requester User @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendshipAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+  @@map("friendships")
+}
+
+// A time-boxed competition. Scores come from logged data in the date range.
+model Challenge {
+  id          String   @id @default(uuid())
+  title       String   @db.VarChar(100)
+  description String   @default("") @db.VarChar(500)
+  metric      String // sessions | minutes | activeDays | steps
+  target      Int? // optional goal, e.g. 20 sessions
+  startDate   String   @db.VarChar(10) // YYYY-MM-DD (UTC)
+  endDate     String   @db.VarChar(10)
+  visibility  String // public | friends | private
+  joinCode    String   @unique
+  creatorId   String?
+  createdAt   DateTime @default(now())
+
+  creator User?             @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  members ChallengeMember[]
+
+  @@index([visibility, endDate])
+  @@map("challenges")
+}
+
+model ChallengeMember {
+  challengeId String
+  userId      String
+  joinedAt    DateTime @default(now())
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([challengeId, userId])
+  @@index([userId])
+  @@map("challenge_members")
 }

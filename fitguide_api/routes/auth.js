@@ -26,6 +26,7 @@ const profileRules = [
   body('goal').optional().isIn(GOALS).withMessage('Invalid goal'),
   body('diet').optional().isIn(DIETS).withMessage('Invalid diet'),
   body('avatarUrl').optional({ values: 'null' }).isString().isLength({ max: 500 }),
+  body('showOnLeaderboards').optional().isBoolean().withMessage('showOnLeaderboards must be true or false').toBoolean(),
   body('birthYear').optional({ values: 'null' }).custom((value) => {
     const year = Number(value);
     return Number.isInteger(year) && year >= PROFILE.MIN_BIRTH_YEAR && year <= new Date().getFullYear() - PROFILE.MIN_AGE;

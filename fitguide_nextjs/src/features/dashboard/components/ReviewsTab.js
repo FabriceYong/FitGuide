@@ -344,6 +344,7 @@ export const ReviewsTab = () => {
                   <div>
                     <h4 className="font-bold text-white text-base leading-tight">
                       {item.name}
+                      {item.verified && <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300" title="Completed this workout in FitGuide">Verified</span>}
                     </h4>
                     <span className="text-[11px] text-white-30">
                       {new Date(item.createdAt).toLocaleDateString(undefined, {

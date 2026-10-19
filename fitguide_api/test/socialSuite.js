@@ -1,0 +1,188 @@
+/**
+ * Friends, challenges, leaderboards and verified reviews. Runs inside
+ * defineApiSuite against the test Postgres.
+ */
+const { describe, it, before } = require('node:test');
+const assert = require('node:assert/strict');
+const request = require('supertest');
+const { displayName } = require('../services/social');
+const { today, addDays } = require('../utils/dates');
+
+const minutesAgo = (m) => new Date(Date.now() - m * 60e3).toISOString();
+const logWorkout = (agent, minutes, slug = 'core-power-blast') => agent.post('/api/sessions').send({
+  workoutSlug: slug,
+  startedAt: minutesAgo(minutes + 5),
+  completedAt: minutesAgo(5),
+  durationSec: minutes * 60,
+}).expect(201);
+
+function defineSocialSuite(ctx) {
+  let app;
+  let ana;
+  let ben;
+  let cleo;
+  before(async () => {
+    ({ app } = ctx());
+    ana = await ctx().signUp('Ana Lopez');
+    ben = await ctx().signUp('Ben Okafor');
+    cleo = await ctx().signUp('Cleo');
+  });
+
+  it('shows first name and last initial only', () => {
+    assert.equal(displayName('Ana Maria Lopez'), 'Ana L.');
+    assert.equal(displayName('Cleo'), 'Cleo');
+    assert.equal(displayName('  '), 'Member');
+  });
+
+  describe('friends', () => {
+    let benCode;
+
+    it('gives each account a friend code', async () => {
+      const res = await ben.agent.get('/api/social/friends').expect(200);
+      benCode = res.body.friendCode;
+      assert.match(benCode, /^[A-Z2-9]{8}$/);
+      const again = await ben.agent.get('/api/social/friends').expect(200);
+      assert.equal(again.body.friendCode, benCode);
+    });
+
+    it('sends, accepts and lists friend requests', async () => {
+      await ana.agent.post('/api/social/friends').send({ code: benCode.toLowerCase() }).expect(201);
+      await ana.agent.post('/api/social/friends').send({ code: benCode }).expect(409);
+      await ana.agent.post('/api/social/friends').send({ code: 'NOPE2345' }).expect(404);
+      const anaCode = (await ana.agent.get('/api/social/friends').expect(200)).body.friendCode;
+      await ana.agent.post('/api/social/friends').send({ code: anaCode }).expect(400);
+
+      const incoming = (await ben.agent.get('/api/social/friends').expect(200)).body.incoming;
+      assert.equal(incoming[0].name, 'Ana L.');
+      assert.equal(incoming[0].email, undefined);
+      // Only the addressee can accept.
+      await ana.agent.post(`/api/social/friends/${incoming[0].friendshipId}/accept`).expect(404);
+      await ben.agent.post(`/api/social/friends/${incoming[0].friendshipId}/accept`).expect(200);
+      const friends = (await ana.agent.get('/api/social/friends').expect(200)).body.friends;
+      assert.deepEqual(friends.map((f) => f.name), ['Ben O.']);
+    });
+
+    it('accepts automatically when both people add each other', async () => {
+      const cleoCode = (await cleo.agent.get('/api/social/friends').expect(200)).body.friendCode;
+      const benCodeNow = (await ben.agent.get('/api/social/friends').expect(200)).body.friendCode;
+      await ben.agent.post('/api/social/friends').send({ code: cleoCode }).expect(201);
+      const res = await cleo.agent.post('/api/social/friends').send({ code: benCodeNow }).expect(201);
+      assert.equal(res.body.result, 'accepted');
+    });
+
+    it('ranks me and my friends on the weekly leaderboard', async () => {
+      await logWorkout(ana.agent, 30);
+      await logWorkout(ben.agent, 45);
+      const res = await ana.agent.get('/api/social/leaderboard').expect(200);
+      assert.deepEqual(res.body.rows.map((r) => [r.name, r.score, r.rank]), [['Ben O.', 45, 1], ['Ana L.', 30, 2]]);
+      assert.equal(res.body.rows[1].isYou, true);
+      // Cleo is Ben's friend, not Ana's.
+      assert.ok(!res.body.rows.some((r) => r.name === 'Cleo'));
+    });
+
+    it('lets people hide from leaderboards', async () => {
+      await ben.agent.put('/api/auth/profile').send({ showOnLeaderboards: false }).expect(200);
+      const res = await ana.agent.get('/api/social/leaderboard').expect(200);
+      assert.deepEqual(res.body.rows.map((r) => r.name), ['Ana L.']);
+      // You still see yourself.
+      const own = await ben.agent.get('/api/social/leaderboard').expect(200);
+      assert.ok(own.body.rows.some((r) => r.isYou));
+      await ben.agent.put('/api/auth/profile').send({ showOnLeaderboards: true }).expect(200);
+    });
+
+    it('unfriends', async () => {
+      const [friend] = (await ana.agent.get('/api/social/friends').expect(200)).body.friends;
+      await cleo.agent.delete(`/api/social/friends/${friend.friendshipId}`).expect(404);
+      await ana.agent.delete(`/api/social/friends/${friend.friendshipId}`).expect(200);
+      assert.deepEqual((await ana.agent.get('/api/social/friends').expect(200)).body.friends, []);
+    });
+  });
+
+  describe('challenges', () => {
+    let friendsChallenge;
+    let privateChallenge;
+    const challenge = (overrides = {}) => ({
+      title: 'October minutes',
+      metric: 'minutes',
+      startDate: addDays(today(), -3),
+      endDate: addDays(today(), 10),
+      visibility: 'friends',
+      ...overrides,
+    });
+
+    it('validates new challenges', async () => {
+      await ben.agent.post('/api/social/challenges').send(challenge({ metric: 'likes' })).expect(400);
+      await ben.agent.post('/api/social/challenges').send(challenge({ visibility: 'public' })).expect(400);
+      await ben.agent.post('/api/social/challenges').send(challenge({ endDate: addDays(today(), -10), startDate: addDays(today(), -20) })).expect(400);
+      await ben.agent.post('/api/social/challenges').send(challenge({ endDate: addDays(today(), 200) })).expect(400);
+    });
+
+    it("creates a friends challenge only friends can see and join", async () => {
+      const res = await ben.agent.post('/api/social/challenges').send(challenge()).expect(201);
+      friendsChallenge = res.body.challenge;
+      assert.equal(friendsChallenge.joined, true);
+      assert.ok(friendsChallenge.joinCode);
+
+      // Cleo is Ben's friend; Ana no longer is.
+      const cleoList = (await cleo.agent.get('/api/social/challenges').expect(200)).body.challenges;
+      assert.ok(cleoList.some((c) => c.id === friendsChallenge.id));
+      assert.equal(cleoList.find((c) => c.id === friendsChallenge.id).joinCode, undefined);
+      const anaList = (await ana.agent.get('/api/social/challenges').expect(200)).body.challenges;
+      assert.ok(!anaList.some((c) => c.id === friendsChallenge.id));
+      await ana.agent.post(`/api/social/challenges/${friendsChallenge.id}/join`).expect(404);
+
+      await cleo.agent.post(`/api/social/challenges/${friendsChallenge.id}/join`).expect(200);
+    });
+
+    it('scores members from logged workouts', async () => {
+      await logWorkout(cleo.agent, 20, 'morning-yoga-flow');
+      const res = await ben.agent.get(`/api/social/challenges/${friendsChallenge.id}`).expect(200);
+      const board = res.body.challenge.leaderboard;
+      assert.deepEqual(board.map((r) => [r.name, r.score]), [['Ben O.', 45], ['Cleo', 20]]);
+      assert.equal(res.body.challenge.status, 'active');
+    });
+
+    it('private challenges are joined by code', async () => {
+      const res = await ana.agent.post('/api/social/challenges').send(challenge({ title: 'Secret steps', metric: 'steps', visibility: 'private' })).expect(201);
+      privateChallenge = res.body.challenge;
+      await cleo.agent.get(`/api/social/challenges/${privateChallenge.id}`).expect(404);
+      await cleo.agent.post(`/api/social/challenges/${privateChallenge.id}/join`).expect(404);
+      const joined = await cleo.agent.post('/api/social/challenges/join').send({ code: privateChallenge.joinCode }).expect(200);
+      assert.equal(joined.body.challenge.joined, true);
+      await cleo.agent.post('/api/social/challenges/join').send({ code: 'WRONG234' }).expect(404);
+    });
+
+    it('scores steps from health data', async () => {
+      await cleo.agent.put(`/api/health-data/${today()}`).send({ steps: 12000 }).expect(200);
+      await ana.agent.put(`/api/health-data/${addDays(today(), -1)}`).send({ steps: 4000 }).expect(200);
+      const board = (await ana.agent.get(`/api/social/challenges/${privateChallenge.id}`).expect(200)).body.challenge.leaderboard;
+      assert.deepEqual(board.map((r) => [r.name, r.score]), [['Cleo', 12000], ['Ana L.', 4000]]);
+    });
+
+    it('members can leave; only the creator can delete', async () => {
+      await cleo.agent.delete(`/api/social/challenges/${privateChallenge.id}/membership`).expect(200);
+      await cleo.agent.delete(`/api/social/challenges/${privateChallenge.id}/membership`).expect(404);
+      await cleo.agent.delete(`/api/social/challenges/${friendsChallenge.id}`).expect(404);
+      await ben.agent.delete(`/api/social/challenges/${friendsChallenge.id}`).expect(200);
+      await cleo.agent.get(`/api/social/challenges/${friendsChallenge.id}`).expect(404);
+    });
+
+    it('requires auth', async () => {
+      await request(app).get('/api/social/challenges').expect(401);
+    });
+  });
+
+  describe('verified reviews', () => {
+    it('marks reviews from people who completed the workout', async () => {
+      // Ana logged core-power-blast above; Cleo didn't.
+      await ana.agent.post('/api/reviews').field('rating', '5').field('comment', 'Tough!').field('workoutId', 'core-power-blast').expect(201);
+      await cleo.agent.post('/api/reviews').field('rating', '3').field('comment', 'Looks hard').field('workoutId', 'core-power-blast').expect(201);
+      const reviews = (await request(app).get('/api/reviews').query({ workoutId: 'core-power-blast' }).expect(200)).body.reviews;
+      const byName = Object.fromEntries(reviews.map((r) => [r.name, r.verified]));
+      assert.equal(byName['Ana Lopez'], true);
+      assert.equal(byName.Cleo, false);
+    });
+  });
+}
+
+module.exports = { defineSocialSuite };

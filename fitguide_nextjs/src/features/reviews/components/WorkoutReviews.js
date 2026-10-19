@@ -151,7 +151,7 @@ const ReviewCard = ({ review, onLike }) => {
                         )}
                     </div>
                     <div>
-                        <h4 className="text-white font-bold text-sm">{review.name}</h4>
+                        <h4 className="text-white font-bold text-sm">{review.name}{review.verified && <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300" title="Completed this workout in FitGuide">Verified</span>}</h4>
                         <p className="text-white-70 text-xs">{formatDate(review.createdAt)}</p>
                     </div>
                 </div>

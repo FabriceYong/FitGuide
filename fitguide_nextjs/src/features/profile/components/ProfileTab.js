@@ -68,6 +68,7 @@ export const ProfileTab = ({ onLogout }) => {
         diet: user?.diet || 'Mediterranean Diet',
         avatarUrl: user?.avatarUrl || null,
         birthYear: user?.birthYear || '',
+        showOnLeaderboards: user?.showOnLeaderboards ?? true,
     });
 
     const bmi = calcBMI(user?.weight, user?.height);
@@ -91,6 +92,7 @@ export const ProfileTab = ({ onLogout }) => {
             diet: user?.diet || 'Mediterranean Diet',
             avatarUrl: user?.avatarUrl || null,
             birthYear: user?.birthYear || '',
+            showOnLeaderboards: user?.showOnLeaderboards ?? true,
         });
         setSaveError(null);
         setSaveSuccess(false);
@@ -447,6 +449,20 @@ export const ProfileTab = ({ onLogout }) => {
                                 className="w-full bg-white/5 border border-white-30/15 rounded-xl px-4 py-2.5 text-sm text-white"
                             />
                         </div>
+
+                        {/* Leaderboard visibility */}
+                        <label className="flex items-center justify-between gap-3 bg-white/5 border border-white-30/15 rounded-xl px-4 py-3 cursor-pointer">
+                            <span>
+                                <span className="block text-sm font-bold text-white">Show me on leaderboards</span>
+                                <span className="block text-xs text-white-50">Friends and challenge members see your first name and last initial.</span>
+                            </span>
+                            <input
+                                type="checkbox"
+                                checked={editForm.showOnLeaderboards}
+                                onChange={(e) => setEditForm((p) => ({ ...p, showOnLeaderboards: e.target.checked }))}
+                                className="w-5 h-5 accent-lime-light"
+                            />
+                        </label>
 
                         {/* Target Weight Slider */}
                         <div className="space-y-2">

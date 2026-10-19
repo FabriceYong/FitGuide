@@ -18,10 +18,11 @@ const PROFILE_DEFAULTS = {
   diet: 'Mediterranean Diet',
   avatarUrl: null,
   birthYear: null,
+  showOnLeaderboards: true,
 };
 
 // Fields a user may change about themselves through the profile endpoint.
-const EDITABLE_FIELDS = ['name', 'gender', 'height', 'weight', 'targetWeight', 'fitnessLevel', 'activityStatus', 'goal', 'diet', 'avatarUrl', 'birthYear'];
+const EDITABLE_FIELDS = ['name', 'gender', 'height', 'weight', 'targetWeight', 'fitnessLevel', 'activityStatus', 'goal', 'diet', 'avatarUrl', 'birthYear', 'showOnLeaderboards'];
 const NUMERIC_FIELDS = new Set(['height', 'weight', 'targetWeight', 'birthYear']);
 
 const withFavorites = { favorites: { select: { workoutSlug: true }, orderBy: { createdAt: 'asc' } } };

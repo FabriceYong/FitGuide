@@ -7,7 +7,21 @@ const router = express.Router();
 const upload = imageUpload('reviews', 'progress');
 
 // Reviews are keyed by workout slug; the API calls that field workoutId.
-const toPublic = ({ workoutSlug, ...review }) => ({ ...review, workoutId: workoutSlug });
+const toPublic = ({ workoutSlug, ...review }, verified = false) => ({ ...review, workoutId: workoutSlug, verified });
+
+/**
+ * Keys ("userId:slug") of reviews whose author completed that workout in
+ * FitGuide. Those reviews get a "verified" badge.
+ */
+async function verifiedKeys(reviews) {
+  const pairs = reviews.filter((r) => r.userId && r.workoutSlug);
+  if (!pairs.length) return new Set();
+  const done = await prisma.workoutSession.groupBy({
+    by: ['userId', 'workoutSlug'],
+    where: { status: 'completed', OR: pairs.map((r) => ({ userId: r.userId, workoutSlug: r.workoutSlug })) },
+  });
+  return new Set(done.map((d) => `${d.userId}:${d.workoutSlug}`));
+}
 
 // GET /api/reviews?workoutId=<slug>
 router.get('/', async (req, res, next) => {
@@ -17,7 +31,12 @@ router.get('/', async (req, res, next) => {
       where: workoutSlug ? { workoutSlug } : {},
       orderBy: { createdAt: 'desc' },
     });
-    return res.status(200).json({ success: true, count: reviews.length, reviews: reviews.map(toPublic) });
+    const verified = await verifiedKeys(reviews);
+    return res.status(200).json({
+      success: true,
+      count: reviews.length,
+      reviews: reviews.map((r) => toPublic(r, verified.has(`${r.userId}:${r.workoutSlug}`))),
+    });
   } catch (err) {
     next(err);
   }
@@ -70,7 +89,8 @@ router.post(
         }
         throw err;
       }
-      return res.status(201).json({ success: true, message: 'Review submitted successfully!', review: toPublic(review) });
+      const verified = (await verifiedKeys([review])).size > 0;
+      return res.status(201).json({ success: true, message: 'Review submitted successfully!', review: toPublic(review, verified) });
     } catch (err) {
       next(err);
     }

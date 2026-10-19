@@ -6,6 +6,7 @@ const LINKS = [
   { href: '/programs', label: 'Programs' },
   { href: '/plan', label: 'My plan' },
   { href: '/nutrition', label: 'Nutrition' },
+  { href: '/community', label: 'Community' },
   { href: '/progress', label: 'Progress' },
 ];
 

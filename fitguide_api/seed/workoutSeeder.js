@@ -182,10 +182,7 @@ const workoutsData = [
           "Leaning weight into one side",
           "Holding tension in shoulders or neck"
         ],
-        "breathingPattern": "Deep, slow breaths through the nose - inhale for 4 counts, exhale for 4 counts",
-        "gifUrl": "https://static.exercisedb.dev/media/hCjGsRQ.gif",
-        "exerciseDbId": "hCjGsRQ",
-        "exerciseName": "plank (on power point)"
+        "breathingPattern": "Deep, slow breaths through the nose - inhale for 4 counts, exhale for 4 counts"
       },
       {
         "stepNumber": 2,
@@ -202,10 +199,7 @@ const workoutsData = [
           "Forcing neck backwards",
           "Holding breath during the stretch"
         ],
-        "breathingPattern": "Smooth inhale as arms rise, filling lungs completely",
-        "gifUrl": "https://static.exercisedb.dev/media/2S8bH4u.gif",
-        "exerciseDbId": "2S8bH4u",
-        "exerciseName": "upper back stretch"
+        "breathingPattern": "Smooth inhale as arms rise, filling lungs completely"
       },
       {
         "stepNumber": 3,
@@ -222,10 +216,7 @@ const workoutsData = [
           "Locking knees with tight hamstrings",
           "Forcing hands to floor if inflexible"
         ],
-        "breathingPattern": "Long exhale as you fold forward, releasing tension with the breath",
-        "gifUrl": "https://static.exercisedb.dev/media/wTuBN3Z.gif",
-        "exerciseDbId": "wTuBN3Z",
-        "exerciseName": "standing forward bend"
+        "breathingPattern": "Long exhale as you fold forward, releasing tension with the breath"
       },
       {
         "stepNumber": 4,
@@ -242,10 +233,7 @@ const workoutsData = [
           "Looking up too high and crunching neck",
           "Hands too low causing shoulder hunch"
         ],
-        "breathingPattern": "Inhale to create length and space in the spine",
-        "gifUrl": "https://static.exercisedb.dev/media/wTuBN3Z.gif",
-        "exerciseDbId": "wTuBN3Z",
-        "exerciseName": "standing forward bend (flat back)"
+        "breathingPattern": "Inhale to create length and space in the spine"
       },
       {
         "stepNumber": 5,
@@ -283,10 +271,7 @@ const workoutsData = [
           "Shoulders dropping below elbows",
           "Rushing the movement"
         ],
-        "breathingPattern": "Controlled exhale as you lower down with strength",
-        "gifUrl": "https://static.exercisedb.dev/media/Pda4Clq.gif",
-        "exerciseDbId": "Pda4Clq",
-        "exerciseName": "push up"
+        "breathingPattern": "Controlled exhale as you lower down with strength"
       },
       {
         "stepNumber": 7,
@@ -304,10 +289,7 @@ const workoutsData = [
           "Forgetting to engage legs",
           "Keeping feet flat instead of rolling over toes"
         ],
-        "breathingPattern": "Deep inhale as chest opens and expands forward",
-        "gifUrl": "https://static.exercisedb.dev/media/tJE2ZMp.gif",
-        "exerciseDbId": "tJE2ZMp",
-        "exerciseName": "cobra stretch"
+        "breathingPattern": "Deep inhale as chest opens and expands forward"
       },
       {
         "stepNumber": 8,
@@ -326,10 +308,7 @@ const workoutsData = [
           "Locking elbows",
           "Forcing heels down with tight calves"
         ],
-        "breathingPattern": "5 deep breaths - inhale through nose, exhale through nose, finding length with each breath",
-        "gifUrl": "https://static.exercisedb.dev/media/tJE2ZMp.gif",
-        "exerciseDbId": "tJE2ZMp",
-        "exerciseName": "downward dog"
+        "breathingPattern": "5 deep breaths - inhale through nose, exhale through nose, finding length with each breath"
       },
       {
         "stepNumber": 9,
@@ -346,10 +325,7 @@ const workoutsData = [
           "Feet landing too far back",
           "Rounding back as you step"
         ],
-        "breathingPattern": "Inhale as you step forward and lengthen",
-        "gifUrl": "https://static.exercisedb.dev/media/wTuBN3Z.gif",
-        "exerciseDbId": "wTuBN3Z",
-        "exerciseName": "standing forward bend (flat back)"
+        "breathingPattern": "Inhale as you step forward and lengthen"
       },
       {
         "stepNumber": 10,
@@ -366,10 +342,7 @@ const workoutsData = [
           "Creating tension trying to go deeper",
           "Forgetting to breathe"
         ],
-        "breathingPattern": "Long exhale, surrendering to gravity and releasing tension",
-        "gifUrl": "https://static.exercisedb.dev/media/wTuBN3Z.gif",
-        "exerciseDbId": "wTuBN3Z",
-        "exerciseName": "standing forward bend"
+        "breathingPattern": "Long exhale, surrendering to gravity and releasing tension"
       },
       {
         "stepNumber": 11,
@@ -386,10 +359,7 @@ const workoutsData = [
           "Rushing the movement",
           "Losing core engagement"
         ],
-        "breathingPattern": "Full inhale as you rise and expand",
-        "gifUrl": "https://static.exercisedb.dev/media/2S8bH4u.gif",
-        "exerciseDbId": "2S8bH4u",
-        "exerciseName": "standing arms sweep"
+        "breathingPattern": "Full inhale as you rise and expand"
       },
       {
         "stepNumber": 12,
@@ -406,10 +376,7 @@ const workoutsData = [
           "Losing breath connection",
           "Not maintaining awareness"
         ],
-        "breathingPattern": "Return to natural, steady breath between rounds",
-        "gifUrl": "https://static.exercisedb.dev/media/hCjGsRQ.gif",
-        "exerciseDbId": "hCjGsRQ",
-        "exerciseName": "plank (on power point)"
+        "breathingPattern": "Return to natural, steady breath between rounds"
       },
       {
         "stepNumber": 13,
@@ -426,10 +393,7 @@ const workoutsData = [
           "Not allowing body to fully relax",
           "Skipping the cool down"
         ],
-        "breathingPattern": "5 slow, deep breaths - feel your back expand with each inhale",
-        "gifUrl": "https://static.exercisedb.dev/media/q3P7s6R.gif",
-        "exerciseDbId": "q3P7s6R",
-        "exerciseName": "child's pose"
+        "breathingPattern": "5 slow, deep breaths - feel your back expand with each inhale"
       }
     ],
     "modifications": [
@@ -762,10 +726,7 @@ const workoutsData = [
           "Engaging too aggressively too soon",
           "Holding breath during engagement"
         ],
-        "breathingPattern": "Natural breathing - don't hold your breath during warm-up movements",
-        "gifUrl": "https://static.exercisedb.dev/media/Pda4Clq.gif",
-        "exerciseDbId": "Pda4Clq",
-        "exerciseName": "cat cow stretch"
+        "breathingPattern": "Natural breathing - don't hold your breath during warm-up movements"
       },
       {
         "stepNumber": 2,
@@ -785,9 +746,9 @@ const workoutsData = [
           "Shoulders collapsing"
         ],
         "breathingPattern": "Steady rhythmic breathing - inhale through nose for 3 counts, exhale for 3 counts",
-        "gifUrl": "https://static.exercisedb.dev/media/hCjGsRQ.gif",
-        "exerciseDbId": "hCjGsRQ",
-        "exerciseName": "plank"
+        "gifUrl": "https://static.exercisedb.dev/media/CosupLu.gif",
+        "exerciseDbId": "CosupLu",
+        "exerciseName": "forearm plank"
       },
       {
         "stepNumber": 3,
@@ -859,10 +820,7 @@ const workoutsData = [
           "Moving too fast with momentum",
           "Holding breath during twists"
         ],
-        "breathingPattern": "Exhale as you twist to each side, quick inhale in the center",
-        "gifUrl": "https://static.exercisedb.dev/media/CosupLu.gif",
-        "exerciseDbId": "CosupLu",
-        "exerciseName": "russian twist"
+        "breathingPattern": "Exhale as you twist to each side, quick inhale in the center"
       },
       {
         "stepNumber": 7,
@@ -896,10 +854,7 @@ const workoutsData = [
           "Losing plank form",
           "Moving too slow or too fast"
         ],
-        "breathingPattern": "Quick rhythmic breathing matching the pace - exhale, exhale, inhale pattern",
-        "gifUrl": "https://static.exercisedb.dev/media/hCjGsRQ.gif",
-        "exerciseDbId": "hCjGsRQ",
-        "exerciseName": "plank"
+        "breathingPattern": "Quick rhythmic breathing matching the pace - exhale, exhale, inhale pattern"
       },
       {
         "stepNumber": 9,
@@ -933,10 +888,7 @@ const workoutsData = [
           "Not fully extending limbs",
           "Holding breath during the movement"
         ],
-        "breathingPattern": "Exhale as you extend limbs, inhale as you return to start",
-        "gifUrl": "https://static.exercisedb.dev/media/VBAWRPG.gif",
-        "exerciseDbId": "VBAWRPG",
-        "exerciseName": "dead bug"
+        "breathingPattern": "Exhale as you extend limbs, inhale as you return to start"
       },
       {
         "stepNumber": 11,
@@ -970,10 +922,7 @@ const workoutsData = [
           "Rolling forward or back",
           "Not engaging core"
         ],
-        "breathingPattern": "Steady breathing - don't hold your breath during the hold",
-        "gifUrl": "https://static.exercisedb.dev/media/hCjGsRQ.gif",
-        "exerciseDbId": "hCjGsRQ",
-        "exerciseName": "front plank"
+        "breathingPattern": "Steady breathing - don't hold your breath during the hold"
       },
       {
         "stepNumber": 13,
@@ -992,10 +941,7 @@ const workoutsData = [
           "Holding breath",
           "Rushing through the hold"
         ],
-        "breathingPattern": "Controlled breathing throughout the hold",
-        "gifUrl": "https://static.exercisedb.dev/media/hCjGsRQ.gif",
-        "exerciseDbId": "hCjGsRQ",
-        "exerciseName": "front plank"
+        "breathingPattern": "Controlled breathing throughout the hold"
       },
       {
         "stepNumber": 14,
@@ -1080,10 +1026,7 @@ const workoutsData = [
           "Rushing through stretches",
           "Not allowing muscles to relax"
         ],
-        "breathingPattern": "Deep, slow breaths to bring body back to resting state - in for 5 counts, out for 5 counts",
-        "gifUrl": "https://static.exercisedb.dev/media/q3P7s6R.gif",
-        "exerciseDbId": "q3P7s6R",
-        "exerciseName": "child's pose"
+        "breathingPattern": "Deep, slow breaths to bring body back to resting state - in for 5 counts, out for 5 counts"
       }
     ],
     "modifications": [
@@ -2098,9 +2041,9 @@ const workoutsData = [
           "Holding breath"
         ],
         "breathingPattern": "Shallow, steady breathing while keeping core braced",
-        "gifUrl": "",
-        "exerciseDbId": "",
-        "exerciseName": "Plank hold"
+        "gifUrl": "https://static.exercisedb.dev/media/CosupLu.gif",
+        "exerciseDbId": "CosupLu",
+        "exerciseName": "forearm plank"
       },
       {
         "stepNumber": 5,

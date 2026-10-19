@@ -16,6 +16,7 @@
     "assign-gifs": "node scripts/assignExerciseGifs.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1153.0",
     "@prisma/client": "6.19.3",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",

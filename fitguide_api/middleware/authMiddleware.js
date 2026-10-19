@@ -1,8 +1,6 @@
 const { verifyToken, tokenFromRequest, clearAuthCookie } = require('../utils/jwt');
-const { getCorsOrigins } = require('../utils/config');
+const { isForeignOriginWrite } = require('../utils/config');
 const userStore = require('../stores/userStore');
-
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
  * Authentication Middleware
@@ -16,14 +14,8 @@ const authMiddleware = async (req, res, next) => {
     return res.status(401).json({ success: false, message: 'No token provided. Authorization required.' });
   }
 
-  // Browsers attach cookies automatically, so a cookie-authenticated write must
-  // come from one of our own origins (CSRF defence on top of SameSite).
-  // Requests without an Origin header aren't from a cross-site browser page.
-  if (found.source === 'cookie' && !SAFE_METHODS.has(req.method)) {
-    const origin = req.headers.origin;
-    if (origin && !getCorsOrigins().includes(origin)) {
-      return res.status(403).json({ success: false, message: 'Request origin not allowed.' });
-    }
+  if (found.source === 'cookie' && isForeignOriginWrite(req)) {
+    return res.status(403).json({ success: false, message: 'Request origin not allowed.' });
   }
 
   let decoded;
@@ -31,8 +23,9 @@ const authMiddleware = async (req, res, next) => {
     decoded = verifyToken(found.token);
   } catch (error) {
     if (found.source === 'cookie') clearAuthCookie(res);
-    const message = error.name === 'TokenExpiredError' ? 'Token expired. Please login again.' : 'Invalid token.';
-    return res.status(401).json({ success: false, message });
+    // TOKEN_EXPIRED tells clients to call POST /api/auth/refresh and retry.
+    const expired = error.name === 'TokenExpiredError';
+    return res.status(401).json({ success: false, code: expired ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN', message: expired ? 'Session expired.' : 'Invalid token.' });
   }
 
   try {

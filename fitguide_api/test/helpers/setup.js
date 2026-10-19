@@ -46,7 +46,9 @@ async function useDatabase() {
   });
   const { hostname } = new URL(db.url);
   if (hostname !== '127.0.0.1') throw new Error(`Refusing to run tests against a non-local database: ${hostname}`);
-  process.env.DATABASE_URL = db.url;
+  // On Windows every Postgres connection is a new process, so connecting can
+  // be slow while other test files run; allow more than Prisma's 5 s default.
+  process.env.DATABASE_URL = `${db.url}&connection_limit=5&connect_timeout=30&pool_timeout=30`;
   const { prisma } = require('../../db/prisma');
   try {
     migrateDeploy(db.url);

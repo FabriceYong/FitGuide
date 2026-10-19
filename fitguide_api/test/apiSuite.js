@@ -4,6 +4,7 @@
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 const { createApp, createAppWith, useDatabase } = require('./helpers/setup');
 const { defineTrainingSuite } = require('./trainingSuite');
 
@@ -17,13 +18,15 @@ const newAccount = (name = 'Test User') => ({
   password: 'correct-horse-battery',
 });
 
-/** Find the auth cookie in a response, parsed into { value, attrs }. */
-function authCookie(res) {
-  const raw = (res.headers['set-cookie'] || []).find((c) => c.startsWith('fitguide_token='));
+/** Find a cookie in a response, parsed into { value, attrs }. */
+function cookie(res, name) {
+  const raw = (res.headers['set-cookie'] || []).find((c) => c.startsWith(`${name}=`));
   if (!raw) return null;
   const [pair, ...attrs] = raw.split(';').map((s) => s.trim());
-  return { value: pair.slice('fitguide_token='.length), attrs: attrs.map((a) => a.toLowerCase()) };
+  return { value: pair.slice(name.length + 1), attrs: attrs.map((a) => a.toLowerCase()) };
 }
+const authCookie = (res) => cookie(res, 'fitguide_token');
+const refreshCookie = (res) => cookie(res, 'fitguide_refresh');
 
 function defineApiSuite() {
   describe('FitGuide API', () => {
@@ -137,6 +140,75 @@ function defineApiSuite() {
         assert.equal(cookie?.value, '');
         assert.ok(cookie.attrs.some((a) => a.startsWith('expires=thu, 01 jan 1970')));
         await agent.get('/api/auth/me').expect(401);
+      });
+
+      it('issues a refresh token limited to the auth routes, plus a session hint', async () => {
+        const res = await request(app).post('/api/auth/register').send(newAccount()).expect(201);
+        const refresh = refreshCookie(res);
+        assert.ok(refresh?.value);
+        assert.ok(refresh.attrs.includes('httponly'));
+        assert.ok(refresh.attrs.includes('path=/api/auth'));
+        const hint = cookie(res, 'fitguide_session');
+        assert.equal(hint?.value, '1');
+        assert.ok(!hint.attrs.includes('httponly'));
+      });
+
+      it('refresh rotates the token and keeps the session going', async () => {
+        const { agent, user } = await signUp('Rotator');
+        const first = await agent.post('/api/auth/refresh').expect(200);
+        assert.equal(first.body.user.id, user.id);
+        assert.ok(authCookie(first)?.value);
+        const second = await agent.post('/api/auth/refresh').expect(200);
+        assert.notEqual(refreshCookie(second).value, refreshCookie(first).value);
+        await agent.get('/api/auth/me').expect(200);
+      });
+
+      it('a replayed refresh token ends the whole session', async () => {
+        const creds = newAccount('Victim');
+        const res = await request(app).post('/api/auth/register').send(creds).expect(201);
+        const stolen = refreshCookie(res).value;
+        const victim = await request(app).post('/api/auth/refresh').set('Cookie', `fitguide_refresh=${stolen}`).expect(200);
+        const current = refreshCookie(victim).value;
+        // The attacker replays the old token: everything in the family is revoked.
+        const replay = await request(app).post('/api/auth/refresh').set('Cookie', `fitguide_refresh=${stolen}`).expect(401);
+        assert.equal(replay.body.code, 'SESSION_ENDED');
+        assert.equal(refreshCookie(replay)?.value, '');
+        await request(app).post('/api/auth/refresh').set('Cookie', `fitguide_refresh=${current}`).expect(401);
+      });
+
+      it('refresh needs a valid token and an allowed origin', async () => {
+        await request(app).post('/api/auth/refresh').expect(401);
+        await request(app).post('/api/auth/refresh').set('Cookie', 'fitguide_refresh=made-up').expect(401);
+        const { agent } = await signUp('Origin');
+        await agent.post('/api/auth/refresh').set('Origin', 'https://evil.example').expect(403);
+        await agent.post('/api/auth/refresh').set('Origin', ALLOWED_ORIGIN).expect(200);
+      });
+
+      it('bearer clients refresh with the token in the body', async () => {
+        const login = await request(app).post('/api/auth/register').set('X-Auth-Transport', 'bearer').send(newAccount('App')).expect(201);
+        assert.ok(login.body.refreshToken);
+        const res = await request(app)
+          .post('/api/auth/refresh')
+          .set('X-Auth-Transport', 'bearer')
+          .send({ refreshToken: login.body.refreshToken })
+          .expect(200);
+        assert.ok(res.body.token);
+        assert.notEqual(res.body.refreshToken, login.body.refreshToken);
+        await request(app).get('/api/auth/me').set('Authorization', `Bearer ${res.body.token}`).expect(200);
+      });
+
+      it('reports expired access tokens so clients know to refresh', async () => {
+        const expired = jwt.sign({ id: alice.user.id }, process.env.JWT_SECRET, { expiresIn: -10 });
+        const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${expired}`).expect(401);
+        assert.equal(res.body.code, 'TOKEN_EXPIRED');
+      });
+
+      it('logout revokes the refresh token', async () => {
+        const { agent } = await signUp('Done');
+        const res = await agent.post('/api/auth/logout').expect(200);
+        assert.equal(refreshCookie(res)?.value, '');
+        assert.equal(cookie(res, 'fitguide_session')?.value, '');
+        await agent.post('/api/auth/refresh').expect(401);
       });
 
       it('rejects cookie-authenticated writes from foreign origins (CSRF)', async () => {
@@ -362,6 +434,14 @@ function defineApiSuite() {
 
       it('requires a file', async () => {
         await alice.agent.post('/api/upload/avatar').expect(400);
+      });
+
+      it('rejects files whose content is not the image type they claim', async () => {
+        const res = await alice.agent
+          .post('/api/upload/avatar')
+          .attach('avatar', Buffer.from('<html><script>alert(1)</script></html>'), { filename: 'x.png', contentType: 'image/png' })
+          .expect(400);
+        assert.match(res.body.message, /not a valid image/);
       });
     });
 

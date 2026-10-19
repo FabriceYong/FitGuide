@@ -5,9 +5,22 @@ import { LoginPage } from './LoginPage';
 import { OnboardingWizard } from '../onboarding/OnboardingWizard';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { useAuth } from '../../contexts/AuthContext';
+/** Where to go after signing in: ?next=/path set by src/proxy.js (same-site paths only). */
+const nextPath = () => {
+    if (typeof window === 'undefined') return null;
+    const next = new URLSearchParams(window.location.search).get('next');
+    return next && next.startsWith('/') && !next.startsWith('//') ? next : null;
+};
+
 export const AuthWrapper = ({ children }) => {
-    const { ready, isAuthenticated, login, startGuestSession } = useAuth();
+    const { ready, isAuthenticated, login: signIn, startGuestSession } = useAuth();
     const [showRegister, setShowRegister] = useState(false);
+
+    const login = (user) => {
+        signIn(user);
+        const next = nextPath();
+        if (next) window.location.assign(next);
+    };
     if (!ready) {
         return <LoadingScreen message="Loading..."/>;
     }

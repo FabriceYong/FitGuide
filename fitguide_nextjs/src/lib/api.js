@@ -49,6 +49,23 @@ export function assetUrl(path) {
     return `${API_ORIGIN}${path.startsWith('/') ? '' : '/'}${path}`;
 }
 
+// One refresh at a time: concurrent 401s share the same attempt.
+let refreshing = null;
+
+/**
+ * Ask the API for a new access token using the httpOnly refresh cookie.
+ * @returns {Promise<boolean>} whether the session is still alive
+ */
+export function refreshSession() {
+    if (!refreshing) {
+        refreshing = fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' })
+            .then((res) => res.ok)
+            .catch(() => false)
+            .finally(() => { refreshing = null; });
+    }
+    return refreshing;
+}
+
 export class ApiError extends Error {
     constructor(message, status, data) {
         super(message);
@@ -84,14 +101,20 @@ export async function apiRequest(path, { method = 'GET', body, formData, query, 
         throw new ApiError('Please sign in to continue.', 401);
     }
 
+    const send = () => fetch(url, {
+        method,
+        headers,
+        credentials: 'include', // send/receive the httpOnly auth cookie
+        body: formData || (body !== undefined ? JSON.stringify(body) : undefined),
+    });
+
     let response;
     try {
-        response = await fetch(url, {
-            method,
-            headers,
-            credentials: 'include', // send/receive the httpOnly auth cookie
-            body: formData || (body !== undefined ? JSON.stringify(body) : undefined),
-        });
+        response = await send();
+        // Access tokens are short-lived: on a 401, refresh once and retry.
+        if (response.status === 401 && hasSession() && !path.startsWith('/auth/') && await refreshSession()) {
+            response = await send();
+        }
     } catch {
         throw new ApiError('Could not reach the FitGuide server. Check your connection and try again.', 0);
     }

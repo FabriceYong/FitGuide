@@ -3,7 +3,9 @@ const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const { GENDERS, FITNESS_LEVELS, ACTIVITY_STATUSES, GOALS, DIETS } = require('../utils/enums');
 const userStore = require('../stores/userStore');
-const { signToken, setAuthCookie, clearAuthCookie } = require('../utils/jwt');
+const { signToken, setAuthCookie, setRefreshCookies, clearSessionCookies, REFRESH_COOKIE } = require('../utils/jwt');
+const authTokens = require('../services/authTokens');
+const { isForeignOriginWrite } = require('../utils/config');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -22,18 +24,27 @@ const profileRules = [
   body('avatarUrl').optional({ values: 'null' }).isString().isLength({ max: 500 }),
 ];
 
+const wantsBearer = (req) => String(req.get('X-Auth-Transport') || '').toLowerCase() === 'bearer';
+
 /**
- * Start a session: browsers get the token as an httpOnly cookie and never see
- * it. Clients that can't use cookies (e.g. a mobile app) send
- * "X-Auth-Transport: bearer" to also get the token in the body, then pass it
- * back as "Authorization: Bearer <token>".
+ * Start or continue a session: a short-lived access token plus a refresh
+ * token. Browsers get both as httpOnly cookies and never see them. Clients
+ * that can't use cookies (e.g. a mobile app) send "X-Auth-Transport: bearer"
+ * to also get them in the body, then pass the access token back as
+ * "Authorization: Bearer <token>" and the refresh token to /auth/refresh.
  */
-const sendSession = (req, res, status, message, user) => {
-  const token = signToken(user.id);
+const sendSession = (req, res, status, body, userId, refreshToken) => {
+  const token = signToken(userId);
   setAuthCookie(res, token);
-  const wantsBearer = String(req.get('X-Auth-Transport') || '').toLowerCase() === 'bearer';
-  return res.status(status).json({ success: true, message, user, ...(wantsBearer && { token }) });
+  setRefreshCookies(res, refreshToken);
+  return res.status(status).json({ success: true, ...body, ...(wantsBearer(req) && { token, refreshToken }) });
 };
+
+const startSession = async (req, res, status, message, user) => (
+  sendSession(req, res, status, { message, user }, user.id, await authTokens.issue(user.id))
+);
+
+const refreshTokenFrom = (req) => req.cookies?.[REFRESH_COOKIE] || (typeof req.body?.refreshToken === 'string' ? req.body.refreshToken : null);
 
 const rejectInvalid = (req, res, next) => {
   const errors = validationResult(req);
@@ -57,7 +68,7 @@ router.post(
         return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
       }
       const user = await userStore.create(req.body);
-      return sendSession(req, res, 201, 'Account created successfully!', user);
+      return startSession(req, res, 201, 'Account created successfully!', user);
     } catch (err) {
       next(err);
     }
@@ -79,19 +90,45 @@ router.post(
       if (!isMatch) {
         return res.status(401).json({ success: false, message: 'Invalid email or password.' });
       }
-      return sendSession(req, res, 200, 'Login successful!', record.user);
+      return startSession(req, res, 200, 'Login successful!', record.user);
     } catch (err) {
       next(err);
     }
   }
 );
 
+// ─── POST /api/auth/refresh ───────────────────────────────────────────────────
+// Swap the refresh token (cookie, or body.refreshToken for bearer clients)
+// for a new one and a new access token. Replaying a used token revokes the
+// whole session.
+router.post('/refresh', async (req, res, next) => {
+  try {
+    if (req.cookies?.[REFRESH_COOKIE] && isForeignOriginWrite(req)) {
+      return res.status(403).json({ success: false, message: 'Request origin not allowed.' });
+    }
+    const result = await authTokens.rotate(refreshTokenFrom(req));
+    const user = result.ok ? await userStore.findById(result.userId) : null;
+    if (!user) {
+      clearSessionCookies(res);
+      return res.status(401).json({ success: false, code: 'SESSION_ENDED', message: 'Please sign in again.' });
+    }
+    return sendSession(req, res, 200, { user }, user.id, result.token);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── POST /api/auth/logout ────────────────────────────────────────────────────
-// Clears the auth cookie. No auth required, so an expired session can still
-// be cleared. (Tokens are stateless: a Bearer client just discards its copy.)
-router.post('/logout', (_req, res) => {
-  clearAuthCookie(res);
-  res.status(200).json({ success: true, message: 'Signed out.' });
+// Ends the session: revokes the refresh token and clears the cookies. No auth
+// required, so an expired session can still be cleared.
+router.post('/logout', async (req, res, next) => {
+  try {
+    await authTokens.revoke(refreshTokenFrom(req));
+    clearSessionCookies(res);
+    res.status(200).json({ success: true, message: 'Signed out.' });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ─── GET /api/auth/me ─────────────────────────────────────────────────────────

@@ -15,7 +15,7 @@ router.post('/avatar', authMiddleware, upload.single('avatar'), (req, res) => {
   return res.status(200).json({
     success: true,
     message: 'Avatar uploaded successfully!',
-    avatarUrl: `/uploads/avatars/${req.file.filename}`,
+    avatarUrl: req.file.publicUrl,
   });
 });
 

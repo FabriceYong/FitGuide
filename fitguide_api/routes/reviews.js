@@ -48,7 +48,7 @@ router.post(
         return res.status(409).json({ success: false, message: 'You have already reviewed this workout.' });
       }
 
-      const fileUrl = (field) => (req.files?.[field]?.[0] ? `/uploads/reviews/${req.files[field][0].filename}` : null);
+      const fileUrl = (field) => (req.files?.[field]?.[0] ? req.files[field][0].publicUrl : null);
       let review;
       try {
         review = await prisma.review.create({

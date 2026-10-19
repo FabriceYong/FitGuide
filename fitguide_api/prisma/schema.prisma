@@ -34,19 +34,23 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  favorites     Favorite[]
-  customImages  CustomWorkoutImage[]
-  workoutLikes  WorkoutLike[]
-  reviews       Review[]
-  reviewLikes   ReviewLike[]
-  sessions      WorkoutSession[]
-  enrollments   Enrollment[]
-  bodyMetrics   BodyMetric[]
-  refreshTokens RefreshToken[]
-  ownPrograms   Program[]            @relation("ProgramOwner")
-  coachMessages CoachMessage[]
-  foods         Food[]
-  foodLogs      FoodLog[]
+  favorites          Favorite[]
+  customImages       CustomWorkoutImage[]
+  workoutLikes       WorkoutLike[]
+  reviews            Review[]
+  reviewLikes        ReviewLike[]
+  sessions           WorkoutSession[]
+  enrollments        Enrollment[]
+  bodyMetrics        BodyMetric[]
+  refreshTokens      RefreshToken[]
+  ownPrograms        Program[]            @relation("ProgramOwner")
+  coachMessages      CoachMessage[]
+  foods              Food[]
+  foodLogs           FoodLog[]
+  dailyMetrics       DailyMetric[]
+  externalActivities ExternalActivity[]
+  connections        Connection[]
+  oauthStates        OAuthState[]
 
   @@map("users")
 }
@@ -413,4 +417,84 @@ model FoodLog {
 
   @@index([userId, date])
   @@map("food_logs")
+}
+
+// ─── Wearables and health data ───────────────────────────────────────────────
+
+// Daily health numbers from one source (manual, csv, fitbit, strava). The
+// Progress page shows the most specific value per day.
+model DailyMetric {
+  id             String   @id @default(uuid())
+  userId         String
+  date           String   @db.VarChar(10) // YYYY-MM-DD, user's local date
+  source         String // manual | csv | fitbit | strava
+  steps          Int?
+  restingHr      Int? // beats per minute
+  sleepMinutes   Int?
+  activeCalories Int?
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date, source])
+  @@index([userId, date])
+  @@map("daily_metrics")
+}
+
+// A workout recorded by another service (e.g. a Strava run). Counts toward
+// activity and streaks, but not personal records.
+model ExternalActivity {
+  id          String   @id @default(uuid())
+  userId      String
+  provider    String
+  externalId  String
+  type        String // run, ride, walk, swim, workout, ...
+  name        String   @db.VarChar(200)
+  startedAt   DateTime
+  durationSec Int
+  distanceM   Float?
+  calories    Int?
+  avgHr       Int?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@index([userId, startedAt])
+  @@map("external_activities")
+}
+
+// A linked account at a wearable/fitness service. Tokens are encrypted.
+model Connection {
+  id             String    @id @default(uuid())
+  userId         String
+  provider       String // strava | fitbit
+  externalUserId String?
+  accessToken    String // AES-256-GCM, see utils/crypto.js
+  refreshToken   String?
+  expiresAt      DateTime?
+  scopes         String?
+  lastSyncAt     DateTime?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("connections")
+}
+
+// Pending OAuth sign-ins: the state parameter and PKCE verifier stay here,
+// never in the browser.
+model OAuthState {
+  id           String   @id // the random state value
+  userId       String
+  provider     String
+  codeVerifier String
+  expiresAt    DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("oauth_states")
 }

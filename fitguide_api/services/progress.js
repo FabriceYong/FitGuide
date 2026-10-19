@@ -160,9 +160,11 @@ function describeEnrollment(enrollment, program, todayYmd) {
  * @param {Map<string, object>} input.exercisesBySlug
  * @param {number} input.tzOffset
  * @param {string} input.todayYmd
+ * @param {object[]} [input.externalActivities]  From connected services; they
+ *   count toward activity and streaks (with completedAt, durationSec, calories)
  */
-function buildSummary({ sessions, bodyMetrics, enrollments, exercisesBySlug, tzOffset, todayYmd }) {
-  const byDate = activityByDate(sessions, tzOffset);
+function buildSummary({ sessions, bodyMetrics, enrollments, exercisesBySlug, tzOffset, todayYmd, externalActivities = [] }) {
+  const byDate = activityByDate([...sessions, ...externalActivities], tzOffset);
   const days = [];
   for (let i = ACTIVITY_DAYS - 1; i >= 0; i -= 1) {
     const date = addDays(todayYmd, -i);
@@ -191,6 +193,7 @@ function buildSummary({ sessions, bodyMetrics, enrollments, exercisesBySlug, tzO
       sessions: sessions.length,
       minutes: Math.round(sum(sessions, 'durationSec') / 60),
       calories: sum(sessions, 'calories'),
+      externalActivities: externalActivities.length,
     },
     thisWeek: {
       sessions: sum(lastWeek, 'sessions'),

@@ -24,6 +24,8 @@ const progressRoutes = require('./routes/progress');
 const planRoutes = require('./routes/plan');
 const coachRoutes = require('./routes/coach');
 const nutritionRoutes = require('./routes/nutrition');
+const integrationsRoutes = require('./routes/integrations');
+const healthDataRoutes = require('./routes/healthData');
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -103,6 +105,8 @@ function createApp() {
   app.use('/api/plan', planRoutes);
   app.use('/api/coach', coachRoutes);
   app.use('/api/nutrition', nutritionRoutes);
+  app.use('/api/integrations', integrationsRoutes);
+  app.use('/api/health-data', healthDataRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

@@ -9,6 +9,7 @@ const { createApp, createAppWith, useDatabase } = require('./helpers/setup');
 const { defineTrainingSuite } = require('./trainingSuite');
 const { definePlanCoachSuite } = require('./planCoachSuite');
 const { defineNutritionSuite } = require('./nutritionSuite');
+const { defineHealthSuite } = require('./healthSuite');
 
 const ALLOWED_ORIGIN = 'http://localhost:3000';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
@@ -452,6 +453,8 @@ function defineApiSuite() {
     describe('plans and coach', () => definePlanCoachSuite(() => ({ app, signUp })));
 
     describe('nutrition', () => defineNutritionSuite(() => ({ app, signUp })));
+
+    describe('health data and wearables', () => defineHealthSuite(() => ({ app, signUp })));
 
     describe('rate limits', () => {
       it('limits failed logins', async () => {

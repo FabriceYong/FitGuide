@@ -10,6 +10,7 @@
  */
 const { prisma } = require('../db/prisma');
 const { schemas, validate } = require('../schemas/records');
+const { displayName } = require('../utils/names');
 
 /** Dates → ISO strings, like the JSON the API sends. */
 const plain = (value) => JSON.parse(JSON.stringify(value));
@@ -29,10 +30,12 @@ const exerciseCatalog = {
   },
 };
 
-const programInclude = { days: { orderBy: [{ week: 'asc' }, { day: 'asc' }] } };
-const programPublic = ({ days, ownerId, generatedFrom, ...program }) => ({
+const programInclude = { days: { orderBy: [{ week: 'asc' }, { day: 'asc' }] }, creator: { select: { name: true } } };
+const programPublic = ({ days, ownerId, generatedFrom, creatorId: _c, creator, reviewNote: _r, ...program }) => ({
   ...catalogPublic(program),
   isPersonal: Boolean(ownerId),
+  // Creator programs show who wrote them (first name + initial).
+  createdBy: creator ? displayName(creator.name) : null,
   ...(generatedFrom && { generatedFrom }),
   days: days.map(({ id: _id, programId: _p, notes, ...d }) => (notes ? { ...d, notes } : d)),
 });

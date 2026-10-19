@@ -26,5 +26,6 @@ export const config = {
     '/community/:path*',
     '/settings/:path*',
     '/admin/:path*',
+    '/studio/:path*',
   ],
 };

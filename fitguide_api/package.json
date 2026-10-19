@@ -13,7 +13,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "node seed/index.js",
-    "assign-gifs": "node scripts/assignExerciseGifs.js"
+    "assign-gifs": "node scripts/assignExerciseGifs.js",
+    "make-admin": "node seed/makeAdmin.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",

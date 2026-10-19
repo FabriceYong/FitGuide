@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { Dumbbell } from 'lucide-react';
+import { RoleLinks } from './RoleLinks';
+import { navLinkClass } from './navLinkClass';
 
 const LINKS = [
   { href: '/workouts', label: 'Workouts' },
@@ -23,16 +25,11 @@ export function SiteHeader({ active }) {
         </Link>
         <nav className="flex items-center gap-1 overflow-x-auto">
           {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
-                active === link.href ? 'bg-lime-light text-noir-eclipse' : 'text-white-70 hover:text-white hover:bg-white/5'
-              }`}
-            >
+            <Link key={link.href} href={link.href} aria-current={active === link.href ? 'page' : undefined} className={navLinkClass(active, link.href)}>
               {link.label}
             </Link>
           ))}
+          <RoleLinks active={active} />
         </nav>
       </div>
     </header>

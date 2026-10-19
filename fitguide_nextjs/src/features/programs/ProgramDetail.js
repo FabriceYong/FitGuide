@@ -94,6 +94,7 @@ export function ProgramDetail({ program, workouts }) {
                     <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-white/5 text-white-70">{program.goal}</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-extrabold">{program.title}</h1>
+                {program.createdBy && <p className="text-sm text-white-70">By {program.createdBy}, FitGuide creator</p>}
                 <p className="text-white-70 max-w-3xl leading-relaxed">{program.description}</p>
                 <div className="flex flex-wrap gap-5 text-sm text-white-70">
                     <span className="flex items-center gap-1.5"><CalendarDays className="w-4 h-4" />{program.weeks} weeks</span>

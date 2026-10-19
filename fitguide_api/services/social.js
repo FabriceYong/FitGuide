@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const { prisma, isUniqueViolation } = require('../db/prisma');
 const { mergeByDate } = require('./healthData');
 const { addDays } = require('../utils/dates');
+const { displayName } = require('../utils/names');
 
 const METRICS = {
   sessions: { label: 'Workouts', unit: 'workouts' },
@@ -29,12 +30,6 @@ class SocialError extends Error {
 
 const randomCode = (length) => Array.from(crypto.randomBytes(length), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
 
-/** "Alex Morgan" → "Alex M." */
-function displayName(name) {
-  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return 'Member';
-  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0];
-}
 
 const person = (u) => ({ id: u.id, name: displayName(u.name), avatarUrl: u.avatarUrl || null });
 

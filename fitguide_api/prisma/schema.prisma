@@ -59,6 +59,7 @@ model User {
   friendRequestsReceived Friendship[]         @relation("FriendshipAddressee")
   challengesCreated      Challenge[]
   challengeMemberships   ChallengeMember[]
+  createdPrograms        Program[]            @relation("ProgramCreator")
 
   @@map("users")
 }
@@ -111,6 +112,7 @@ model Workout {
   sets             Int      @default(1)
   reps             Int?
   isPublished      Boolean  @default(true)
+  isPremium        Boolean  @default(false)
   viewCount        Int      @default(0)
   likeCount        Int      @default(0)
   createdAt        DateTime @default(now())
@@ -167,14 +169,22 @@ model Program {
   ownerId       String?
   // How a personal plan was generated: { goal, level, daysPerWeek, minutesPerSession, equipment }
   generatedFrom Json?
+  // Creator marketplace: programs written by creators go through review.
+  creatorId     String?
+  status        String   @default("published") // draft | pending | published | rejected
+  reviewNote    String?  @db.VarChar(500)
+  // Only for PLUS members (see billing).
+  isPremium     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   owner       User?        @relation("ProgramOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  creator     User?        @relation("ProgramCreator", fields: [creatorId], references: [id], onDelete: SetNull)
   days        ProgramDay[]
   enrollments Enrollment[]
 
   @@index([ownerId])
+  @@index([creatorId, status])
   @@map("programs")
 }
 

@@ -19,8 +19,59 @@ export function localToday() {
 export const fetchProgressSummary = () => apiRequest('/progress/summary', { auth: true, query: tz() });
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
-/** @returns {Promise<{ session: object, newRecords: object[] }>} */
-export const logSession = (session) => apiRequest('/sessions', { method: 'POST', auth: true, body: session });
+// Sessions finished without a connection wait here and are sent once back online.
+const QUEUE_KEY = 'fitguide_pending_sessions';
+
+const readQueue = () => {
+    try {
+        return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    } catch {
+        return [];
+    }
+};
+const writeQueue = (items) => {
+    try {
+        if (items.length) localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
+        else localStorage.removeItem(QUEUE_KEY);
+    } catch {
+        // storage unavailable: nothing more we can do offline
+    }
+};
+
+/**
+ * Save a finished session. Offline (status 0), it's queued and
+ * { queued: true } comes back instead of the saved session.
+ * @returns {Promise<{ session: object, newRecords: object[], queued?: boolean }>}
+ */
+export async function logSession(session) {
+    try {
+        return await apiRequest('/sessions', { method: 'POST', auth: true, body: session });
+    } catch (err) {
+        if (err.status !== 0) throw err;
+        writeQueue([...readQueue(), session]);
+        return { session: { ...session, calories: null }, newRecords: [], queued: true };
+    }
+}
+
+export const queuedSessionCount = () => (typeof window === 'undefined' ? 0 : readQueue().length);
+
+/** Send queued sessions. Ones the server rejects (e.g. invalid) are dropped. */
+export async function flushQueuedSessions() {
+    const queue = readQueue();
+    if (!queue.length) return 0;
+    const left = [];
+    let sent = 0;
+    for (const session of queue) {
+        try {
+            await apiRequest('/sessions', { method: 'POST', auth: true, body: session });
+            sent += 1;
+        } catch (err) {
+            if (err.status === 0 || err.status === 401 || err.status >= 500) left.push(session);
+        }
+    }
+    writeQueue(left);
+    return sent;
+}
 export const fetchSessions = (query = {}) => apiRequest('/sessions', { auth: true, query });
 export const deleteSession = (id) => apiRequest(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true });
 

@@ -58,8 +58,8 @@ function Overview() {
               <YAxis allowDecimals={false} tick={{ fill: '#9ca3af', fontSize: 10 }} />
               <Tooltip contentStyle={{ background: '#111', border: '1px solid #333', borderRadius: 8 }} />
               <Legend />
-              <Bar dataKey="signups" name="Sign-ups" fill="#00C4B4" />
-              <Bar dataKey="sessions" name="Workouts logged" fill="#C6F432" />
+              <Bar dataKey="signups" name="Sign-ups" fill="#64748B" />
+              <Bar dataKey="sessions" name="Workouts logged" fill="#00C4B4" />
             </BarChart>
           </ResponsiveContainer>
         </div>

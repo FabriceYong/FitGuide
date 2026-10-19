@@ -63,7 +63,7 @@ export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, on
 
                     <div className="grid grid-cols-3 gap-3 text-center">
                         <Stat icon={<Clock className="w-5 h-5 mx-auto mb-1 text-blue-400" />} value={minutes} label="Minutes" />
-                        <Stat icon={<Flame className="w-5 h-5 mx-auto mb-1 text-orange-400" />} value={saved ? saved.session.calories : Math.round((Number(minutes) || 0) * caloriesPerMinute)} label="Calories" />
+                        <Stat icon={<Flame className="w-5 h-5 mx-auto mb-1 text-orange-400" />} value={saved?.session?.calories ?? Math.round((Number(minutes) || 0) * caloriesPerMinute)} label="Calories" />
                         <Stat icon={<Award className="w-5 h-5 mx-auto mb-1" style={{ color: tintColor }} />} value={`${draft.stepsCompleted}/${draft.totalSteps}`} label="Steps" />
                     </div>
 
@@ -72,6 +72,11 @@ export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, on
                             <p className="flex items-center justify-center gap-2 text-emerald-400 font-semibold">
                                 <Check className="w-5 h-5" /> Saved to your progress
                             </p>
+                            {saved.queued && (
+                                <p className="text-sm text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
+                                    You&apos;re offline. This session is saved on this device and will sync when you&apos;re back online.
+                                </p>
+                            )}
                             {saved.newRecords.length > 0 && (
                                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
                                     <h3 className="flex items-center gap-2 font-bold text-amber-300 mb-2">

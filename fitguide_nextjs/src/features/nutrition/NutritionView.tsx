@@ -204,7 +204,7 @@ export function NutritionView() {
                       <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(8)} tick={{ fill: '#9ca3af', fontSize: 10 }} />
                       <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} domain={[0, (max: number) => Math.ceil((Math.max(max, log.targets.calories) * 1.1) / 100) * 100]} />
                       <Tooltip contentStyle={{ background: '#111', border: '1px solid #333', borderRadius: 8 }} formatter={(v) => [`${v} kcal`, 'Eaten']} />
-                      <ReferenceLine y={log.targets.calories} stroke="#C6F432" strokeDasharray="4 4" />
+                      <ReferenceLine y={log.targets.calories} stroke="#E5E7EB" strokeDasharray="4 4" />
                       <Bar dataKey="calories" fill="#00C4B4" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>

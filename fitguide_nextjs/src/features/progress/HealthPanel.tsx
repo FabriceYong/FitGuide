@@ -122,7 +122,7 @@ export function HealthPanel() {
                 <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(8)} tick={{ fill: '#9ca3af', fontSize: 10 }} />
                 <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} />
                 <Tooltip contentStyle={{ background: '#111', border: '1px solid #333', borderRadius: 8 }} formatter={(v) => [Number(v).toLocaleString(), 'Steps']} />
-                <Bar dataKey="steps" fill="#C6F432" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="steps" fill="#00C4B4" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -9,8 +9,13 @@ export const metadata = {
     default: 'FitGuide - Your Personal Fitness Companion',
     template: '%s | FitGuide',
   },
-  description: 'Guided workouts, multi-week training programs and progress tracking.',
+  description: 'Guided workouts, personal plans, nutrition and progress tracking.',
+  applicationName: 'FitGuide',
+  appleWebApp: { capable: true, title: 'FitGuide', statusBarStyle: 'black-translucent' },
+  icons: { icon: '/icons/icon.svg', apple: '/icons/apple-touch-icon.png' },
 };
+
+export const viewport = { themeColor: '#0A0C10' };
 
 export default function RootLayout({ children }) {
   return (

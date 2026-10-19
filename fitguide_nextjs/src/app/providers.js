@@ -1,8 +1,14 @@
 'use client';
 
 import { AuthProvider } from '../contexts/AuthContext';
+import { OfflineSupport } from '../components/OfflineSupport';
 
 /** Client-side context shared by every route. */
 export function Providers({ children }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <AuthProvider>
+      {children}
+      <OfflineSupport />
+    </AuthProvider>
+  );
 }

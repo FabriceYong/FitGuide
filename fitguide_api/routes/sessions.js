@@ -5,6 +5,7 @@ const workoutStore = require('../stores/workoutStore');
 const { checkProgramDay, markDayComplete, unmarkSession } = require('../services/enrollments');
 const { personalRecords } = require('../services/progress');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const { isPlus } = require('../services/billing');
 const { rejectInvalid, pick } = require('../utils/validate');
 
 const router = express.Router();
@@ -56,6 +57,9 @@ router.post('/', sessionRules, rejectInvalid, async (req, res, next) => {
     const b = req.body;
     const [workout] = await workoutStore.getManyBySlugs([b.workoutSlug]);
     if (!workout) return res.status(404).json({ success: false, message: 'Workout not found.' });
+    if (workout.isPremium && !isPlus(req.user)) {
+      return res.status(402).json({ success: false, code: 'PLUS_REQUIRED', message: 'This workout is part of FitGuide PLUS.' });
+    }
 
     const startedAt = new Date(b.startedAt);
     const completedAt = new Date(b.completedAt);

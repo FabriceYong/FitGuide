@@ -44,7 +44,7 @@ router.post(
       const { reply, changedPlan } = await coach.chat(req.user, req.body.text, { todayYmd: today(tzOffset), tzOffset });
       res.status(201).json({ success: true, reply, changedPlan });
     } catch (err) {
-      if (err instanceof coach.CoachError) return res.status(err.status).json({ success: false, message: err.message });
+      if (err instanceof coach.CoachError) return res.status(err.status).json({ success: false, message: err.message, ...(err.code && { code: err.code }) });
       if (err instanceof Anthropic.APIError) {
         // Anthropic API failure (rate limit, overload, ...): don't leak details.
         console.error('[coach] API error', err.status, err.message);

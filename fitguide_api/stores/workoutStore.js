@@ -4,6 +4,7 @@
  */
 const { Prisma } = require('@prisma/client');
 const { prisma } = require('../db/prisma');
+const { withoutGifs } = require('../utils/media');
 
 /** Escape LIKE wildcards so user input is matched literally. */
 const escapeLike = (s) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -28,6 +29,7 @@ async function toPublic(workouts) {
   return workouts.map(({ id: _uuid, isPublished: _p, ...w }) => ({
     id: w.slug,
     ...w,
+    steps: withoutGifs(w.steps),
     averageRating: 0,
     totalReviews: 0,
     ...ratings.get(w.slug),

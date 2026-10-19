@@ -15,28 +15,34 @@ datasource db {
 // ─── Accounts ────────────────────────────────────────────────────────────────
 
 model User {
-  id                 String   @id @default(uuid())
-  name               String   @db.VarChar(100)
-  email              String   @unique
+  id                 String    @id @default(uuid())
+  name               String    @db.VarChar(100)
+  email              String    @unique
   passwordHash       String
   // Allowed values for the profile fields live in utils/enums.js.
-  gender             String   @default("Prefer not to say")
-  height             Float    @default(170)
-  weight             Float    @default(70)
-  targetWeight       Float    @default(70)
-  fitnessLevel       String   @default("Beginner")
-  activityStatus     String   @default("Active")
-  goal               String   @default("Vitality")
-  diet               String   @default("Mediterranean Diet")
-  role               String   @default("user") // user | admin
+  gender             String    @default("Prefer not to say")
+  height             Float     @default(170)
+  weight             Float     @default(70)
+  targetWeight       Float     @default(70)
+  fitnessLevel       String    @default("Beginner")
+  activityStatus     String    @default("Active")
+  goal               String    @default("Vitality")
+  diet               String    @default("Mediterranean Diet")
+  role               String    @default("user") // user | admin
   birthYear          Int?
   // Shared to add friends; created on first use.
-  friendCode         String?  @unique
+  friendCode         String?   @unique
   // Appear by first name + initial on challenge and friend leaderboards.
-  showOnLeaderboards Boolean  @default(true)
+  showOnLeaderboards Boolean   @default(true)
+  // Billing (Stripe). plan is "plus" while the subscription is active.
+  plan               String    @default("free")
+  stripeCustomerId   String?   @unique
+  subscriptionStatus String?
+  planRenewsAt       DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
   avatarUrl          String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   favorites              Favorite[]
   customImages           CustomWorkoutImage[]
@@ -567,4 +573,13 @@ model ChallengeMember {
   @@id([challengeId, userId])
   @@index([userId])
   @@map("challenge_members")
+}
+
+// Stripe webhook events already handled (Stripe can deliver an event twice).
+model StripeEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
+
+  @@map("stripe_events")
 }

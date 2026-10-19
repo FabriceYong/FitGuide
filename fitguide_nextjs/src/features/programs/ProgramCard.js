@@ -23,7 +23,7 @@ export function ProgramCard({ program, badge }) {
                 </span>
                 {badge && <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-lime-light text-noir-eclipse">{badge}</span>}
             </div>
-            <h3 className="text-xl font-extrabold text-white mt-3">{program.title}</h3>
+            <h3 className="text-xl font-extrabold text-white mt-3">{program.title}{program.isPremium && <span className="ml-2 align-middle text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300">PLUS</span>}</h3>
             <p className="text-sm text-white-70 mt-2 line-clamp-3">{program.description}</p>
             <div className="flex flex-wrap gap-4 mt-5 text-xs text-white-70">
                 <span className="flex items-center gap-1.5"><CalendarDays className="w-4 h-4" />{program.weeks} weeks · {program.daysPerWeek} days/week</span>

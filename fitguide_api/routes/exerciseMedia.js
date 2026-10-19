@@ -10,7 +10,15 @@
 
 const express = require('express');
 const https = require('https');
+const { gifsAllowed } = require('../utils/media');
+
 const router = express.Router();
+
+// ExerciseDB media is non-commercial: off once paid plans are on (see utils/media.js).
+router.use((_req, res, next) => {
+  if (gifsAllowed()) return next();
+  return res.status(404).json({ error: 'Exercise media is not available.' });
+});
 
 const EXERCISEDB_BASE = 'https://oss.exercisedb.dev';
 

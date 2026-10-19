@@ -29,6 +29,7 @@ const healthDataRoutes = require('./routes/healthData');
 const socialRoutes = require('./routes/social');
 const adminRoutes = require('./routes/admin');
 const creatorRoutes = require('./routes/creator');
+const billingRoutes = require('./routes/billing');
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -62,6 +63,8 @@ function createApp() {
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   }));
   app.use(cors({ origin: getCorsOrigins(), credentials: true }));
+  // Stripe signs the raw body, so its webhook is read before JSON parsing.
+  app.post('/api/billing/webhook', billingRoutes.webhook);
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
 
@@ -113,6 +116,7 @@ function createApp() {
   app.use('/api/social', socialRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/creator', creatorRoutes);
+  app.use('/api/billing', billingRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

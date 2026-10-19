@@ -52,6 +52,7 @@ export default async function WorkoutsPage() {
                     <div className="flex flex-wrap gap-4 mt-4 text-xs text-white-70">
                       <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{w.duration} min</span>
                       <span className="flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5" />{w.difficulty}</span>
+                      {w.isPremium && <span className="font-extrabold text-amber-300">PLUS</span>}
                       {w.calories ? <span className="flex items-center gap-1"><Flame className="w-3.5 h-3.5" />{w.calories} kcal</span> : null}
                     </div>
                   </Link>

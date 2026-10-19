@@ -3,6 +3,7 @@ const { body } = require('express-validator');
 const { enrollmentStore, programStore } = require('../stores/records');
 const { describeAll, describeOne } = require('../services/enrollments');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const { isPlus } = require('../services/billing');
 const { rejectInvalid } = require('../utils/validate');
 const { tzOffsetFrom, today, isValidYmd, daysBetween } = require('../utils/dates');
 
@@ -53,6 +54,9 @@ router.post(
 
       const program = await programStore.getBySlug(req.body.programSlug, { userId: req.user.id });
       if (!program) return res.status(404).json({ success: false, message: 'Program not found.' });
+      if (program.isPremium && !isPlus(req.user)) {
+        return res.status(402).json({ success: false, code: 'PLUS_REQUIRED', message: 'This program is part of FitGuide PLUS.' });
+      }
 
       const [active] = await enrollmentStore.list(req.user.id, { where: { status: 'active' } });
       if (active) {

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { WorkoutDetails } from '../../../features/workout/WorkoutDetails';
 import { categoryColor } from '../../../features/workout/categoryColor';
+import { PlusGate } from '../../../components/PlusGate';
 
 /** WorkoutDetails wired to routes: back goes to the previous page, Begin opens the player. */
 export function WorkoutDetailsRoute({ workout }) {
@@ -12,12 +13,16 @@ export function WorkoutDetailsRoute({ workout }) {
     else router.push('/workouts');
   };
   return (
-    <WorkoutDetails
-      initialWorkout={workout}
-      workoutSlug={workout.slug}
-      tintColor={categoryColor(workout.category)}
-      onBack={goBack}
-      onBegin={() => router.push(`/workouts/${workout.slug}/play`)}
-    />
+    <PlusGate workout={workout}>
+      {(available) => (
+        <WorkoutDetails
+          initialWorkout={available}
+          workoutSlug={available.slug}
+          tintColor={categoryColor(available.category)}
+          onBack={goBack}
+          onBegin={() => router.push(`/workouts/${available.slug}/play`)}
+        />
+      )}
+    </PlusGate>
   );
 }

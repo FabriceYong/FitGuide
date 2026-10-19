@@ -10,6 +10,7 @@ const LINKS = [
   { href: '/nutrition', label: 'Nutrition' },
   { href: '/community', label: 'Community' },
   { href: '/progress', label: 'Progress' },
+  { href: '/plus', label: 'PLUS' },
 ];
 
 /** Header for the standalone pages (catalog, programs, progress). */

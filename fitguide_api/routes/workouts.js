@@ -2,7 +2,8 @@ const express = require('express');
 const workoutStore = require('../stores/workoutStore');
 const { seedCatalog } = require('../seed/catalog');
 const { WORKOUT_CATEGORIES } = require('../utils/enums');
-const { authMiddleware } = require('../middleware/authMiddleware');
+const { authMiddleware, optionalAuth } = require('../middleware/authMiddleware');
+const { isPlus } = require('../services/billing');
 
 const router = express.Router();
 
@@ -24,13 +25,15 @@ router.get('/categories/list', (_req, res) => {
 });
 
 // ─── GET /api/workouts/:slug ──────────────────────────────────────────────────
-router.get('/:slug', async (req, res, next) => {
+// PLUS workouts show their overview to everyone; the steps are for members.
+router.get('/:slug', optionalAuth, async (req, res, next) => {
   try {
     const workout = await workoutStore.getBySlug(req.params.slug);
     if (!workout) {
       return res.status(404).json({ success: false, message: 'Workout not found.' });
     }
-    return res.status(200).json({ success: true, workout });
+    const locked = workout.isPremium && !isPlus(req.user) && req.user?.role !== 'admin';
+    return res.status(200).json({ success: true, workout: locked ? { ...workout, steps: [], locked: true } : workout });
   } catch (err) {
     next(err);
   }

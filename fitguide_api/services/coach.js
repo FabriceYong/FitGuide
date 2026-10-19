@@ -21,6 +21,8 @@ const EFFORT = () => process.env.COACH_EFFORT || 'low';
 const MAX_TOOL_ROUNDS = 6;
 // Long conversations get expensive; the user starts a new chat after this many messages.
 const MAX_USER_TURNS = 40;
+// Free accounts get a few messages a day; PLUS members only have the hourly limit.
+const FREE_MESSAGES_PER_DAY = () => Number(process.env.COACH_FREE_MESSAGES_PER_DAY) || 10;
 
 const SYSTEM_PROMPT = `You are FitGuide Coach, a friendly, practical fitness coach inside the FitGuide app.
 
@@ -230,6 +232,15 @@ async function chat(user, text, { todayYmd, tzOffset }) {
   }
 
   if (busy.has(user.id)) throw new CoachError('The coach is still answering your last message.', 409);
+  if (user.plan !== 'plus') {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sent = await prisma.coachMessage.count({ where: { userId: user.id, role: 'user', display: { not: null }, createdAt: { gte: since } } });
+    if (sent >= FREE_MESSAGES_PER_DAY()) {
+      const err = new CoachError(`Free accounts can send ${FREE_MESSAGES_PER_DAY()} coach messages a day. FitGuide PLUS removes the daily limit.`, 429);
+      err.code = 'PLUS_REQUIRED';
+      throw err;
+    }
+  }
   busy.add(user.id);
   const turnStart = stamp();
   try {

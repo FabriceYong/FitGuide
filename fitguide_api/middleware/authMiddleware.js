@@ -41,4 +41,20 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-module.exports = { authMiddleware };
+/**
+ * Attach req.user when a valid token is present, but let anonymous requests
+ * through (for public pages that show more to signed-in or PLUS members).
+ */
+const optionalAuth = async (req, _res, next) => {
+  const found = tokenFromRequest(req);
+  if (!found) return next();
+  try {
+    const user = await userStore.findById(verifyToken(found.token).id);
+    if (user) req.user = user;
+  } catch {
+    // Invalid or expired token: treat as anonymous.
+  }
+  return next();
+};
+
+module.exports = { authMiddleware, optionalAuth };

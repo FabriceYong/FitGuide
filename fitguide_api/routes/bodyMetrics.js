@@ -1,5 +1,6 @@
 const express = require('express');
 const { body } = require('express-validator');
+const { PROFILE } = require('@fitguide/shared');
 const { MEASUREMENT_FIELDS } = require('../schemas/records');
 const { bodyMetricStore } = require('../stores/records');
 const userStore = require('../stores/userStore');
@@ -10,8 +11,8 @@ const { tzOffsetFrom, today, isValidYmd } = require('../utils/dates');
 const router = express.Router();
 router.use(authMiddleware);
 
-// The profile's weight field accepts this range (see routes/auth.js).
-const PROFILE_WEIGHT_RANGE = [30, 250];
+// The profile's weight field accepts this range.
+const PROFILE_WEIGHT_RANGE = PROFILE.WEIGHT_KG;
 
 // ─── GET /api/body-metrics ────────────────────────────────────────────────────
 // Newest first.

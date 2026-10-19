@@ -1,0 +1,9 @@
+{
+  "name": "@fitguide/shared",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enums and limits shared by the FitGuide API and web app. No dependencies.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "UNLICENSED"
+}

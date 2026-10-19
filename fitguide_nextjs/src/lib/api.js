@@ -85,7 +85,7 @@ export class ApiError extends Error {
  * @param {object} [options.query]     Query params; empty values are skipped
  * @param {boolean} [options.auth=false] Needs a signed-in account: fails fast
  *        without a session, and a 401 signs the user out
- * @returns {Promise<object>} Parsed JSON response
+ * @returns {Promise<any>} Parsed JSON response
  * @throws {ApiError} On network failure (status 0) or a non-2xx response
  */
 export async function apiRequest(path, { method = 'GET', body, formData, query, auth = false } = {}) {

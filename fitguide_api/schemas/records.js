@@ -4,6 +4,7 @@
  * database relies on).
  */
 const { z } = require('zod');
+const { TRAINING } = require('@fitguide/shared');
 const { SESSION_STATUSES, ENROLLMENT_STATUSES } = require('../utils/enums');
 
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be a date (YYYY-MM-DD)');
@@ -56,15 +57,7 @@ const enrollment = z.object({
 });
 
 // Measurement fields a body-metric entry may hold, with plausible ranges.
-const MEASUREMENT_RANGES = {
-  weightKg: [20, 400],
-  bodyFatPct: [1, 75],
-  waistCm: [20, 300],
-  chestCm: [20, 300],
-  hipsCm: [20, 300],
-  armCm: [5, 100],
-  thighCm: [10, 150],
-};
+const { MEASUREMENT_RANGES } = TRAINING;
 const MEASUREMENT_FIELDS = Object.keys(MEASUREMENT_RANGES);
 
 const bodyMetric = z.object({

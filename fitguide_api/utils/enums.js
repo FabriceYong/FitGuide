@@ -1,22 +1,22 @@
 /**
- * Allowed values for enumerated fields. The database stores them as text, so
- * these lists are the single source of truth for validation.
+ * Allowed values for enumerated fields. The database stores them as text;
+ * the lists come from @fitguide/shared so the web app validates the same way.
  */
+const { PROFILE, CATALOG, TRAINING } = require('@fitguide/shared');
+
 module.exports = {
-  GENDERS: ['Male', 'Female', 'Non-binary', 'Prefer not to say'],
-  FITNESS_LEVELS: ['Beginner', 'Intermediate', 'Advanced'],
-  ACTIVITY_STATUSES: ['Active', 'Inactive', 'Moderately Active', 'Very Active'],
-  GOALS: ['Vitality', 'Muscle', 'Weight', 'Flexibility'],
-  DIETS: ['Keto Diet', 'Mediterranean Diet', 'Paleo Diet', 'Intermittent Fasting', 'Flexible Balanced Plan'],
+  GENDERS: PROFILE.GENDERS,
+  FITNESS_LEVELS: PROFILE.FITNESS_LEVELS,
+  ACTIVITY_STATUSES: PROFILE.ACTIVITY_STATUSES,
+  GOALS: PROFILE.GOALS,
+  DIETS: PROFILE.DIETS,
 
-  WORKOUT_CATEGORIES: ['HIIT', 'Yoga', 'Strength', 'Cardio', 'Flexibility', 'Pilates', 'CrossFit', 'Dance', 'Martial Arts', 'Swimming'],
-  DIFFICULTIES: ['Beginner', 'Intermediate', 'Advanced', 'All Levels'],
-  INTENSITIES: ['Low', 'Moderate', 'High', 'Very High'],
+  WORKOUT_CATEGORIES: CATALOG.WORKOUT_CATEGORIES,
+  DIFFICULTIES: CATALOG.DIFFICULTIES,
+  INTENSITIES: CATALOG.INTENSITIES,
+  EXERCISE_CATEGORIES: CATALOG.EXERCISE_CATEGORIES,
+  TRACKING_TYPES: CATALOG.TRACKING_TYPES,
 
-  EXERCISE_CATEGORIES: ['Strength', 'Cardio', 'Mobility', 'Core', 'Plyometric'],
-  // How a set of an exercise is measured, which decides what a personal record means.
-  TRACKING_TYPES: ['reps', 'weighted', 'duration', 'distance'],
-
-  SESSION_STATUSES: ['completed', 'partial'],
-  ENROLLMENT_STATUSES: ['active', 'completed', 'abandoned'],
+  SESSION_STATUSES: TRAINING.SESSION_STATUSES,
+  ENROLLMENT_STATUSES: TRAINING.ENROLLMENT_STATUSES,
 };

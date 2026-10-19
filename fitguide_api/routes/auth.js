@@ -1,7 +1,11 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
+const { PROFILE } = require('@fitguide/shared');
 const { GENDERS, FITNESS_LEVELS, ACTIVITY_STATUSES, GOALS, DIETS } = require('../utils/enums');
+
+const [MIN_HEIGHT, MAX_HEIGHT] = PROFILE.HEIGHT_CM;
+const [MIN_WEIGHT, MAX_WEIGHT] = PROFILE.WEIGHT_KG;
 const userStore = require('../stores/userStore');
 const { signToken, setAuthCookie, setRefreshCookies, clearSessionCookies, REFRESH_COOKIE } = require('../utils/jwt');
 const authTokens = require('../services/authTokens');
@@ -14,9 +18,9 @@ const router = express.Router();
 const profileRules = [
   body('name').optional().trim().notEmpty().withMessage('Name cannot be empty').isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
   body('gender').optional().isIn(GENDERS).withMessage('Invalid gender'),
-  body('height').optional().isFloat({ min: 50, max: 250 }).withMessage('Height must be between 50 and 250 cm'),
-  body('weight').optional().isFloat({ min: 30, max: 250 }).withMessage('Weight must be between 30 and 250 kg'),
-  body('targetWeight').optional().isFloat({ min: 30, max: 250 }).withMessage('Target weight must be between 30 and 250 kg'),
+  body('height').optional().isFloat({ min: MIN_HEIGHT, max: MAX_HEIGHT }).withMessage(`Height must be between ${MIN_HEIGHT} and ${MAX_HEIGHT} cm`),
+  body('weight').optional().isFloat({ min: MIN_WEIGHT, max: MAX_WEIGHT }).withMessage(`Weight must be between ${MIN_WEIGHT} and ${MAX_WEIGHT} kg`),
+  body('targetWeight').optional().isFloat({ min: MIN_WEIGHT, max: MAX_WEIGHT }).withMessage(`Target weight must be between ${MIN_WEIGHT} and ${MAX_WEIGHT} kg`),
   body('fitnessLevel').optional().isIn(FITNESS_LEVELS).withMessage('Invalid fitness level'),
   body('activityStatus').optional().isIn(ACTIVITY_STATUSES).withMessage('Invalid activity status'),
   body('goal').optional().isIn(GOALS).withMessage('Invalid goal'),

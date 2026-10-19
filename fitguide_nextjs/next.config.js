@@ -1,6 +1,11 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // @fitguide/shared lives in ../packages, outside this app's folder.
+  turbopack: { root: path.join(__dirname, '..') },
+  outputFileTracingRoot: path.join(__dirname, '..'),
   images: {
     remotePatterns: [
       {

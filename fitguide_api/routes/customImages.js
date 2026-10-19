@@ -8,7 +8,7 @@ const router = express.Router();
 // Per-user custom images for workouts, keyed by workout slug.
 router.use(authMiddleware);
 
-const getImages = (userId) => userStore.getField(userId, 'customWorkoutImages');
+const getImages = (userId) => userStore.getCustomImages(userId);
 
 /**
  * @route   GET /api/custom-images
@@ -49,8 +49,7 @@ router.post('/:slug', async (req, res, next) => {
     if (!(await workoutStore.exists(slug))) {
       return res.status(404).json({ success: false, message: 'Workout not found' });
     }
-    const others = (await getImages(req.user.id)).filter((img) => img.workoutId !== slug);
-    await userStore.setField(req.user.id, 'customWorkoutImages', [...others, { workoutId: slug, customImageUrl }]);
+    await userStore.setCustomImage(req.user.id, slug, customImageUrl);
     res.json({ success: true, message: 'Custom image set successfully', customImage: { workoutId: slug, customImageUrl } });
   } catch (err) {
     next(err);
@@ -63,8 +62,7 @@ router.post('/:slug', async (req, res, next) => {
  */
 router.delete('/:slug', async (req, res, next) => {
   try {
-    const remaining = (await getImages(req.user.id)).filter((img) => img.workoutId !== req.params.slug);
-    await userStore.setField(req.user.id, 'customWorkoutImages', remaining);
+    await userStore.removeCustomImage(req.user.id, req.params.slug);
     res.json({ success: true, message: 'Custom image removed successfully' });
   } catch (err) {
     next(err);

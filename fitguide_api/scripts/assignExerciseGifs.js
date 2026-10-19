@@ -17,8 +17,6 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const path = require('path');
 const fs = require('fs');
 
-const MOCK_DB_PATH = path.join(__dirname, '..', 'mock_db_data.json');
-
 // ─── Curated Exercise GIF Map ─────────────────────────────────────────────────
 // Keys = keywords found in step instructions (lowercase)
 // Values = { gifUrl, exerciseId, exerciseName } from ExerciseDB
@@ -256,52 +254,6 @@ function isRestStep(instruction) {
     .test(instruction.trim());
 }
 
-// ─── Update mock_db_data.json ─────────────────────────────────────────────────
-function updateMockDb(updatedWorkouts) {
-  if (!fs.existsSync(MOCK_DB_PATH)) {
-    console.log('  ℹ️  No mock_db_data.json found, skipping mock DB update.');
-    return;
-  }
-  try {
-    const raw = fs.readFileSync(MOCK_DB_PATH, 'utf8');
-    const data = JSON.parse(raw);
-    data.workouts = updatedWorkouts;
-    fs.writeFileSync(MOCK_DB_PATH, JSON.stringify(data, null, 2), 'utf8');
-    console.log('✅ Updated mock_db_data.json');
-  } catch (err) {
-    console.error('❌ Failed to update mock_db_data.json:', err.message);
-  }
-}
-
-// ─── Update MongoDB ───────────────────────────────────────────────────────────
-async function updateMongoDB(workouts) {
-  try {
-    const mongoose = require('mongoose');
-    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/fitguide';
-    await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 3000 });
-    console.log('✅ Connected to MongoDB');
-    const Workout = require('../models/Workout');
-    let updated = 0;
-    for (const w of workouts) {
-      try {
-        const filter = w._id ? { _id: w._id } : { slug: w.slug };
-        await Workout.findOneAndUpdate(filter, { steps: w.steps }, { new: true });
-        updated++;
-      } catch (e) {
-        console.warn(`  ⚠️  Could not update "${w.title}": ${e.message}`);
-      }
-    }
-    console.log(`✅ Updated ${updated} workouts in MongoDB`);
-    await mongoose.disconnect();
-  } catch (err) {
-    if (err.name === 'MongooseServerSelectionError' || err.message?.includes('ECONNREFUSED')) {
-      console.warn('⚠️  MongoDB not reachable — GIFs saved to mock DB only.');
-    } else {
-      console.error('❌ MongoDB error:', err.message);
-    }
-  }
-}
-
 // ─── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
   console.log('🎬 ExerciseDB GIF Assignment (Curated Map — no API rate limits)');
@@ -363,9 +315,6 @@ async function main() {
   console.log(`  Coverage        : ${coverage}%`);
   console.log('');
 
-  updateMockDb(processedWorkouts);
-  await updateMongoDB(processedWorkouts);
-
   // Update seeder with GIF data
   const seederPath = path.join(__dirname, '..', 'seed', 'workoutSeeder.js');
   const seederContent = `// Auto-updated by scripts/assignExerciseGifs.js
@@ -387,7 +336,7 @@ module.exports = workoutsData;
 `;
   fs.writeFileSync(seederPath, seederContent, 'utf8');
   console.log('✅ Saved GIF URLs to seed/workoutSeeder.js\n');
-  console.log('🎉 Done! Restart the API server to see animated GIFs in workouts.');
+  console.log('🎉 Done! Run `npm run db:seed` to load the updated steps into the database.');
 }
 
 main().catch(err => {

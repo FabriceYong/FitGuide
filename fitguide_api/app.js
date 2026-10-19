@@ -100,7 +100,7 @@ function createApp() {
 
   // Health check
   app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', databaseMode: process.env.MOCK_DB === 'true' ? 'mock' : 'mongodb', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', database: 'postgres', timestamp: new Date().toISOString() });
   });
 
   // Unknown API routes

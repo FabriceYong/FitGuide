@@ -590,12 +590,12 @@ function formatWorkoutXItem(item, idx) {
 }
 
 /**
- * Map a MongoDB workout document (from /api/workouts) to the WorkoutX exercise schema
+ * Map a workout (from /api/workouts) to the WorkoutX exercise schema
  * so it can be displayed seamlessly in ExploreTab alongside WorkoutX exercises.
  */
-function mapMongoWorkoutToExercise(workout, idx) {
+function mapApiWorkoutToExercise(workout, idx) {
   return formatWorkoutXItem({
-    id: workout.id || workout._id || `mongo_${idx}`,
+    id: workout.id || workout._id || `api_${idx}`,
     name: workout.title || workout.name || 'Workout',
     bodyPart: (workout.targetMuscles && workout.targetMuscles[0]) || 'General',
     equipment: (workout.equipment && workout.equipment[0]) || 'Body Weight',
@@ -623,30 +623,30 @@ function mapMongoWorkoutToExercise(workout, idx) {
 }
 
 /**
- * Attempt to fetch workouts from the local MongoDB API and map them to WorkoutX schema.
+ * Attempt to fetch workouts from the FitGuide API and map them to WorkoutX schema.
  * Returns null if the request fails or returns no data.
  */
-async function fetchMongoDBWorkoutsAsExercises() {
+async function fetchApiWorkoutsAsExercises() {
   try {
-    console.log('🗄️ Attempting to fetch workouts from MongoDB database...');
+    console.log('🗄️ Attempting to fetch workouts from the FitGuide API...');
     const json = await apiRequest('/workouts');
     const rawWorkouts = json.workouts || json.data || [];
     if (!Array.isArray(rawWorkouts) || rawWorkouts.length === 0) {
-      console.warn('⚠️ MongoDB returned no workouts.');
+      console.warn('⚠️ The API returned no workouts.');
       return null;
     }
-    const mapped = rawWorkouts.map(mapMongoWorkoutToExercise);
-    console.log(`✅ Loaded ${mapped.length} workouts from MongoDB as exercise fallback.`);
+    const mapped = rawWorkouts.map(mapApiWorkoutToExercise);
+    console.log(`✅ Loaded ${mapped.length} workouts from the API as exercise fallback.`);
     return mapped;
   } catch (err) {
-    console.warn('⚠️ Could not reach MongoDB API:', err.message);
+    console.warn('⚠️ Could not reach the FitGuide API:', err.message);
     return null;
   }
 }
 
 /**
  * Mass Data Retrieval from WorkoutX API with 3-day caching policy.
- * Fallback chain: Cache → WorkoutX Cloud API → MongoDB Database → Offline Library
+ * Fallback chain: Cache → WorkoutX Cloud API → FitGuide API → Offline Library
  * Collects up to 100 items in a single request.
  */
 export async function getWorkoutXExercises(forceRefresh = false) {
@@ -688,26 +688,26 @@ export async function getWorkoutXExercises(forceRefresh = false) {
       };
     }
   } catch (err) {
-    console.warn('⚠️ WorkoutX library unavailable:', err.message, '— Trying MongoDB fallback.');
+    console.warn('⚠️ WorkoutX library unavailable:', err.message, '— Trying the FitGuide API.');
   }
 
-  // 3. MongoDB database fallback
-  const mongoExercises = await fetchMongoDBWorkoutsAsExercises();
-  if (mongoExercises && mongoExercises.length > 0) {
-    setLocalCache(mongoExercises, 'MongoDB Database');
+  // 3. FitGuide API fallback
+  const apiExercises = await fetchApiWorkoutsAsExercises();
+  if (apiExercises && apiExercises.length > 0) {
+    setLocalCache(apiExercises, 'FitGuide API');
     return {
       success: true,
-      exercises: mongoExercises,
-      source: 'MongoDB Database',
+      exercises: apiExercises,
+      source: 'FitGuide API',
       cachedAt: new Date().toLocaleString(),
       nextSyncAllowed: new Date(Date.now() + CACHE_TTL_MS).toLocaleString(),
       isFromCache: false,
-      count: mongoExercises.length
+      count: apiExercises.length
     };
   }
 
   // 4. Final offline fallback dataset
-  console.warn('⚠️ MongoDB unavailable. Falling back to offline exercise library.');
+  console.warn('⚠️ FitGuide API unavailable. Falling back to offline exercise library.');
   const dataset = cache?.data || DEFAULT_WORKOUTX_EXERCISES.map(formatWorkoutXItem);
   setLocalCache(dataset, 'WorkoutX Offline Library');
 

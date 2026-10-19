@@ -1,0 +1,21 @@
+# Local PostgreSQL for the API (alternative to `npm run db:dev`).
+#   docker compose up -d db
+# then set DATABASE_URL=postgresql://fitguide:fitguide@localhost:5432/fitguide?schema=public
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: fitguide
+      POSTGRES_PASSWORD: fitguide
+      POSTGRES_DB: fitguide
+    ports:
+      - "5432:5432"
+    volumes:
+      - fitguide-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitguide"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  fitguide-db:

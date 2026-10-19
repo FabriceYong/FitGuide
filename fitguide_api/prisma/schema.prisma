@@ -1,0 +1,337 @@
+// FitGuide database schema (PostgreSQL).
+// Change it with `npm run db:migrate -- --name <change>`, which writes a new
+// migration under prisma/migrations. Catalog content (workouts, exercises,
+// programs) is loaded from seed/ by `npm run db:seed`.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Accounts ────────────────────────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(uuid())
+  name           String   @db.VarChar(100)
+  email          String   @unique
+  passwordHash   String
+  // Allowed values for the profile fields live in utils/enums.js.
+  gender         String   @default("Prefer not to say")
+  height         Float    @default(170)
+  weight         Float    @default(70)
+  targetWeight   Float    @default(70)
+  fitnessLevel   String   @default("Beginner")
+  activityStatus String   @default("Active")
+  goal           String   @default("Vitality")
+  diet           String   @default("Mediterranean Diet")
+  role           String   @default("user") // user | admin
+  avatarUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  favorites     Favorite[]
+  customImages  CustomWorkoutImage[]
+  workoutLikes  WorkoutLike[]
+  reviews       Review[]
+  reviewLikes   ReviewLike[]
+  sessions      WorkoutSession[]
+  enrollments   Enrollment[]
+  bodyMetrics   BodyMetric[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+// One row per issued refresh token, so a token can be rotated once and a
+// whole family revoked when an old one is replayed.
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String
+  family     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([family])
+  @@map("refresh_tokens")
+}
+
+// ─── Catalog ─────────────────────────────────────────────────────────────────
+
+model Workout {
+  id               String   @id @default(uuid())
+  slug             String   @unique
+  title            String   @db.VarChar(100)
+  description      String
+  shortDescription String?
+  category         String
+  difficulty       String
+  duration         Int // minutes
+  calories         Int? // estimated for the whole workout
+  intensity        String   @default("Moderate")
+  equipment        String[]
+  targetMuscles    String[]
+  benefits         String[]
+  // [{ stepNumber, instruction, duration, gifUrl, exerciseName, formCues, commonMistakes, breathingPattern, ... }]
+  steps            Json     @default("[]")
+  thumbnailUrl     String?
+  videoUrl         String?
+  imageGallery     String[]
+  tags             String[]
+  prerequisites    String[]
+  cautions         String[]
+  modifications    Json     @default("[]") // [{ level: 'easier' | 'harder', description }]
+  restPeriod       Int      @default(30) // seconds
+  sets             Int      @default(1)
+  reps             Int?
+  isPublished      Boolean  @default(true)
+  viewCount        Int      @default(0)
+  likeCount        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  likes WorkoutLike[]
+
+  @@index([category])
+  @@index([difficulty])
+  @@map("workouts")
+}
+
+model WorkoutLike {
+  userId      String
+  workoutSlug String
+  createdAt   DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workout Workout @relation(fields: [workoutSlug], references: [slug], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, workoutSlug])
+  @@map("workout_likes")
+}
+
+model Exercise {
+  id             String   @id @default(uuid())
+  slug           String   @unique
+  name           String   @db.VarChar(100)
+  aliases        String[]
+  category       String // Strength | Cardio | Mobility | Core | Plyometric
+  trackingType   String // reps | weighted | duration | distance
+  primaryMuscles String[]
+  equipment      String[]
+  instructions   String[]
+  formCues       String[]
+  commonMistakes String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("exercises")
+}
+
+model Program {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String   @db.VarChar(100)
+  description String
+  level       String
+  goal        String
+  weeks       Int
+  daysPerWeek Int
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  days        ProgramDay[]
+  enrollments Enrollment[]
+
+  @@map("programs")
+}
+
+// One scheduled day of a program. `day` is the day within the week (1-7), so
+// with an enrollment start date every ProgramDay maps to a calendar date.
+model ProgramDay {
+  id          String  @id @default(uuid())
+  programId   String
+  week        Int
+  day         Int
+  title       String
+  workoutSlug String
+  notes       String?
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([programId, week, day])
+  @@map("program_days")
+}
+
+// ─── Per-user data ───────────────────────────────────────────────────────────
+
+model Favorite {
+  userId      String
+  workoutSlug String
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, workoutSlug])
+  @@map("favorites")
+}
+
+model CustomWorkoutImage {
+  userId         String
+  workoutSlug    String
+  customImageUrl String   @db.VarChar(500)
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, workoutSlug])
+  @@map("custom_workout_images")
+}
+
+model Review {
+  id              String   @id @default(uuid())
+  userId          String?
+  name            String   @db.VarChar(100) // author's name when posted
+  userAvatar      String?
+  rating          Int
+  comment         String   @db.VarChar(1000)
+  workoutRegiment String?  @db.VarChar(200)
+  workoutSlug     String?
+  beforeImage     String?
+  afterImage      String?
+  likes           Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  user    User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  likedBy ReviewLike[]
+
+  // One review per user per workout (NULL workoutSlug = general review).
+  @@unique([userId, workoutSlug])
+  @@index([workoutSlug])
+  @@map("reviews")
+}
+
+model ReviewLike {
+  reviewId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([reviewId, userId])
+  @@map("review_likes")
+}
+
+model WorkoutSession {
+  id              String   @id @default(uuid())
+  userId          String
+  workoutSlug     String
+  workoutTitle    String // snapshot, so history survives catalog edits
+  category        String?
+  status          String   @default("completed") // completed | partial
+  startedAt       DateTime
+  completedAt     DateTime
+  durationSec     Int
+  calories        Int      @default(0)
+  stepsCompleted  Int      @default(0)
+  totalSteps      Int      @default(0)
+  perceivedEffort Int? // session RPE 1-10
+  notes           String   @default("") @db.VarChar(1000)
+  // Set when the session was a scheduled program day.
+  enrollmentId    String?
+  programWeek     Int?
+  programDay      Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enrollment Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  sets       SetLog[]
+
+  @@index([userId, completedAt(sort: Desc)])
+  @@map("workout_sessions")
+}
+
+// One logged set (or timed step) of an exercise within a session.
+model SetLog {
+  id           String  @id @default(uuid())
+  sessionId    String
+  position     Int // order within the session
+  exerciseSlug String? // matched to the exercise library when possible
+  exerciseName String  @db.VarChar(200)
+  setNumber    Int?
+  reps         Int?
+  weightKg     Float?
+  durationSec  Int?
+  distanceM    Float?
+  rpe          Int?
+
+  session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, position])
+  @@map("set_logs")
+}
+
+model Enrollment {
+  id          String    @id @default(uuid())
+  userId      String
+  programSlug String
+  startDate   String    @db.VarChar(10) // YYYY-MM-DD, user's local date of week 1 day 1
+  status      String    @default("active") // active | completed | abandoned
+  endedAt     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program       Program          @relation(fields: [programSlug], references: [slug], onUpdate: Cascade)
+  completedDays EnrollmentDay[]
+  sessions      WorkoutSession[]
+
+  @@index([userId, status])
+  @@map("enrollments")
+}
+
+model EnrollmentDay {
+  enrollmentId String
+  week         Int
+  day          Int
+  sessionId    String
+  completedAt  DateTime
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@id([enrollmentId, week, day])
+  @@map("enrollment_days")
+}
+
+// Body measurements logged over time; one entry per user per day.
+model BodyMetric {
+  id         String   @id @default(uuid())
+  userId     String
+  date       String   @db.VarChar(10) // YYYY-MM-DD, user's local date
+  weightKg   Float?
+  bodyFatPct Float?
+  waistCm    Float?
+  chestCm    Float?
+  hipsCm     Float?
+  armCm      Float?
+  thighCm    Float?
+  notes      String   @default("") @db.VarChar(500)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("body_metrics")
+}

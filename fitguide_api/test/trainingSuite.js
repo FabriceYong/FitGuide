@@ -1,7 +1,7 @@
 /**
  * Phase 2 endpoints: exercise library, programs and enrollments, workout
  * sessions, body metrics and the progress summary. Runs inside
- * defineApiSuite, so it covers both database modes.
+ * defineApiSuite against the test Postgres.
  */
 const { describe, it, before } = require('node:test');
 const assert = require('node:assert/strict');

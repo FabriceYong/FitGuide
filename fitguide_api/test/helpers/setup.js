@@ -1,9 +1,10 @@
 /**
  * Test environment. Must be required before any app module, because some of
- * them read process.env when loaded (mockDb's file path, the uploads dir).
+ * them read process.env when loaded (the uploads dir).
  *
- * Tests never read fitguide_api/.env (which points at a real database): dotenv
- * is only loaded by server.js, and MONGODB_URI is overwritten here.
+ * Tests never read fitguide_api/.env (which may point at a real database):
+ * dotenv is only loaded by server.js, and DATABASE_URL is set here to a
+ * throwaway embedded Postgres.
  */
 const fs = require('fs');
 const os = require('os');
@@ -14,9 +15,8 @@ const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fitguide-test-'));
 Object.assign(process.env, {
   NODE_ENV: 'test',
   JWT_SECRET: 'test-secret-that-is-long-enough-for-validation-0123456789',
-  // Unroutable; only the in-memory server's URI is ever connected to.
-  MONGODB_URI: 'mongodb://127.0.0.1:1/never-used',
-  MOCK_DB_PATH: path.join(tmpRoot, 'mock_db_data.json'),
+  // Unroutable until useDatabase() points it at the test server.
+  DATABASE_URL: 'postgresql://nobody:none@127.0.0.1:1/never-used',
   UPLOADS_DIR: path.join(tmpRoot, 'uploads'),
   CORS_ORIGINS: 'http://localhost:3000',
   LOGIN_RATE_LIMIT_MAX: '10000',
@@ -25,51 +25,42 @@ Object.assign(process.env, {
   RSS2JSON_API_KEY: 'test-rss-key',
   ENABLE_DEV_ROUTES: 'false',
 });
-delete process.env.WORKOUTX_API_KEY;
-delete process.env.TRUST_PROXY;
+for (const key of ['WORKOUTX_API_KEY', 'TRUST_PROXY', 'STORAGE_DRIVER', 'S3_BUCKET', 'ANTHROPIC_API_KEY', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET']) {
+  delete process.env[key];
+}
 
-const mongoose = require('mongoose');
 const { createApp } = require('../../app');
 
 /**
- * Put the stores in the requested database mode.
- * @param {'mock' | 'mongo'} mode
+ * Start a private Postgres for this test process, migrate it and load the
+ * catalog.
  * @returns {Promise<() => Promise<void>>} teardown
  */
-async function useDatabase(mode) {
-  if (mode === 'mock') {
-    process.env.MOCK_DB = 'true';
-    return async () => {
-      fs.rmSync(tmpRoot, { recursive: true, force: true });
-    };
+async function useDatabase() {
+  const { freePort, startEmbeddedPostgres, migrateDeploy } = require('../../db/embedded');
+  const db = await startEmbeddedPostgres({
+    dir: path.join(tmpRoot, 'pg'),
+    port: await freePort(),
+    database: 'fitguide_test',
+    persistent: false,
+  });
+  const { hostname } = new URL(db.url);
+  if (hostname !== '127.0.0.1') throw new Error(`Refusing to run tests against a non-local database: ${hostname}`);
+  process.env.DATABASE_URL = db.url;
+  const { prisma } = require('../../db/prisma');
+  try {
+    migrateDeploy(db.url);
+    await require('../../seed/catalog').seedCatalog();
+  } catch (err) {
+    await db.stop();
+    throw err;
   }
-
-  const { MongoMemoryServer } = require('mongodb-memory-server');
-  const Workout = require('../../models/Workout');
-  const User = require('../../models/User');
-  const seedWorkouts = require('../../seed/workoutSeeder');
-  const Exercise = require('../../models/Exercise');
-  const Program = require('../../models/Program');
-
-  const mongod = await MongoMemoryServer.create();
-  const uri = mongod.getUri();
-  const { hostname } = new URL(uri);
-  if (!['127.0.0.1', 'localhost'].includes(hostname)) {
-    throw new Error(`Refusing to run tests against a non-local database: ${hostname}`);
-  }
-  await mongoose.connect(uri);
-  process.env.MOCK_DB = 'false';
-  // Seed the catalog collections so they are served by the Mongo code path
-  // rather than the seed-data fallback.
-  await Workout.insertMany(seedWorkouts);
-  await Exercise.insertMany(require('../../seed/exerciseSeeder'));
-  await Program.insertMany(require('../../seed/programSeeder'));
-  await User.init(); // build the unique email index
 
   return async () => {
-    await mongoose.disconnect();
-    await mongod.stop();
-    fs.rmSync(tmpRoot, { recursive: true, force: true });
+    await prisma.$disconnect();
+    await db.stop();
+    // Postgres may still be releasing its files for a moment after stop().
+    fs.rmSync(tmpRoot, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
   };
 }
 

@@ -23,8 +23,7 @@ const respondWithFavorites = async (res, slugs, message) => {
  */
 router.get('/', async (req, res, next) => {
   try {
-    const slugs = await userStore.getField(req.user.id, 'favoriteWorkouts');
-    await respondWithFavorites(res, slugs);
+    await respondWithFavorites(res, await userStore.getFavorites(req.user.id));
   } catch (err) {
     next(err);
   }
@@ -36,7 +35,7 @@ router.get('/', async (req, res, next) => {
  */
 router.get('/check/:slug', async (req, res, next) => {
   try {
-    const slugs = await userStore.getField(req.user.id, 'favoriteWorkouts');
+    const slugs = await userStore.getFavorites(req.user.id);
     res.json({ success: true, isFavorite: slugs.includes(req.params.slug) });
   } catch (err) {
     next(err);
@@ -53,9 +52,7 @@ router.post('/:slug', async (req, res, next) => {
     if (!(await workoutStore.exists(slug))) {
       return res.status(404).json({ success: false, message: 'Workout not found' });
     }
-    const slugs = await userStore.getField(req.user.id, 'favoriteWorkouts');
-    const updated = slugs.includes(slug) ? slugs : await userStore.setField(req.user.id, 'favoriteWorkouts', [...slugs, slug]);
-    await respondWithFavorites(res, updated, 'Workout added to favorites');
+    await respondWithFavorites(res, await userStore.addFavorite(req.user.id, slug), 'Workout added to favorites');
   } catch (err) {
     next(err);
   }
@@ -67,9 +64,7 @@ router.post('/:slug', async (req, res, next) => {
  */
 router.delete('/:slug', async (req, res, next) => {
   try {
-    const slugs = await userStore.getField(req.user.id, 'favoriteWorkouts');
-    const updated = await userStore.setField(req.user.id, 'favoriteWorkouts', slugs.filter((s) => s !== req.params.slug));
-    await respondWithFavorites(res, updated, 'Workout removed from favorites');
+    await respondWithFavorites(res, await userStore.removeFavorite(req.user.id, req.params.slug), 'Workout removed from favorites');
   } catch (err) {
     next(err);
   }

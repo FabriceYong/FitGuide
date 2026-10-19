@@ -1,16 +1,11 @@
 /**
- * User persistence that works the same in MongoDB mode and in the local
- * mock-DB mode, so routes don't need two code paths.
- * Every function returns plain objects; password hashes never leave this
- * module except through findByEmailWithPassword.
+ * User persistence. Every function returns plain public objects; password
+ * hashes never leave this module except through findByEmailWithPassword.
  */
-const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const mongoose = require('mongoose');
-const User = require('../models/User');
-const mockDb = require('../models/mockDb');
+const { prisma, isNotFound } = require('../db/prisma');
 
-const isMock = () => process.env.MOCK_DB === 'true';
+const BCRYPT_ROUNDS = 12;
 
 const PROFILE_DEFAULTS = {
   gender: 'Prefer not to say',
@@ -28,15 +23,17 @@ const PROFILE_DEFAULTS = {
 const EDITABLE_FIELDS = ['name', 'gender', 'height', 'weight', 'targetWeight', 'fitnessLevel', 'activityStatus', 'goal', 'diet', 'avatarUrl'];
 const NUMERIC_FIELDS = new Set(['height', 'weight', 'targetWeight']);
 
-function toPublicUser(raw) {
-  if (!raw) return null;
-  const u = typeof raw.toObject === 'function' ? raw.toObject() : raw;
+const withFavorites = { favorites: { select: { workoutSlug: true }, orderBy: { createdAt: 'asc' } } };
+
+function toPublicUser(u) {
+  if (!u) return null;
   return {
-    id: String(u._id || u.id),
+    id: u.id,
     name: u.name,
     email: u.email,
     ...Object.fromEntries(Object.entries(PROFILE_DEFAULTS).map(([k, def]) => [k, u[k] ?? def])),
-    favoriteWorkouts: (u.favoriteWorkouts || []).map(String),
+    favoriteWorkouts: (u.favorites || []).map((f) => f.workoutSlug),
+    role: u.role || 'user',
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
   };
@@ -53,69 +50,82 @@ function pickProfileUpdates(body) {
 }
 
 async function findById(id) {
-  if (isMock()) return toPublicUser(mockDb.findUserById(id));
-  if (!mongoose.isValidObjectId(id)) return null;
-  return toPublicUser(await User.findById(id));
+  if (typeof id !== 'string') return null;
+  return toPublicUser(await prisma.user.findUnique({ where: { id }, include: withFavorites }).catch(() => null));
 }
 
 /** Returns { user, passwordHash } for login checks, or null. */
 async function findByEmailWithPassword(email) {
-  if (isMock()) {
-    const u = mockDb.findUserByEmail(email);
-    return u ? { user: toPublicUser(u), passwordHash: u.password } : null;
-  }
-  const u = await User.findOne({ email }).select('+password');
-  return u ? { user: toPublicUser(u), passwordHash: u.password } : null;
+  const u = await prisma.user.findUnique({ where: { email }, include: withFavorites });
+  return u ? { user: toPublicUser(u), passwordHash: u.passwordHash } : null;
 }
 
 async function emailExists(email) {
-  if (isMock()) return Boolean(mockDb.findUserByEmail(email));
-  return Boolean(await User.exists({ email }));
+  return (await prisma.user.count({ where: { email } })) > 0;
 }
 
 async function create({ name, email, password, ...profile }) {
-  const fields = { ...PROFILE_DEFAULTS, ...pickProfileUpdates(profile), name, email };
-  if (isMock()) {
-    const user = {
-      ...fields,
-      id: `mock-user-${crypto.randomUUID()}`,
-      password: await bcrypt.hash(password, 12),
-      favoriteWorkouts: [],
-      customWorkoutImages: [],
-      createdAt: new Date().toISOString(),
-    };
-    mockDb.addUser(user);
-    return toPublicUser(user);
-  }
-  const user = new User({ ...fields, password }); // hashed by the model's pre-save hook
-  await user.save();
+  const user = await prisma.user.create({
+    data: {
+      ...PROFILE_DEFAULTS,
+      ...pickProfileUpdates(profile),
+      name,
+      email,
+      passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS),
+    },
+    include: withFavorites,
+  });
   return toPublicUser(user);
 }
 
 async function updateProfile(id, body) {
-  const updates = pickProfileUpdates(body);
-  if (isMock()) return toPublicUser(mockDb.updateUser(id, updates));
-  const user = await User.findById(id);
-  if (!user) return null;
-  Object.assign(user, updates);
-  await user.save(); // runs schema validators (enums, min/max)
-  return toPublicUser(user);
-}
-
-/** Read a raw array field (favoriteWorkouts / customWorkoutImages). */
-async function getField(id, field) {
-  if (isMock()) return mockDb.findUserById(id)?.[field] || [];
-  const user = await User.findById(id).select(field).lean();
-  return user?.[field] || [];
-}
-
-async function setField(id, field, value) {
-  if (isMock()) {
-    mockDb.updateUser(id, { [field]: value });
-    return value;
+  try {
+    const user = await prisma.user.update({ where: { id }, data: pickProfileUpdates(body), include: withFavorites });
+    return toPublicUser(user);
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
   }
-  await User.updateOne({ _id: id }, { $set: { [field]: value } });
-  return value;
+}
+
+// ─── Favorites (workout slugs, oldest first) ─────────────────────────────────
+
+async function getFavorites(userId) {
+  const rows = await prisma.favorite.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } });
+  return rows.map((r) => r.workoutSlug);
+}
+
+async function addFavorite(userId, workoutSlug) {
+  await prisma.favorite.upsert({
+    where: { userId_workoutSlug: { userId, workoutSlug } },
+    create: { userId, workoutSlug },
+    update: {},
+  });
+  return getFavorites(userId);
+}
+
+async function removeFavorite(userId, workoutSlug) {
+  await prisma.favorite.deleteMany({ where: { userId, workoutSlug } });
+  return getFavorites(userId);
+}
+
+// ─── Custom workout images ───────────────────────────────────────────────────
+
+async function getCustomImages(userId) {
+  const rows = await prisma.customWorkoutImage.findMany({ where: { userId }, orderBy: { updatedAt: 'asc' } });
+  return rows.map((r) => ({ workoutId: r.workoutSlug, customImageUrl: r.customImageUrl }));
+}
+
+async function setCustomImage(userId, workoutSlug, customImageUrl) {
+  await prisma.customWorkoutImage.upsert({
+    where: { userId_workoutSlug: { userId, workoutSlug } },
+    create: { userId, workoutSlug, customImageUrl },
+    update: { customImageUrl },
+  });
+}
+
+async function removeCustomImage(userId, workoutSlug) {
+  await prisma.customWorkoutImage.deleteMany({ where: { userId, workoutSlug } });
 }
 
 module.exports = {
@@ -125,6 +135,10 @@ module.exports = {
   emailExists,
   create,
   updateProfile,
-  getField,
-  setField,
+  getFavorites,
+  addFavorite,
+  removeFavorite,
+  getCustomImages,
+  setCustomImage,
+  removeCustomImage,
 };

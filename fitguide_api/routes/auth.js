@@ -1,27 +1,24 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
+const { GENDERS, FITNESS_LEVELS, ACTIVITY_STATUSES, GOALS, DIETS } = require('../utils/enums');
 const userStore = require('../stores/userStore');
 const { signToken, setAuthCookie, clearAuthCookie } = require('../utils/jwt');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-const enumValues = (field) => User.schema.path(field).enumValues;
-
-// Optional profile fields share the same rules on register and profile update,
-// so mock mode enforces the same constraints as the Mongoose schema.
+// Optional profile fields share the same rules on register and profile update.
 const profileRules = [
   body('name').optional().trim().notEmpty().withMessage('Name cannot be empty').isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
-  body('gender').optional().isIn(enumValues('gender')).withMessage('Invalid gender'),
+  body('gender').optional().isIn(GENDERS).withMessage('Invalid gender'),
   body('height').optional().isFloat({ min: 50, max: 250 }).withMessage('Height must be between 50 and 250 cm'),
   body('weight').optional().isFloat({ min: 30, max: 250 }).withMessage('Weight must be between 30 and 250 kg'),
   body('targetWeight').optional().isFloat({ min: 30, max: 250 }).withMessage('Target weight must be between 30 and 250 kg'),
-  body('fitnessLevel').optional().isIn(enumValues('fitnessLevel')).withMessage('Invalid fitness level'),
-  body('activityStatus').optional().isIn(enumValues('activityStatus')).withMessage('Invalid activity status'),
-  body('goal').optional().isIn(enumValues('goal')).withMessage('Invalid goal'),
-  body('diet').optional().isIn(enumValues('diet')).withMessage('Invalid diet'),
+  body('fitnessLevel').optional().isIn(FITNESS_LEVELS).withMessage('Invalid fitness level'),
+  body('activityStatus').optional().isIn(ACTIVITY_STATUSES).withMessage('Invalid activity status'),
+  body('goal').optional().isIn(GOALS).withMessage('Invalid goal'),
+  body('diet').optional().isIn(DIETS).withMessage('Invalid diet'),
   body('avatarUrl').optional({ values: 'null' }).isString().isLength({ max: 500 }),
 ];
 

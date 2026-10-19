@@ -1,7 +1,7 @@
 const express = require('express');
-const Workout = require('../models/Workout');
 const workoutStore = require('../stores/workoutStore');
-const workoutsData = require('../seed/workoutSeeder');
+const { seedCatalog } = require('../seed/catalog');
+const { WORKOUT_CATEGORIES } = require('../utils/enums');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -20,7 +20,7 @@ router.get('/', async (req, res, next) => {
 // ─── GET /api/workouts/categories/list ────────────────────────────────────────
 // Declared before /:slug so "categories" isn't treated as a slug.
 router.get('/categories/list', (_req, res) => {
-  res.status(200).json({ success: true, categories: Workout.schema.path('category').enumValues });
+  res.status(200).json({ success: true, categories: WORKOUT_CATEGORIES });
 });
 
 // ─── GET /api/workouts/:slug ──────────────────────────────────────────────────
@@ -51,17 +51,13 @@ router.post('/:slug/like', authMiddleware, async (req, res, next) => {
 });
 
 // ─── POST /api/workouts/seed ──────────────────────────────────────────────────
-// Replaces every workout in MongoDB with the seed data. Only mounted when
-// ENABLE_DEV_ROUTES=true, because it is destructive and unauthenticated.
+// Re-loads the catalog (workouts, exercises, programs) from seed/. Only
+// mounted when ENABLE_DEV_ROUTES=true, because it is unauthenticated.
 if (process.env.ENABLE_DEV_ROUTES === 'true') {
   router.post('/seed', async (_req, res, next) => {
     try {
-      if (process.env.MOCK_DB === 'true') {
-        return res.status(200).json({ success: true, message: 'Mock DB serves seed data directly', count: workoutsData.length });
-      }
-      await Workout.deleteMany({});
-      const workouts = await Workout.insertMany(workoutsData);
-      return res.status(201).json({ success: true, message: 'Workouts seeded successfully!', count: workouts.length });
+      const counts = await seedCatalog();
+      return res.status(201).json({ success: true, message: 'Catalog seeded.', count: counts.workouts, counts });
     } catch (err) {
       next(err);
     }

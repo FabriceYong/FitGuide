@@ -1,6 +1,6 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { MEASUREMENT_FIELDS } = require('../models/BodyMetric');
+const { MEASUREMENT_FIELDS } = require('../schemas/records');
 const { bodyMetricStore } = require('../stores/records');
 const userStore = require('../stores/userStore');
 const { authMiddleware } = require('../middleware/authMiddleware');
@@ -10,7 +10,7 @@ const { tzOffsetFrom, today, isValidYmd } = require('../utils/dates');
 const router = express.Router();
 router.use(authMiddleware);
 
-// The profile's weight field accepts this range (see models/User.js).
+// The profile's weight field accepts this range (see routes/auth.js).
 const PROFILE_WEIGHT_RANGE = [30, 250];
 
 // ─── GET /api/body-metrics ────────────────────────────────────────────────────

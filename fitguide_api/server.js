@@ -1,39 +1,39 @@
 require('dotenv').config();
-const mongoose = require('mongoose');
 const { getSecret } = require('./utils/jwt');
 
 // Fail fast on missing configuration instead of running with insecure defaults.
 try {
   getSecret();
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL must be set (see .env.example).');
 } catch (err) {
   console.error(`❌ ${err.message}`);
   process.exit(1);
 }
 
 const { createApp } = require('./app');
+const { prisma } = require('./db/prisma');
+const { seedCatalogIfEmpty } = require('./seed/catalog');
 
-const app = createApp();
 const PORT = process.env.PORT || 5001;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/fitguide';
 
-// ─── MongoDB Connection & Server Start ───────────────────────────────────────
-const start = (mode) => {
-  app.listen(PORT, () => {
-    console.log(`🚀 FitGuide API${mode === 'mock' ? ' (MOCK DB MODE)' : ''} running on http://localhost:${PORT}`);
-  });
-};
+async function start() {
+  try {
+    await prisma.$connect();
+    const seeded = await seedCatalogIfEmpty();
+    if (seeded) console.log(`🌱 Empty catalog: loaded ${seeded.workouts} workouts, ${seeded.exercises} exercises, ${seeded.programs} programs.`);
+  } catch (err) {
+    console.error('❌ Could not use the database:', err.message);
+    console.error('   Start one with `npm run db:dev` (or Docker), then `npm run db:deploy`.');
+    process.exit(1);
+  }
 
-mongoose
-  .connect(MONGODB_URI, { serverSelectionTimeoutMS: 15000 }) // Allow 15s for Atlas connections
-  .then(() => {
-    console.log('✅ Connected to MongoDB');
-    process.env.MOCK_DB = 'false';
-    start('mongodb');
-  })
-  .catch((err) => {
-    console.warn('⚠️ MongoDB connection failed:', err.message);
-    console.warn('⚠️ Starting server in Mock Database Mode for local development.');
-    console.warn('💡 (Users and reviews are persisted to mock_db_data.json)');
-    process.env.MOCK_DB = 'true';
-    start('mock');
+  const server = createApp().listen(PORT, () => {
+    console.log(`🚀 FitGuide API running on http://localhost:${PORT}`);
   });
+
+  const shutdown = () => server.close(() => prisma.$disconnect().finally(() => process.exit(0)));
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}
+
+start();

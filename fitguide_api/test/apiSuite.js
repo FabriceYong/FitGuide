@@ -1,6 +1,5 @@
 /**
- * API behaviour shared by both database modes. mock.test.js and mongo.test.js
- * each run this suite in their own process.
+ * API behaviour, run against a real Postgres by api.test.js.
  */
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -26,8 +25,8 @@ function authCookie(res) {
   return { value: pair.slice('fitguide_token='.length), attrs: attrs.map((a) => a.toLowerCase()) };
 }
 
-function defineApiSuite(mode) {
-  describe(`FitGuide API (${mode} mode)`, () => {
+function defineApiSuite() {
+  describe('FitGuide API', () => {
     let app;
     let teardown;
 
@@ -44,7 +43,7 @@ function defineApiSuite(mode) {
     }
 
     before(async () => {
-      teardown = await useDatabase(mode);
+      teardown = await useDatabase();
       app = createApp();
       alice = await signUp('Alice');
       bob = await signUp('Bob');
@@ -54,9 +53,9 @@ function defineApiSuite(mode) {
       await teardown();
     });
 
-    it('reports the database mode', async () => {
+    it('reports health', async () => {
       const res = await request(app).get('/api/health').expect(200);
-      assert.equal(res.body.databaseMode, mode === 'mock' ? 'mock' : 'mongodb');
+      assert.equal(res.body.database, 'postgres');
     });
 
     describe('security headers', () => {

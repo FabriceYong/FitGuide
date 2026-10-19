@@ -54,6 +54,8 @@ npm-debug.log*
 .env.*
 !.env.example
 
-# API runtime data: user uploads and the local mock database (contains password hashes)
+# API runtime data: user uploads, the old JSON mock database (contains password
+# hashes) and the embedded dev Postgres from `npm run db:dev`
 fitguide_api/uploads/
 fitguide_api/mock_db_data.json
+fitguide_api/.devdb/

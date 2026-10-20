@@ -116,7 +116,7 @@ export function HealthPanel() {
       {health.days.some((d) => d.steps != null) && (
         <div className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-5">
           <h3 className="font-bold text-sm mb-3">Steps, last 30 days</h3>
-          <div className="h-44" aria-label="Steps per day for the last 30 days">
+          <div className="h-44" role="img" aria-label="Steps per day for the last 30 days">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={health.days} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                 <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(8)} tick={{ fill: '#9ca3af', fontSize: 10 }} />

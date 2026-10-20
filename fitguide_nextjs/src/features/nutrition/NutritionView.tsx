@@ -198,7 +198,7 @@ export function NutritionView() {
             {history.length > 0 && (
               <section className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-5 space-y-3">
                 <h2 className="font-extrabold">Last 14 days</h2>
-                <div className="h-48" aria-label="Calories per day for the last 14 days">
+                <div className="h-48" role="img" aria-label="Calories per day for the last 14 days">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={history} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
                       <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(8)} tick={{ fill: '#9ca3af', fontSize: 10 }} />

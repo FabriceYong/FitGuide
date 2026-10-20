@@ -161,7 +161,7 @@ function StatTiles({ summary }) {
                     <div>
                         <div className="text-2xl font-bold leading-tight">{value}</div>
                         <div className="text-xs text-white-70">{label}</div>
-                        <div className="text-[11px] text-white-30 mt-0.5">{sub}</div>
+                        <div className="text-[11px] text-white-70 mt-0.5">{sub}</div>
                     </div>
                 </div>
             ))}
@@ -172,7 +172,7 @@ function StatTiles({ summary }) {
 function WeeklyChart({ days }) {
     const max = Math.max(30, ...days.map((d) => d.minutes));
     return (
-        <Panel title="Weekly Activity" icon={Activity} action={<span className="text-xs text-white-30">Last 7 days · minutes</span>}>
+        <Panel title="Weekly Activity" icon={Activity} action={<span className="text-xs text-white-70">Last 7 days · minutes</span>}>
             <div className="flex justify-between items-end h-44 px-2">
                 {days.map((d, i) => {
                     const isToday = i === days.length - 1;
@@ -187,7 +187,7 @@ function WeeklyChart({ days }) {
                                     opacity: d.minutes && !isToday ? 0.7 : 1,
                                 }}
                             />
-                            <span className={`text-[11px] mt-3 ${isToday ? 'text-white font-bold' : 'text-white-30'}`}>
+                            <span className={`text-[11px] mt-3 ${isToday ? 'text-white font-bold' : 'text-white-70'}`}>
                                 {formatDay(d.date, { weekday: 'short' })}
                             </span>
                         </div>
@@ -253,7 +253,7 @@ function ActivityCalendar({ days }) {
     };
     const activeDays = days.filter((d) => d.sessions).length;
     return (
-        <Panel title="Activity" icon={CalendarDays} action={<span className="text-xs text-white-30">{activeDays} active days in 12 weeks</span>}>
+        <Panel title="Activity" icon={CalendarDays} action={<span className="text-xs text-white-70">{activeDays} active days in 12 weeks</span>}>
             <div className="overflow-x-auto">
                 <div className="grid grid-rows-7 grid-flow-col gap-1 w-max">
                     {cells.map((d, i) => (
@@ -266,7 +266,7 @@ function ActivityCalendar({ days }) {
                     ))}
                 </div>
             </div>
-            <div className="flex items-center gap-2 mt-4 text-[11px] text-white-30">
+            <div className="flex items-center gap-2 mt-4 text-[11px] text-white-70">
                 <span>Less</span>
                 {['rgba(255,255,255,0.06)', `${ACCENT}66`, `${ACCENT}AA`, ACCENT].map((c) => <span key={c} className="w-3 h-3 rounded-[3px]" style={{ backgroundColor: c }} />)}
                 <span>More</span>
@@ -288,11 +288,11 @@ function PersonalRecords({ records }) {
                         <li key={r.exerciseSlug || r.exerciseName} className="flex items-center justify-between gap-4 py-2.5">
                             <div className="min-w-0">
                                 <p className="font-semibold text-sm truncate">{r.exerciseName}</p>
-                                <p className="text-[11px] text-white-30">{formatDay(r.achievedAt.slice(0, 10))} · {r.workoutTitle}</p>
+                                <p className="text-[11px] text-white-70">{formatDay(r.achievedAt.slice(0, 10))} · {r.workoutTitle}</p>
                             </div>
                             <div className="text-right shrink-0">
                                 <p className="font-bold text-amber-300">{formatRecord(r)}</p>
-                                {r.estimatedOneRepMaxKg && <p className="text-[11px] text-white-30">≈ {r.estimatedOneRepMaxKg} kg 1RM</p>}
+                                {r.estimatedOneRepMaxKg && <p className="text-[11px] text-white-70">≈ {r.estimatedOneRepMaxKg} kg 1RM</p>}
                             </div>
                         </li>
                     ))}
@@ -313,14 +313,14 @@ function RecentSessions({ sessions, onDelete }) {
                         <li key={s.id} className="flex items-center justify-between gap-3 py-2.5">
                             <div className="min-w-0">
                                 <Link href={`/workouts/${s.workoutSlug}`} className="font-semibold text-sm hover:text-lime-light truncate block">{s.workoutTitle}</Link>
-                                <p className="text-[11px] text-white-30">
+                                <p className="text-[11px] text-white-70">
                                     {formatDateTime(s.completedAt)} · {Math.round(s.durationSec / 60)} min · {s.calories} kcal
                                     {s.perceivedEffort ? ` · RPE ${s.perceivedEffort}` : ''}
                                     {s.status === 'partial' ? ' · partial' : ''}
                                     {s.enrollmentId ? ` · program W${s.programWeek}D${s.programDay}` : ''}
                                 </p>
                             </div>
-                            <button onClick={() => onDelete(s.id)} aria-label={`Delete ${s.workoutTitle} session`} className="p-2 rounded-lg text-white-30 hover:text-red-300 hover:bg-red-500/10">
+                            <button onClick={() => onDelete(s.id)} aria-label={`Delete ${s.workoutTitle} session`} className="p-2 rounded-lg text-white-70 hover:text-red-300 hover:bg-red-500/10">
                                 <Trash2 className="w-4 h-4" />
                             </button>
                         </li>
@@ -368,7 +368,7 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }) {
                     <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
                         <div>
                             <span className="text-3xl font-bold">{body.latestWeight ? `${body.latestWeight.weightKg} kg` : '–'}</span>
-                            {body.latestWeight && <span className="text-xs text-white-30 ml-2">{formatDay(body.latestWeight.date)}</span>}
+                            {body.latestWeight && <span className="text-xs text-white-70 ml-2">{formatDay(body.latestWeight.date)}</span>}
                         </div>
                         {body.weightChangeKg != null && (
                             <span className={`text-sm font-bold ${body.weightChangeKg <= 0 ? 'text-emerald-400' : 'text-orange-300'}`}>
@@ -422,9 +422,9 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }) {
                                     <input
                                         type="number" min="0" step={m.step} inputMode="decimal" aria-label={`${m.label} (${m.unit})`} placeholder={m.label}
                                         value={form[m.key] ?? ''} onChange={(e) => setForm({ ...form, [m.key]: e.target.value })}
-                                        className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white-30"
+                                        className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white-70"
                                     />
-                                    <span className="text-xs text-white-30">{m.unit}</span>
+                                    <span className="text-xs text-white-70">{m.unit}</span>
                                 </label>
                             ))}
                         </div>
@@ -445,7 +445,7 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }) {
                                     <span className="flex-1 truncate">
                                         {MEASUREMENTS.filter((f) => m[f.key] != null).map((f) => `${m[f.key]} ${f.unit}`).join(' · ')}
                                     </span>
-                                    <button onClick={() => onDelete(m.id)} aria-label={`Delete entry for ${m.date}`} className="p-1.5 rounded-lg text-white-30 hover:text-red-300">
+                                    <button onClick={() => onDelete(m.id)} aria-label={`Delete entry for ${m.date}`} className="p-1.5 rounded-lg text-white-70 hover:text-red-300">
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                 </li>

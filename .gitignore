@@ -62,3 +62,7 @@ fitguide_api/.devdb/
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Playwright output
+fitguide_nextjs/playwright-report/
+fitguide_nextjs/test-results/

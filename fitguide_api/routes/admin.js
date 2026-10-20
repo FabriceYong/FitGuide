@@ -219,6 +219,37 @@ router.delete('/reviews/:id', handle(async (req, res) => {
   res.json({ success: true });
 }));
 
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+// GET /api/admin/analytics?days=30 — page views, visitors, top pages and events
+router.get('/analytics', [query('days').optional().isInt({ min: 1, max: 90 }).toInt()], rejectInvalid, handle(async (req, res) => {
+  const days = req.query.days || 30;
+  const since = addDays(today(), -(days - 1));
+  const start = new Date(`${since}T00:00:00Z`);
+  const events = await prisma.analyticsEvent.findMany({
+    where: { createdAt: { gte: start } },
+    select: { name: true, path: true, visitorId: true, device: true, createdAt: true },
+  });
+  const views = events.filter((e) => e.name === 'page_view');
+  const daily = Array.from({ length: days }, (_, i) => addDays(since, i)).map((date) => {
+    const ofDay = views.filter((e) => e.createdAt.toISOString().startsWith(date));
+    return { date, pageViews: ofDay.length, visitors: new Set(ofDay.map((e) => e.visitorId).filter(Boolean)).size };
+  });
+  const count = (items, key) => Object.entries(items.reduce((acc, e) => {
+    const k = e[key] || 'unknown';
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {})).map(([k, n]) => ({ [key]: k, count: n })).sort((a, b) => b.count - a.count);
+  res.json({
+    success: true,
+    days: daily,
+    visitors: new Set(views.map((e) => e.visitorId).filter(Boolean)).size,
+    topPages: count(views, 'path').slice(0, 10),
+    devices: count(views, 'device'),
+    events: count(events.filter((e) => e.name !== 'page_view'), 'name'),
+  });
+}));
+
 // Kept for the analytics dashboard: the last 30 days of new sign-ups and sessions.
 router.get('/activity', handle(async (_req, res) => {
   const since = addDays(today(), -29);

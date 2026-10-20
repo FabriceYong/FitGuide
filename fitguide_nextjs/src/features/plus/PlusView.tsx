@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Check, Crown, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiRequest } from '../../lib/api';
+import { track } from '../../lib/analytics';
 
 interface Price {
   interval: 'monthly' | 'yearly';
@@ -60,6 +61,7 @@ export function PlusView() {
     setMessage(null);
     try {
       const { url } = await apiRequest(path, { method: 'POST', auth: true, body });
+      if (key !== 'portal') track('checkout_started', { interval: key });
       window.location.assign(url);
     } catch (err) {
       setMessage((err as Error).message);

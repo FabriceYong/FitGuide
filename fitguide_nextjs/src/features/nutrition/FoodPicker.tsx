@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Loader2, Search, X } from 'lucide-react';
 import type { Meal } from '@fitguide/shared';
 import { logFood, searchFoods, type Food } from '../../services/nutritionService';
+import { track } from '../../lib/analytics';
 
 interface Props {
   meal: Meal;
@@ -53,6 +54,7 @@ export function FoodPicker({ meal, date, onClose, onAdded }: Props) {
       } else if (selected) {
         await logFood({ date, meal, servings, foodSlug: selected.slug });
       }
+      track('food_logged', { custom });
       onAdded();
     } catch (err) {
       setError((err as Error).message);

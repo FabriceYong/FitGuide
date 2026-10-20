@@ -8,6 +8,7 @@ import { STATUS_STYLES, formatDate, playHref } from '../programs/ProgramDetail';
 import { adaptPlan, fetchPlan, type AdaptResult, type Plan, type PlanDay } from '../../services/planService';
 import { PlanGenerator } from './PlanGenerator';
 import { CoachChat } from './CoachChat';
+import { track } from '../../lib/analytics';
 
 /** /plan: the user's personal plan (or the generator) next to the coach. */
 export function PlanView() {
@@ -74,6 +75,7 @@ export function PlanView() {
             hasPlan={Boolean(plan)}
             onCancel={plan ? () => setEditing(false) : undefined}
             onCreated={(created, warnings) => {
+              track('plan_created');
               setPlan(created);
               setEditing(false);
               setNotice(warnings);

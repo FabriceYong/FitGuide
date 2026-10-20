@@ -10,6 +10,7 @@ import {
   joinChallenge, joinChallengeByCode, leaveChallenge, removeFriend,
   type Challenge, type Friends, type LeaderboardRow, type Metric, type NewChallenge,
 } from '../../services/socialService';
+import { track } from '../../lib/analytics';
 
 const METRIC_OPTIONS: { value: Metric; label: string }[] = [
   { value: 'minutes', label: 'Active minutes' },
@@ -196,7 +197,7 @@ export function CommunityView() {
                         {c.joined ? (
                           !c.isCreator && <button onClick={() => act(() => leaveChallenge(c.id), `You left ${c.title}.`)} className="text-xs font-bold px-3 py-2 rounded-lg bg-white/10">Leave</button>
                         ) : (
-                          c.status !== 'finished' && <button onClick={() => act(async () => setOpen(await joinChallenge(c.id)), `You joined ${c.title}.`)} className="text-xs font-bold px-3 py-2 rounded-lg bg-lime-light text-noir-eclipse">Join</button>
+                          c.status !== 'finished' && <button onClick={() => act(async () => { setOpen(await joinChallenge(c.id)); track('challenge_joined'); }, `You joined ${c.title}.`)} className="text-xs font-bold px-3 py-2 rounded-lg bg-lime-light text-noir-eclipse">Join</button>
                         )}
                         {c.isCreator && <button onClick={() => window.confirm(`Delete ${c.title}?`) && act(() => deleteChallenge(c.id), 'Challenge deleted.')} className="text-xs font-bold px-3 py-2 rounded-lg bg-white/10 text-red-300">Delete</button>}
                       </div>

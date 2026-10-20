@@ -30,6 +30,7 @@ const socialRoutes = require('./routes/social');
 const adminRoutes = require('./routes/admin');
 const creatorRoutes = require('./routes/creator');
 const billingRoutes = require('./routes/billing');
+const eventsRoutes = require('./routes/events');
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -117,6 +118,7 @@ function createApp() {
   app.use('/api/admin', adminRoutes);
   app.use('/api/creator', creatorRoutes);
   app.use('/api/billing', billingRoutes);
+  app.use('/api/events', eventsRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

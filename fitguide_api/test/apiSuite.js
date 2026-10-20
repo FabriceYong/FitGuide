@@ -13,6 +13,7 @@ const { defineHealthSuite } = require('./healthSuite');
 const { defineSocialSuite } = require('./socialSuite');
 const { defineAdminSuite } = require('./adminSuite');
 const { defineBillingSuite } = require('./billingSuite');
+const { defineAnalyticsSuite } = require('./analyticsSuite');
 
 const ALLOWED_ORIGIN = 'http://localhost:3000';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
@@ -464,6 +465,8 @@ function defineApiSuite() {
     describe('admin and creators', () => defineAdminSuite(() => ({ app, signUp })));
 
     describe('billing', () => defineBillingSuite(() => ({ app, signUp })));
+
+    describe('analytics', () => defineAnalyticsSuite(() => ({ app, signUp })));
 
     describe('rate limits', () => {
       it('limits failed logins', async () => {

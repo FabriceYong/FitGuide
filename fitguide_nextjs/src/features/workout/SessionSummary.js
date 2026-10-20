@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Award, Clock, Flame, Trophy, Check, AlertTriangle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { logSession } from '../../services/trainingService';
+import { track } from '../../lib/analytics';
 import { formatRecord } from '../progress/format';
 
 const EFFORT_LABELS = { 1: 'Very easy', 3: 'Easy', 5: 'Moderate', 7: 'Hard', 9: 'Very hard', 10: 'Max effort' };
@@ -40,6 +41,7 @@ export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, on
                 notes: notes.trim(),
             });
             setSaved(result);
+            track('workout_completed', { status, queued: Boolean(result.queued) });
         } catch (err) {
             setError(err.message);
         } finally {

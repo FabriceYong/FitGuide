@@ -98,6 +98,15 @@ export const createOfficialChallenge = (input: { title: string; description?: st
 export const fetchAdminReviews = async (): Promise<AdminReview[]> => (await apiRequest('/admin/reviews', { auth: true })).reviews;
 export const deleteReview = (id: string) => apiRequest(`/admin/reviews/${id}`, { method: 'DELETE', auth: true });
 
+export interface Analytics {
+  days: { date: string; pageViews: number; visitors: number }[];
+  visitors: number;
+  topPages: { path: string; count: number }[];
+  devices: { device: string; count: number }[];
+  events: { name: string; count: number }[];
+}
+export const fetchAnalytics = (days = 30): Promise<Analytics> => apiRequest('/admin/analytics', { auth: true, query: { days } });
+
 // Creator studio
 export const fetchMyPrograms = async (): Promise<CatalogProgram[]> => (await apiRequest('/creator/programs', { auth: true })).programs;
 export const createProgram = async (input: ProgramInput): Promise<CatalogProgram> =>

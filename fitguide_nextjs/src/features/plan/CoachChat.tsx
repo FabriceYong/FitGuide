@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Bot, Loader2, RotateCcw, Send } from 'lucide-react';
 import { fetchCoach, resetCoach, sendCoachMessage, type CoachMessage } from '../../services/planService';
+import { track } from '../../lib/analytics';
 
 /** The user's message, shown right away while the coach answers. */
 const pendingMessage = (text: string): CoachMessage => ({
@@ -48,6 +49,7 @@ export function CoachChat({ onPlanChanged }: { onPlanChanged: () => void }) {
     try {
       const { reply, changedPlan } = await sendCoachMessage(trimmed);
       setMessages((m) => [...m, reply]);
+      track('coach_message');
       if (changedPlan) onPlanChanged();
     } catch (err) {
       setMessages((m) => m.filter((x) => x.id !== pending.id));

@@ -7,12 +7,12 @@ import { Check, Loader2, Pencil, Plus, ShieldCheck, Trash2, X } from 'lucide-rea
 import { CATALOG } from '@fitguide/shared';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  createOfficialChallenge, deleteReview, fetchActivity, fetchAdminPrograms, fetchAdminReviews, fetchAdminWorkouts, fetchStats, fetchUsers,
+  createOfficialChallenge, deleteReview, fetchActivity, fetchAnalytics, fetchAdminPrograms, fetchAdminReviews, fetchAdminWorkouts, fetchStats, fetchUsers,
   reviewProgram, saveWorkout, setUserRole, setWorkoutFlags,
   type AdminReview, type AdminUser, type AdminWorkout, type CatalogProgram, type Stats,
 } from '../../services/adminService';
 
-const TABS = ['Overview', 'Programs', 'Workouts', 'Users', 'Challenges', 'Reviews'] as const;
+const TABS = ['Overview', 'Analytics', 'Programs', 'Workouts', 'Users', 'Challenges', 'Reviews'] as const;
 type Tab = (typeof TABS)[number];
 
 const card = 'bg-obsidian-wave border border-white-30/10 rounded-2xl p-5';
@@ -62,6 +62,75 @@ function Overview() {
               <Bar dataKey="sessions" name="Workouts logged" fill="#00C4B4" />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const EVENT_LABELS: Record<string, string> = {
+  signup: 'Sign-ups',
+  workout_started: 'Workouts started',
+  workout_completed: 'Workouts completed',
+  plan_created: 'Plans created',
+  coach_message: 'Coach messages',
+  food_logged: 'Foods logged',
+  challenge_joined: 'Challenges joined',
+  checkout_started: 'Checkouts started',
+};
+
+function AnalyticsTab() {
+  const loader = useCallback(() => fetchAnalytics(30), []);
+  const { data, error } = useLoad(loader);
+  if (error) return <p role="alert" className="text-red-300 text-sm">{error}</p>;
+  if (!data) return <Loader2 className="w-5 h-5 animate-spin" />;
+  const views = data.days.reduce((sum, d) => sum + d.pageViews, 0);
+  return (
+    <div className="space-y-6">
+      <p className="text-xs text-white-70">First-party and cookie-free: no IP addresses or accounts are recorded, and browsers that send Do Not Track or Global Privacy Control are not counted.</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {([['Page views (30 days)', views], ['Visitors (30 days)', data.visitors]] as [string, number][]).map(([label, value]) => (
+          <div key={label} className={card}>
+            <p className="text-xs font-bold uppercase tracking-wider text-white-70">{label}</p>
+            <p className="text-3xl font-extrabold mt-1">{value.toLocaleString()}</p>
+          </div>
+        ))}
+        {data.devices.map((d) => (
+          <div key={d.device} className={card}>
+            <p className="text-xs font-bold uppercase tracking-wider text-white-70">{d.device} views</p>
+            <p className="text-3xl font-extrabold mt-1">{views ? Math.round((d.count / views) * 100) : 0}%</p>
+          </div>
+        ))}
+      </div>
+      <div className={card}>
+        <h3 className="font-bold mb-3">Page views and visitors per day</h3>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data.days} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(5)} tick={{ fill: '#9ca3af', fontSize: 10 }} />
+              <YAxis allowDecimals={false} tick={{ fill: '#9ca3af', fontSize: 10 }} />
+              <Tooltip contentStyle={{ background: '#111', border: '1px solid #333', borderRadius: 8 }} />
+              <Legend />
+              <Bar dataKey="pageViews" name="Page views" fill="#00C4B4" />
+              <Bar dataKey="visitors" name="Visitors" fill="#64748B" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className={card}>
+          <h3 className="font-bold mb-3">Top pages</h3>
+          <ol className="space-y-1.5 text-sm">
+            {data.topPages.map((p) => <li key={p.path} className="flex justify-between gap-3"><span className="truncate">{p.path}</span><span className="font-bold">{p.count}</span></li>)}
+            {!data.topPages.length && <li className="text-white-70">No page views yet.</li>}
+          </ol>
+        </div>
+        <div className={card}>
+          <h3 className="font-bold mb-3">Key actions</h3>
+          <ul className="space-y-1.5 text-sm">
+            {data.events.map((e) => <li key={e.name} className="flex justify-between gap-3"><span>{EVENT_LABELS[e.name] || e.name}</span><span className="font-bold">{e.count}</span></li>)}
+            {!data.events.length && <li className="text-white-70">No events yet.</li>}
+          </ul>
         </div>
       </div>
     </div>
@@ -331,6 +400,7 @@ export function AdminView() {
       </div>
       <div role="tabpanel">
         {tab === 'Overview' && <Overview />}
+        {tab === 'Analytics' && <AnalyticsTab />}
         {tab === 'Programs' && <Programs />}
         {tab === 'Workouts' && <Workouts />}
         {tab === 'Users' && <Users />}

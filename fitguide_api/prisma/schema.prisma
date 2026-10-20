@@ -583,3 +583,21 @@ model StripeEvent {
 
   @@map("stripe_events")
 }
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+// First-party, cookie-free usage events. No IP address, user id or user
+// agent is stored; visitorId is a random id kept in the browser's storage.
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(40)
+  path      String?  @db.VarChar(200)
+  visitorId String?  @db.VarChar(40)
+  device    String?  @db.VarChar(10) // mobile | desktop
+  props     Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([name, createdAt])
+  @@map("analytics_events")
+}

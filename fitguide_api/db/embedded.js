@@ -82,7 +82,8 @@ function migrateDeploy(url) {
   const prismaCli = require.resolve('prisma/build/index.js');
   execFileSync(process.execPath, [prismaCli, 'migrate', 'deploy'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, DATABASE_URL: url },
+    // CHECKPOINT_DISABLE: skip Prisma's update check, which can stall offline.
+    env: { ...process.env, DATABASE_URL: url, CHECKPOINT_DISABLE: '1' },
     stdio: 'pipe',
   });
 }

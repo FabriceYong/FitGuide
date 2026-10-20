@@ -2,6 +2,7 @@
 
 import { AuthProvider } from '../contexts/AuthContext';
 import { OfflineSupport } from '../components/OfflineSupport';
+import { PageViews } from '../components/PageViews';
 
 /** Client-side context shared by every route. */
 export function Providers({ children }) {
@@ -9,6 +10,7 @@ export function Providers({ children }) {
     <AuthProvider>
       {children}
       <OfflineSupport />
+      <PageViews />
     </AuthProvider>
   );
 }

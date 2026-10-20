@@ -25,7 +25,7 @@ export default async function WorkoutsPage() {
   return (
     <div className="min-h-screen bg-noir-eclipse text-white font-poppins">
       <SiteHeader active="/workouts" />
-      <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-10 space-y-10">
+      <main id="main" className="max-w-[1400px] mx-auto px-4 md:px-8 py-10 space-y-10">
         <div>
           <h1 className="text-3xl md:text-4xl font-extrabold">Workouts</h1>
           <p className="text-white-70 mt-2">{workouts.length} guided workouts across {byCategory.size} categories.</p>

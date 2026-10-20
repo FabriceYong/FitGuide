@@ -286,3 +286,38 @@ body {
   pointer-events: none;
   z-index: 1;
 }
+/* ─── Accessibility ─────────────────────────────────────────────────────── */
+
+/* Skip link: hidden until focused with the keyboard. */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 100;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  background: var(--color-lime-light);
+  color: var(--color-noir-eclipse);
+  font-weight: 700;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* A visible focus ring for keyboard users everywhere. */
+:focus-visible {
+  outline: 2px solid var(--color-lime-light);
+  outline-offset: 2px;
+}
+
+/* Respect the system "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

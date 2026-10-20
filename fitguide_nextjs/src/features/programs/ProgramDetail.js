@@ -85,7 +85,7 @@ export function ProgramDetail({ program, workouts }) {
     const weeks = Array.from({ length: program.weeks }, (_, i) => i + 1);
 
     return (
-        <main className="max-w-[1100px] mx-auto px-4 md:px-8 py-10 space-y-8">
+        <main id="main" className="max-w-[1100px] mx-auto px-4 md:px-8 py-10 space-y-8">
             {/* Overview */}
             <section className="space-y-4">
                 <Link href="/programs" className="text-xs font-bold uppercase tracking-wider text-white-70 hover:text-white">← All programs</Link>

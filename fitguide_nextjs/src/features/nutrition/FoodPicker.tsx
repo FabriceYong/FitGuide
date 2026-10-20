@@ -66,14 +66,15 @@ export function FoodPicker({ meal, date, onClose, onAdded }: Props) {
   const field = 'w-full bg-noir-eclipse border border-white-30/20 rounded-xl px-3 py-2 text-sm text-white';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+      {/* Clicking outside closes the dialog; keyboard users have Escape and the close button. */}
+      <button type="button" tabIndex={-1} aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/70 cursor-default" />
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="food-picker-title"
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-obsidian-wave border border-white-30/10 rounded-2xl p-5 space-y-4 max-h-[85vh] flex flex-col"
+        className="relative w-full max-w-lg bg-obsidian-wave border border-white-30/10 rounded-2xl p-5 space-y-4 max-h-[85vh] flex flex-col"
       >
         <div className="flex items-center justify-between">
           <h2 id="food-picker-title" className="font-extrabold">Add to {meal}</h2>

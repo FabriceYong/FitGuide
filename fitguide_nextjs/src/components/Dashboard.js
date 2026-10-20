@@ -184,7 +184,7 @@ const Dashboard = () => {
       </header>
 
       {/* Main Tab Content - PROFESSIONAL CONTAINER */}
-      <main className="flex-1 w-full pb-24 md:pb-10">
+      <main id="main" className="flex-1 w-full pb-24 md:pb-10">
         <div className="max-w-[1600px] mx-auto px-6 py-8 md:px-12 md:py-10">
           {renderTabContent()}
         </div>

@@ -1,5 +1,6 @@
 import './globals.css';
 import { Providers } from './providers';
+import { getLocale, getT } from '../i18n/server';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
@@ -17,9 +18,10 @@ export const metadata = {
 
 export const viewport = { themeColor: '#0A0C10' };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const [locale, t] = await Promise.all([getLocale(), getT()]);
   return (
-    <html lang="en">
+    <html lang={locale}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -29,7 +31,8 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <a href="#main" className="skip-link">{t('skip.toContent')}</a>
+        <Providers locale={locale}>{children}</Providers>
       </body>
     </html>
   );

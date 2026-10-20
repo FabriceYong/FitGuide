@@ -8,7 +8,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-noir-eclipse text-white font-poppins">
       <SiteHeader active="/admin" />
-      <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-10">
+      <main id="main" className="max-w-[1400px] mx-auto px-4 md:px-8 py-10">
         <AdminView />
       </main>
     </div>

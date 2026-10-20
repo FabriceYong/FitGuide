@@ -1,4 +1,5 @@
 import nextVitals from 'eslint-config-next/core-web-vitals';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 
 export default [
   ...nextVitals,
@@ -15,6 +16,12 @@ export default [
       'react-hooks/refs': 'warn',
       'react/no-unescaped-entities': 'warn',
     },
+  },
+  {
+    // Accessibility rules are enforced on TypeScript components (the plugin
+    // itself is registered by eslint-config-next).
+    files: ['src/**/*.tsx'],
+    rules: jsxA11y.flatConfigs.recommended.rules,
   },
   {
     ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts', 'playwright-report/**', 'test-results/**'],

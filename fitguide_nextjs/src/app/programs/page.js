@@ -17,7 +17,7 @@ export default async function ProgramsPage() {
   return (
     <div className="min-h-screen bg-noir-eclipse text-white font-poppins">
       <SiteHeader active="/programs" />
-      <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-10 space-y-8">
+      <main id="main" className="max-w-[1400px] mx-auto px-4 md:px-8 py-10 space-y-8">
         <div>
           <h1 className="text-3xl md:text-4xl font-extrabold">Training programs</h1>
           <p className="text-white-70 mt-2 max-w-2xl">

@@ -76,19 +76,38 @@ export const fetchProgressSummary = (): Promise<{ summary: ProgressSummary; rece
   apiRequest('/progress/summary', { auth: true, query: tz() });
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
-// Sessions finished without a connection wait here and are sent once back online.
-const QUEUE_KEY = 'fitguide_pending_sessions';
+// Sessions finished without a connection wait here, each with the account it
+// belongs to, and are sent once that account is signed in and back online.
+// Every session carries a clientId, so the API saves a resent one only once.
+const QUEUE_KEY = 'fitguide_pending_sessions_v2';
+// Written by builds that didn't record whose session it was. Never sent: it
+// could belong to anyone who used this device.
+const LEGACY_QUEUE_KEY = 'fitguide_pending_sessions';
 
-type NewSession = Record<string, unknown>;
+type NewSession = Record<string, unknown> & { clientId?: string };
+interface QueuedSession {
+  userId: string;
+  session: NewSession & { clientId: string };
+}
 
-const readQueue = (): NewSession[] => {
+const PROGRAM_FIELDS = ['enrollmentId', 'programWeek', 'programDay'];
+
+/** A random id for a new session (see the API's clientId). */
+export function newClientId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+const readQueue = (): QueuedSession[] => {
   try {
-    return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    localStorage.removeItem(LEGACY_QUEUE_KEY);
+    const items = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    return Array.isArray(items) ? items.filter((q) => q && typeof q.userId === 'string' && q.session?.clientId) : [];
   } catch {
     return [];
   }
 };
-const writeQueue = (items: NewSession[]) => {
+const writeQueue = (items: QueuedSession[]) => {
   try {
     if (items.length) localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
     else localStorage.removeItem(QUEUE_KEY);
@@ -97,39 +116,82 @@ const writeQueue = (items: NewSession[]) => {
   }
 };
 
+const postSession = (session: NewSession) => apiRequest('/sessions', { method: 'POST', auth: true, body: session });
+
 /**
- * Save a finished session. Offline (status 0), it's queued and
- * { queued: true } comes back instead of the saved session.
+ * Save a finished session for the signed-in user. Pass the same clientId when
+ * retrying a save, so it can't be stored twice. Offline (status 0), it's
+ * queued for this user and { queued: true } comes back instead.
  */
-export async function logSession(session: NewSession): Promise<{ session: Record<string, unknown>; newRecords: PersonalRecord[]; queued?: boolean }> {
+export async function logSession(
+  session: NewSession,
+  userId: string,
+): Promise<{ session: Record<string, unknown>; newRecords: PersonalRecord[]; queued?: boolean }> {
+  const body = { ...session, clientId: session.clientId || newClientId() };
   try {
-    return await apiRequest('/sessions', { method: 'POST', auth: true, body: session });
+    return await postSession(body);
   } catch (err) {
     if (!(err instanceof ApiError) || err.status !== 0) throw err;
-    writeQueue([...readQueue(), session]);
-    return { session: { ...session, calories: null }, newRecords: [], queued: true };
+    writeQueue([...readQueue(), { userId, session: body }]);
+    return { session: { ...body, calories: null }, newRecords: [], queued: true };
   }
 }
 
-export const queuedSessionCount = () => (typeof window === 'undefined' ? 0 : readQueue().length);
+export const queuedSessionCount = (userId: string) => (typeof window === 'undefined' ? 0 : readQueue().filter((q) => q.userId === userId).length);
 
-/** Send queued sessions. Ones the server rejects (e.g. invalid) are dropped. */
-export async function flushQueuedSessions() {
-  const queue = readQueue();
-  if (!queue.length) return 0;
-  const left: NewSession[] = [];
-  let sent = 0;
-  for (const session of queue) {
-    try {
-      await apiRequest('/sessions', { method: 'POST', auth: true, body: session });
-      sent += 1;
-    } catch (err) {
-      const status = err instanceof ApiError ? err.status : 0;
-      if (status === 0 || status === 401 || status >= 500) left.push(session);
+/** Forget a user's queued sessions (their account is being deleted). */
+export function discardQueuedSessions(userId: string) {
+  writeQueue(readQueue().filter((q) => q.userId !== userId));
+}
+
+// Not the session's fault: try again on the next flush.
+const retryLater = (status: number) => status === 0 || status === 401 || status === 408 || status === 429 || status >= 500;
+
+/** Send one queued session: 'sent', 'retry' (keep it), or 'dropped' (the API won't take it). */
+async function sendQueued(session: NewSession): Promise<'sent' | 'retry' | 'dropped'> {
+  try {
+    await postSession(session);
+    return 'sent';
+  } catch (err) {
+    const status = err instanceof ApiError ? err.status : 0;
+    if (retryLater(status)) return 'retry';
+    // The program may have ended while offline, so the day can't count for it
+    // any more. Keep the workout itself.
+    if (status === 400 && session.enrollmentId) {
+      return sendQueued(Object.fromEntries(Object.entries(session).filter(([k]) => !PROGRAM_FIELDS.includes(k))));
     }
+    return 'dropped';
   }
-  writeQueue(left);
-  return sent;
+}
+
+// One flush at a time per user, so a session isn't sent by two flushes at once.
+const flushing = new Map<string, Promise<{ sent: number; dropped: number }>>();
+
+/**
+ * Send this user's queued sessions. Sessions the API refuses for good (the
+ * workout is gone, PLUS ended, invalid data) are removed and counted as dropped.
+ */
+export function flushQueuedSessions(userId: string): Promise<{ sent: number; dropped: number }> {
+  const running = flushing.get(userId);
+  if (running) return running;
+  const flush = (async () => {
+    const mine = readQueue().filter((q) => q.userId === userId);
+    const done = new Set<string>();
+    let sent = 0;
+    let dropped = 0;
+    for (const { session } of mine) {
+      const result = await sendQueued(session);
+      if (result === 'retry') continue;
+      done.add(session.clientId);
+      if (result === 'sent') sent += 1;
+      else dropped += 1;
+    }
+    // Re-read, so a session queued while this ran is kept.
+    writeQueue(readQueue().filter((q) => !(q.userId === userId && done.has(q.session.clientId))));
+    return { sent, dropped };
+  })().finally(() => flushing.delete(userId));
+  flushing.set(userId, flush);
+  return flush;
 }
 export const fetchSessions = (query: Record<string, string | number> = {}) => apiRequest('/sessions', { auth: true, query });
 export const deleteSession = (id: string) => apiRequest(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true });

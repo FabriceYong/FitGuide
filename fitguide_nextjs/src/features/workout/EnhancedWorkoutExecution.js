@@ -400,8 +400,8 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
 
       {/* ── TOP NAVIGATION HUD ── */}
       <div className="relative z-30 flex items-center justify-between px-6 py-4 bg-[#0A0C10]/90 backdrop-blur-md border-b border-white/10">
-        <button onClick={handleExit} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all">
-          <X className="w-5 h-5 text-white" />
+        <button onClick={handleExit} aria-label="Exit workout" className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all">
+          <X className="w-5 h-5 text-white" aria-hidden="true" />
         </button>
 
         <div className="flex-1 mx-6 max-w-xl">

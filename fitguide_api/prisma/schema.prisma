@@ -290,6 +290,9 @@ model WorkoutSession {
   enrollmentId    String?
   programWeek     Int?
   programDay      Int?
+  // Id the client made up for this session, so sending it again (offline
+  // sync, a retry after a lost response) doesn't save it twice.
+  clientId        String?  @db.VarChar(64)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -297,6 +300,7 @@ model WorkoutSession {
   enrollment Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
   sets       SetLog[]
 
+  @@unique([userId, clientId])
   @@index([userId, completedAt(sort: Desc)])
   @@map("workout_sessions")
 }

@@ -12,9 +12,11 @@ import { useT } from '../i18n/client';
  * banner.
  */
 export function OfflineSupport() {
-  const { ready, hasAccount } = useAuth();
+  const { ready, hasAccount, user } = useAuth();
+  const userId = hasAccount ? user?.id : undefined;
   const [offline, setOffline] = useState(false);
   const [synced, setSynced] = useState(0);
+  const [dropped, setDropped] = useState(0);
   const t = useT();
 
   useEffect(() => {
@@ -34,17 +36,29 @@ export function OfflineSupport() {
   }, []);
 
   useEffect(() => {
-    if (!ready || !hasAccount || offline) return;
-    flushQueuedSessions().then((count) => { if (count) setSynced(count); }).catch(() => {});
-  }, [ready, hasAccount, offline]);
+    if (!ready || !userId || offline) return;
+    flushQueuedSessions(userId).then((result) => {
+      if (result.sent) setSynced(result.sent);
+      if (result.dropped) setDropped(result.dropped);
+    }).catch(() => {});
+  }, [ready, userId, offline]);
 
-  if (!offline && !synced) return null;
+  if (!offline && !synced && !dropped) return null;
+  const dismiss = () => {
+    setSynced(0);
+    setDropped(0);
+  };
   return (
     <div role="status" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full bg-obsidian-wave border border-white-30/20 text-sm text-white shadow-lg">
       {offline ? (
         <><WifiOff className="w-4 h-4 text-amber-300" aria-hidden="true" /> {t('offline.banner')}</>
       ) : (
-        <button onClick={() => setSynced(0)}>{synced === 1 ? t('offline.synced.one') : t('offline.synced.other', { count: synced })} ✕</button>
+        <button onClick={dismiss}>
+          {synced > 0 && (synced === 1 ? t('offline.synced.one') : t('offline.synced.other', { count: synced }))}
+          {synced > 0 && dropped > 0 && ' '}
+          {dropped > 0 && (dropped === 1 ? t('offline.dropped.one') : t('offline.dropped.other', { count: dropped }))}
+          {' ✕'}
+        </button>
       )}
     </div>
   );

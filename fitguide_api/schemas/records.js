@@ -39,6 +39,7 @@ const workoutSession = z.object({
   enrollmentId: z.string().nullish(),
   programWeek: int(1, 52).nullish(),
   programDay: int(1, 7).nullish(),
+  clientId: z.string().min(1).max(64).nullish(),
 });
 
 const completedDay = z.object({

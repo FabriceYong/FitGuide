@@ -10,6 +10,7 @@ import { PROFILE } from '@fitguide/shared';
 import { apiRequest, assetUrl } from '../../../lib/api';
 import { useAuth, type AuthUser } from '../../../contexts/AuthContext';
 import { Modal } from '../../../components/Modal';
+import { discardQueuedSessions } from '../../../services/trainingService';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { ParqModal } from '../../../components/ParqModal';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
@@ -232,7 +233,7 @@ function ChangePassword({ onClose }: { onClose: () => void }) {
 }
 
 function DeleteAccount({ onClose }: { onClose: () => void }) {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [password, setPassword] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -243,6 +244,7 @@ function DeleteAccount({ onClose }: { onClose: () => void }) {
     setDeleting(true);
     try {
       await apiRequest('/auth/account', { method: 'DELETE', body: { password }, auth: true });
+      if (user) discardQueuedSessions(user.id);
       logout();
     } catch (err) {
       setError(errorText(err, 'Could not delete your account.'));

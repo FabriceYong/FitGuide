@@ -7,6 +7,7 @@ const { personalRecords } = require('../services/progress');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { isPlus } = require('../services/billing');
 const { rejectInvalid, pick } = require('../utils/validate');
+const { isUniqueViolation } = require('../db/prisma');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -37,7 +38,16 @@ const sessionRules = [
   body('enrollmentId').optional(nullable).isString().isLength({ max: 100 }),
   body('programWeek').optional(nullable).isInt({ min: 1, max: 52 }).toInt(),
   body('programDay').optional(nullable).isInt({ min: 1, max: 7 }).toInt(),
+  body('clientId').optional(nullable).isString().trim().isLength({ min: 1, max: 64 }).withMessage('clientId must be 1–64 characters'),
 ];
+
+/** The user's session saved earlier with this clientId, if any. */
+const findByClientId = async (userId, clientId) => (clientId
+  ? (await sessionStore.list(userId, { where: { clientId }, limit: 1 }))[0] || null
+  : null);
+
+/** A session that was already saved: answer as if it had just been saved, without repeating side effects. */
+const sendSaved = (res, session) => res.status(200).json({ success: true, session, newRecords: [], duplicate: true });
 
 /** Link each set to the exercise library where its name (or given slug) matches. */
 function linkExercises(sets, exercises) {
@@ -51,10 +61,14 @@ function linkExercises(sets, exercises) {
 
 // ─── POST /api/sessions ───────────────────────────────────────────────────────
 // Save a finished (or partly finished) workout. Calories are estimated here
-// from the workout's rate, not taken from the client.
+// from the workout's rate, not taken from the client. With a clientId,
+// sending the same session again returns the saved one (200, duplicate: true).
 router.post('/', sessionRules, rejectInvalid, async (req, res, next) => {
   try {
     const b = req.body;
+    const saved = await findByClientId(req.user.id, b.clientId);
+    if (saved) return sendSaved(res, saved);
+
     const [workout] = await workoutStore.getManyBySlugs([b.workoutSlug]);
     if (!workout) return res.status(404).json({ success: false, message: 'Workout not found.' });
     if (workout.isPremium && !isPlus(req.user)) {
@@ -83,22 +97,30 @@ router.post('/', sessionRules, rejectInvalid, async (req, res, next) => {
 
     const exercises = await exerciseStore.all();
     const rate = workout.calories && workout.duration ? workout.calories / (workout.duration * 60) : 0;
-    const session = await sessionStore.create(req.user.id, {
-      workoutSlug: workout.slug,
-      workoutTitle: workout.title,
-      category: workout.category || null,
-      status: b.status || 'completed',
-      startedAt,
-      completedAt,
-      durationSec,
-      calories: Math.round(rate * durationSec),
-      stepsCompleted: b.stepsCompleted || 0,
-      totalSteps: b.totalSteps || 0,
-      perceivedEffort: b.perceivedEffort ?? null,
-      notes: b.notes || '',
-      sets: linkExercises(b.sets || [], exercises),
-      ...(program || {}),
-    });
+    let session;
+    try {
+      session = await sessionStore.create(req.user.id, {
+        workoutSlug: workout.slug,
+        workoutTitle: workout.title,
+        category: workout.category || null,
+        status: b.status || 'completed',
+        startedAt,
+        completedAt,
+        durationSec,
+        calories: Math.round(rate * durationSec),
+        stepsCompleted: b.stepsCompleted || 0,
+        totalSteps: b.totalSteps || 0,
+        perceivedEffort: b.perceivedEffort ?? null,
+        notes: b.notes || '',
+        sets: linkExercises(b.sets || [], exercises),
+        clientId: b.clientId || null,
+        ...(program || {}),
+      });
+    } catch (err) {
+      // The same session sent twice at once: the other request saved it.
+      if (isUniqueViolation(err) && b.clientId) return sendSaved(res, await findByClientId(req.user.id, b.clientId));
+      throw err;
+    }
 
     if (program) await markDayComplete(req.user.id, session);
 

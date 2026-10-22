@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ApiError } from '../../lib/api';
 import { enrollInProgram, fetchEnrollments, leaveProgram, localToday } from '../../services/trainingService';
 import { LEVEL_COLORS } from './ProgramCard';
+import { scheduleHref } from '../progress/format';
 
 export const STATUS_STYLES = {
     done: { label: 'Done', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
@@ -151,7 +152,7 @@ export function ProgramDetail({ program, workouts }) {
                     <div className="space-y-4">
                         {active && (
                             <p className="text-sm text-white-70">
-                                You&apos;re currently following <Link href={`/programs/${active.programSlug}`} className="text-white underline">{active.programTitle}</Link>.
+                                You&apos;re currently following <Link href={scheduleHref(active)} className="text-white underline">{active.programTitle}</Link>.
                             </p>
                         )}
                         <div className="flex flex-wrap items-end gap-4">

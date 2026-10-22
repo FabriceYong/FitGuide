@@ -213,6 +213,23 @@ function defineTrainingSuite(ctx) {
       await lifter.agent.get(`/api/sessions/${firstId}`).expect(200);
     });
 
+    it('saves a session sent twice with the same clientId only once', async () => {
+      const retrier = await ctx().signUp('Retrier');
+      const body = session('core-power-blast', { clientId: 'device-42-session-1' });
+      const first = await retrier.agent.post('/api/sessions').send(body).expect(201);
+      const again = await retrier.agent.post('/api/sessions').send(body).expect(200);
+      assert.equal(again.body.duplicate, true);
+      assert.equal(again.body.session.id, first.body.session.id);
+      // Sent at the same time: still one session.
+      const both = await Promise.all([1, 2].map(() => retrier.agent.post('/api/sessions').send({ ...body, clientId: 'device-42-session-2' })));
+      assert.deepEqual(both.map((r) => r.status).sort(), [200, 201]);
+      assert.equal((await retrier.agent.get('/api/sessions').expect(200)).body.count, 2);
+      // clientIds belong to one account.
+      await other.agent.post('/api/sessions').send(body).expect(201);
+      await other.agent.delete(`/api/sessions/${(await other.agent.get('/api/sessions')).body.sessions[0].id}`).expect(200);
+      await retrier.agent.post('/api/sessions').send(session('core-power-blast', { clientId: 'x'.repeat(65) })).expect(400);
+    });
+
     it('filters by workout', async () => {
       const res = await lifter.agent.get('/api/sessions').query({ workoutSlug: 'morning-yoga-flow' }).expect(200);
       assert.equal(res.body.count, 1);
@@ -253,6 +270,67 @@ function defineTrainingSuite(ctx) {
       assert.equal(enrollment.completedCount, 0);
       // Log it again for the summary tests below.
       await lifter.agent.post('/api/sessions').send(session(dayOne.workoutSlug, { enrollmentId, programWeek: 1, programDay: dayOne.day })).expect(201);
+    });
+  });
+
+  describe('deleting sessions of a finished program', () => {
+    // A two-day personal plan, so it can be finished quickly.
+    let finisher;
+    let plan;
+    const logDay = (d) => finisher.agent.post('/api/sessions')
+      .send(session(d.workoutSlug, { enrollmentId: plan.id, programWeek: d.week, programDay: d.day }))
+      .expect(201)
+      .then((res) => res.body.session.id);
+    const getPlan = async () => (await finisher.agent.get(`/api/enrollments/${plan.id}`).expect(200)).body.enrollment;
+
+    before(async () => {
+      finisher = await ctx().signUp('Finisher');
+      ({ plan } = (await finisher.agent.post('/api/plan/generate').send({
+        goal: 'Vitality', level: 'Beginner', daysPerWeek: 2, minutesPerSession: 30, equipment: [], weeks: 1,
+      }).expect(201)).body);
+      assert.equal(plan.totalDays, 2);
+    });
+
+    it('keeps the program finished while another session still covers the day', async () => {
+      const [first, second] = plan.schedule;
+      const counted = await logDay(first);
+      const repeat = await logDay(first);
+      const extra = await logDay(first);
+      await logDay(second);
+      const finished = await getPlan();
+      assert.equal(finished.status, 'completed');
+
+      // A repeat that never counted changes nothing.
+      await finisher.agent.delete(`/api/sessions/${repeat}`).expect(200);
+      assert.deepEqual(await getPlan(), finished);
+
+      // The counted one is replaced by the other session of that day.
+      await finisher.agent.delete(`/api/sessions/${counted}`).expect(200);
+      let e = await getPlan();
+      assert.equal(e.status, 'completed');
+      assert.equal(e.completedCount, 2);
+      assert.equal(e.schedule[0].sessionId, extra);
+
+      // With no other session for the day, the day opens and the plan is active again.
+      await finisher.agent.delete(`/api/sessions/${extra}`).expect(200);
+      e = await getPlan();
+      assert.equal(e.status, 'active');
+      assert.equal(e.completedCount, 1);
+      assert.deepEqual([e.nextDay.week, e.nextDay.day], [first.week, first.day]);
+    });
+
+    it('leaves the program finished when another one has been started', async () => {
+      const dayId = await logDay(plan.schedule[0]);
+      assert.equal((await getPlan()).status, 'completed');
+      await finisher.agent.post('/api/enrollments').send({ programSlug: 'mobility-reset' }).expect(201);
+
+      await finisher.agent.delete(`/api/sessions/${dayId}`).expect(200);
+      const { enrollments, active } = (await finisher.agent.get('/api/enrollments').expect(200)).body;
+      assert.equal(enrollments.filter((e) => e.status === 'active').length, 1);
+      assert.equal(active.programSlug, 'mobility-reset');
+      const finished = enrollments.find((e) => e.id === plan.id);
+      assert.equal(finished.status, 'completed');
+      assert.equal(finished.completedCount, 1);
     });
   });
 

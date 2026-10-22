@@ -1,7 +1,7 @@
 /**
  * Program enrollment logic shared by the enrollments, sessions and progress routes.
  */
-const { enrollmentStore, programStore } = require('../stores/records');
+const { enrollmentStore, programStore, sessionStore } = require('../stores/records');
 const { describeEnrollment } = require('./progress');
 
 /** All of a user's enrollments with their schedules: active first, then newest. */
@@ -53,12 +53,34 @@ async function markDayComplete(userId, session) {
   });
 }
 
-/** Undo markDayComplete when its session is deleted. */
+/**
+ * Undo markDayComplete after its session was deleted. If another session
+ * logged the same day, that one counts instead. Otherwise the day is open
+ * again, and a completed program becomes active again, unless the user has
+ * started another program since (only one may be active).
+ */
 async function unmarkSession(userId, session) {
   if (!session.enrollmentId) return;
-  await enrollmentStore.update(userId, session.enrollmentId, (e) => {
+  const enrollment = await enrollmentStore.findOwned(userId, session.enrollmentId);
+  if (!enrollment?.completedDays.some((d) => d.sessionId === session.id)) return;
+
+  const sameDay = await sessionStore.list(userId, {
+    where: { enrollmentId: enrollment.id, programWeek: session.programWeek, programDay: session.programDay },
+    sortField: 'completedAt',
+  });
+  const replacement = sameDay[sameDay.length - 1]; // the earliest remaining
+  const otherActive = !replacement && enrollment.status === 'completed'
+    && (await enrollmentStore.list(userId, { where: { status: 'active' } })).length > 0;
+
+  await enrollmentStore.update(userId, enrollment.id, (e) => {
+    if (replacement) {
+      const day = e.completedDays.find((d) => d.sessionId === session.id);
+      day.sessionId = replacement.id;
+      day.completedAt = replacement.completedAt;
+      return;
+    }
     e.completedDays = e.completedDays.filter((d) => d.sessionId !== session.id);
-    if (e.status === 'completed') {
+    if (e.status === 'completed' && !otherActive) {
       e.status = 'active';
       e.endedAt = null;
     }

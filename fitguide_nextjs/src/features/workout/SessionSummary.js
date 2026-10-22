@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Award, Clock, Flame, Trophy, Check, AlertTriangle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { logSession } from '../../services/trainingService';
+import { logSession, newClientId } from '../../services/trainingService';
 import { track } from '../../lib/analytics';
 import { formatRecord } from '../progress/format';
 
@@ -21,13 +21,15 @@ const EFFORT_LABELS = { 1: 'Very easy', 3: 'Easy', 5: 'Moderate', 7: 'Hard', 9: 
  * @param {() => void} [props.onResume]                Go back to the workout (partial only)
  */
 export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, onDone, onResume }) {
-    const { hasAccount } = useAuth();
+    const { hasAccount, user } = useAuth();
     const [minutes, setMinutes] = useState(Math.max(1, Math.round(draft.durationSec / 60)));
     const [effort, setEffort] = useState(null);
     const [notes, setNotes] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const [saved, setSaved] = useState(null);
+    // Kept across retries of Save, so a retry after a lost response isn't saved twice.
+    const [clientId] = useState(newClientId);
 
     const save = async () => {
         setSaving(true);
@@ -39,7 +41,8 @@ export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, on
                 durationSec: Math.round(Number(minutes) * 60),
                 perceivedEffort: effort,
                 notes: notes.trim(),
-            });
+                clientId,
+            }, user.id);
             setSaved(result);
             track('workout_completed', { status, queued: Boolean(result.queued) });
         } catch (err) {

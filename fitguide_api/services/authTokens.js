@@ -59,4 +59,9 @@ async function revoke(rawToken) {
   await prisma.refreshToken.updateMany({ where: { family: current.family, revokedAt: null }, data: { revokedAt: new Date() } });
 }
 
-module.exports = { issue, rotate, revoke };
+/** Revoke every family the user has (password change, account deletion): signs out all their devices. */
+async function revokeAll(userId) {
+  await prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+}
+
+module.exports = { issue, rotate, revoke, revokeAll };

@@ -10,6 +10,16 @@ const path = require('path');
 
 const UPLOADS_ROOT = process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : path.join(__dirname, '..', 'uploads');
 
+// Keys we create look like "avatars/avatar-avatar-1700000000000-abc123.png".
+const KEY_PATTERN = /^[a-z]+\/[A-Za-z0-9._-]+$/;
+
+/** The storage key behind one of our public URLs, or null for any other URL. */
+const keyAfter = (base, url) => {
+  if (typeof url !== 'string' || !url.startsWith(`${base}/`)) return null;
+  const key = url.slice(base.length + 1);
+  return KEY_PATTERN.test(key) && !key.includes('..') ? key : null;
+};
+
 function localStorage() {
   return {
     name: 'local',
@@ -19,6 +29,10 @@ function localStorage() {
       await fs.promises.writeFile(file, buffer);
       return `/uploads/${key}`;
     },
+    keyFor: (url) => keyAfter('/uploads', url),
+    async remove(key) {
+      await fs.promises.rm(path.join(UPLOADS_ROOT, key), { force: true });
+    },
   };
 }
 
@@ -27,7 +41,7 @@ function s3Storage() {
   const missing = required.filter((name) => !process.env[name]);
   if (missing.length) throw new Error(`STORAGE_DRIVER=s3 needs ${missing.join(', ')} (see .env.example).`);
 
-  const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+  const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
   const client = new S3Client({
     region: process.env.S3_REGION || 'auto',
     ...(process.env.S3_ENDPOINT && { endpoint: process.env.S3_ENDPOINT }),
@@ -52,6 +66,10 @@ function s3Storage() {
       }));
       return `${publicBase}/${key}`;
     },
+    keyFor: (url) => keyAfter(publicBase, url),
+    async remove(key) {
+      await client.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }));
+    },
   };
 }
 
@@ -68,4 +86,25 @@ function setStorage(driver) {
   storage = driver;
 }
 
-module.exports = { UPLOADS_ROOT, getStorage, setStorage, s3Storage };
+/**
+ * Delete files we stored, given their public URLs. URLs that point anywhere
+ * else (another site, a catalog image) are skipped. Failures are logged, not
+ * thrown: a leftover file is better than a half-finished caller.
+ * @returns {Promise<number>} how many files were removed
+ */
+async function removeUrls(urls) {
+  const driver = getStorage();
+  const keys = [...new Set(urls.map((url) => driver.keyFor(url)).filter(Boolean))];
+  let removed = 0;
+  for (const key of keys) {
+    try {
+      await driver.remove(key);
+      removed += 1;
+    } catch (err) {
+      console.error(`[storage] could not remove ${key}:`, err.message);
+    }
+  }
+  return removed;
+}
+
+module.exports = { UPLOADS_ROOT, getStorage, setStorage, s3Storage, removeUrls };

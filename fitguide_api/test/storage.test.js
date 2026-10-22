@@ -2,7 +2,9 @@
 require('./helpers/setup');
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { s3Storage } = require('../utils/storage');
+const fs = require('fs');
+const path = require('path');
+const { s3Storage, getStorage, removeUrls, UPLOADS_ROOT } = require('../utils/storage');
 const { hasImageSignature } = require('../utils/uploads');
 
 describe('S3 storage', () => {
@@ -23,6 +25,32 @@ describe('S3 storage', () => {
       assert.equal(sent[0].ContentType, 'image/png');
     } finally {
       for (const key of ['S3_BUCKET', 'S3_PUBLIC_URL', 'S3_ENDPOINT']) delete process.env[key];
+    }
+  });
+});
+
+describe('removing uploads', () => {
+  it('deletes only files under its own URL prefix', async () => {
+    const url = await getStorage().put('avatars/remove-me.png', Buffer.from('x'), 'image/png');
+    const file = path.join(UPLOADS_ROOT, 'avatars', 'remove-me.png');
+    assert.ok(fs.existsSync(file));
+    const removed = await removeUrls(['https://elsewhere.example/a.png', '/uploads/../secret', '/uploads/avatars/../../x.png', url, url]);
+    assert.equal(removed, 1);
+    assert.ok(!fs.existsSync(file));
+  });
+
+  it('maps S3 public URLs back to keys', async () => {
+    Object.assign(process.env, { S3_BUCKET: 'fitguide-test', S3_PUBLIC_URL: 'https://cdn.example.com' });
+    try {
+      const storage = s3Storage();
+      const sent = [];
+      storage.client.send = async (command) => { sent.push(command.input); };
+      assert.equal(storage.keyFor('https://cdn.example.com/reviews/p.png'), 'reviews/p.png');
+      assert.equal(storage.keyFor('https://other.example.com/reviews/p.png'), null);
+      await storage.remove('reviews/p.png');
+      assert.deepEqual(sent[0], { Bucket: 'fitguide-test', Key: 'reviews/p.png' });
+    } finally {
+      for (const key of ['S3_BUCKET', 'S3_PUBLIC_URL']) delete process.env[key];
     }
   });
 });

@@ -82,6 +82,14 @@ function createApp() {
     'Too many failed sign-in attempts. Please wait 15 minutes and try again.',
     { skipSuccessfulRequests: true },
   ));
+  // Endpoints that check the current password get the sign-in limit too, so
+  // a stolen session can't be used to guess it.
+  app.use(['/api/auth/password', '/api/auth/account'], limiter(
+    FIFTEEN_MINUTES,
+    intFromEnv('LOGIN_RATE_LIMIT_MAX', 10),
+    'Too many wrong passwords. Please wait 15 minutes and try again.',
+    { skipSuccessfulRequests: true },
+  ));
   app.use('/api/auth/register', limiter(
     60 * 60 * 1000,
     intFromEnv('REGISTER_RATE_LIMIT_MAX', 10),

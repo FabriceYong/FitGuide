@@ -9,6 +9,7 @@ const [MIN_WEIGHT, MAX_WEIGHT] = PROFILE.WEIGHT_KG;
 const userStore = require('../stores/userStore');
 const { signToken, setAuthCookie, setRefreshCookies, clearSessionCookies, REFRESH_COOKIE } = require('../utils/jwt');
 const authTokens = require('../services/authTokens');
+const accounts = require('../services/accounts');
 const { isForeignOriginWrite } = require('../utils/config');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
@@ -67,7 +68,7 @@ router.post(
   [
     body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
     body('email').trim().notEmpty().withMessage('Email is required').isEmail().withMessage('Please provide a valid email address').normalizeEmail(),
-    body('password').isString().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('password').isString().isLength({ min: PROFILE.PASSWORD_MIN }).withMessage(`Password must be at least ${PROFILE.PASSWORD_MIN} characters`),
     ...profileRules,
   ],
   rejectInvalid,
@@ -160,5 +161,57 @@ router.put('/profile', authMiddleware, profileRules, rejectInvalid, async (req, 
     next(err);
   }
 });
+
+// ─── PUT /api/auth/password ───────────────────────────────────────────────────
+// Change the password. Signs out every other device (their refresh tokens are
+// revoked; their access tokens lapse within ACCESS_TOKEN_TTL_SEC) and starts
+// a fresh session for this one.
+router.put(
+  '/password',
+  authMiddleware,
+  [
+    body('currentPassword').isString().notEmpty().withMessage('Current password is required'),
+    body('newPassword').isString().isLength({ min: PROFILE.PASSWORD_MIN }).withMessage(`New password must be at least ${PROFILE.PASSWORD_MIN} characters`),
+  ],
+  rejectInvalid,
+  async (req, res, next) => {
+    try {
+      if (!(await userStore.checkPassword(req.user.id, req.body.currentPassword))) {
+        return res.status(401).json({ success: false, code: 'WRONG_PASSWORD', message: 'Your current password is incorrect.' });
+      }
+      if (req.body.newPassword === req.body.currentPassword) {
+        return res.status(400).json({ success: false, message: 'Choose a password different from your current one.' });
+      }
+      await userStore.setPassword(req.user.id, req.body.newPassword);
+      await authTokens.revokeAll(req.user.id);
+      return startSession(req, res, 200, 'Password changed.', req.user);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ─── DELETE /api/auth/account ─────────────────────────────────────────────────
+// Permanently delete the signed-in user and their data (see
+// services/accounts.js), after cancelling any subscription. Needs the password.
+router.delete(
+  '/account',
+  authMiddleware,
+  [body('password').isString().notEmpty().withMessage('Password is required')],
+  rejectInvalid,
+  async (req, res, next) => {
+    try {
+      if (!(await userStore.checkPassword(req.user.id, req.body.password))) {
+        return res.status(401).json({ success: false, code: 'WRONG_PASSWORD', message: 'Your password is incorrect.' });
+      }
+      await accounts.deleteAccount(req.user.id);
+      clearSessionCookies(res);
+      return res.status(200).json({ success: true, message: 'Your account has been deleted.' });
+    } catch (err) {
+      if (err instanceof accounts.AccountError) return res.status(err.status).json({ success: false, message: err.message });
+      next(err);
+    }
+  }
+);
 
 module.exports = router;

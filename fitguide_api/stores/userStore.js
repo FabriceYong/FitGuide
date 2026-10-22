@@ -67,6 +67,16 @@ async function findByEmailWithPassword(email) {
   return u ? { user: toPublicUser(u), passwordHash: u.passwordHash } : null;
 }
 
+/** Does this password match the user's? False for unknown users. */
+async function checkPassword(id, password) {
+  const u = await prisma.user.findUnique({ where: { id }, select: { passwordHash: true } });
+  return Boolean(u && typeof password === 'string' && await bcrypt.compare(password, u.passwordHash));
+}
+
+async function setPassword(id, password) {
+  await prisma.user.update({ where: { id }, data: { passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS) } });
+}
+
 async function emailExists(email) {
   return (await prisma.user.count({ where: { email } })) > 0;
 }
@@ -139,6 +149,8 @@ module.exports = {
   toPublicUser,
   findById,
   findByEmailWithPassword,
+  checkPassword,
+  setPassword,
   emailExists,
   create,
   updateProfile,

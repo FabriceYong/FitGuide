@@ -161,4 +161,30 @@ async function handleWebhook(rawBody, signature) {
   }
 }
 
-module.exports = { BillingError, isEnabled, isPlus, setStripe, status, checkout, portal, handleWebhook, applySubscription };
+// Subscriptions in these states will never bill again.
+const ENDED_STATUSES = new Set(['canceled', 'incomplete_expired']);
+
+/**
+ * Cancel every live subscription of a user who is deleting their account,
+ * right away rather than at the period end. Throws if Stripe can't be
+ * reached, so the account is not deleted while it could still be billed.
+ * @returns {Promise<number>} how many subscriptions were cancelled
+ */
+async function cancelSubscriptions(userId) {
+  const row = await prisma.user.findUnique({ where: { id: userId }, select: { stripeCustomerId: true } });
+  if (!row?.stripeCustomerId) return 0;
+  if (!isEnabled()) {
+    console.warn(`[billing] billing is off; cannot cancel subscriptions of Stripe customer ${row.stripeCustomerId}`);
+    return 0;
+  }
+  const client = getStripe();
+  let cancelled = 0;
+  for await (const sub of client.subscriptions.list({ customer: row.stripeCustomerId, status: 'all' })) {
+    if (ENDED_STATUSES.has(sub.status)) continue;
+    await client.subscriptions.cancel(sub.id);
+    cancelled += 1;
+  }
+  return cancelled;
+}
+
+module.exports = { BillingError, isEnabled, isPlus, setStripe, status, checkout, portal, handleWebhook, applySubscription, cancelSubscriptions };

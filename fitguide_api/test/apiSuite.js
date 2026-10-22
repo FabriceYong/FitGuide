@@ -14,6 +14,7 @@ const { defineSocialSuite } = require('./socialSuite');
 const { defineAdminSuite } = require('./adminSuite');
 const { defineBillingSuite } = require('./billingSuite');
 const { defineAnalyticsSuite } = require('./analyticsSuite');
+const { defineAccountSuite } = require('./accountSuite');
 
 const ALLOWED_ORIGIN = 'http://localhost:3000';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
@@ -468,6 +469,8 @@ function defineApiSuite() {
 
     describe('analytics', () => defineAnalyticsSuite(() => ({ app, signUp })));
 
+    describe('account', () => defineAccountSuite(() => ({ app, signUp })));
+
     describe('rate limits', () => {
       it('limits failed logins', async () => {
         const limited = createAppWith({ LOGIN_RATE_LIMIT_MAX: '3' });
@@ -487,6 +490,16 @@ function defineApiSuite() {
         for (let i = 0; i < 4; i += 1) {
           await request(limited).post('/api/auth/login').send(alice.creds).expect(200);
         }
+      });
+
+      it('limits wrong current-password attempts', async () => {
+        const limited = createAppWith({ LOGIN_RATE_LIMIT_MAX: '2' });
+        const agent = request.agent(limited);
+        const creds = newAccount('Guesser');
+        await agent.post('/api/auth/register').send(creds).expect(201);
+        await agent.put('/api/auth/password').send({ currentPassword: 'guess-1', newPassword: 'whatever-new' }).expect(401);
+        await agent.delete('/api/auth/account').send({ password: 'guess-2' }).expect(401);
+        await agent.put('/api/auth/password').send({ currentPassword: creds.password, newPassword: 'whatever-new' }).expect(429);
       });
 
       it('limits registrations', async () => {

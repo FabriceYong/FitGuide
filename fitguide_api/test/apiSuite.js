@@ -497,8 +497,8 @@ function defineApiSuite() {
         const agent = request.agent(limited);
         const creds = newAccount('Guesser');
         await agent.post('/api/auth/register').send(creds).expect(201);
-        await agent.put('/api/auth/password').send({ currentPassword: 'guess-1', newPassword: 'whatever-new' }).expect(401);
-        await agent.delete('/api/auth/account').send({ password: 'guess-2' }).expect(401);
+        await agent.put('/api/auth/password').send({ currentPassword: 'guess-1', newPassword: 'whatever-new' }).expect(403);
+        await agent.delete('/api/auth/account').send({ password: 'guess-2' }).expect(403);
         await agent.put('/api/auth/password').send({ currentPassword: creds.password, newPassword: 'whatever-new' }).expect(429);
       });
 

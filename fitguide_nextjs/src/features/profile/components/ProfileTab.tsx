@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  Activity, AlertCircle, Camera, CheckCircle2, ChevronRight, Crown, Edit3, Globe, HeartPulse, Loader2, LogOut, PenTool,
-  Ruler, Scale, Shield, Target, TrendingUp, User, Utensils, Watch, type LucideIcon,
+  Activity, AlertCircle, AlertTriangle, Camera, CheckCircle2, ChevronRight, Crown, Edit3, Globe, HeartPulse, KeyRound, Loader2, LogOut,
+  PenTool, Ruler, Scale, Shield, Target, Trash2, TrendingUp, User, Utensils, Watch, type LucideIcon,
 } from 'lucide-react';
 import { PROFILE } from '@fitguide/shared';
 import { apiRequest, assetUrl } from '../../../lib/api';
 import { useAuth, type AuthUser } from '../../../contexts/AuthContext';
 import { Modal } from '../../../components/Modal';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { ParqModal } from '../../../components/ParqModal';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { useStartSignUp } from '../../auth/AuthWrapper';
@@ -37,6 +38,9 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
   const startSignUp = useStartSignUp();
   const [editing, setEditing] = useState(false);
   const [showParq, setShowParq] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const bmi = bmiOf(user?.weight, user?.height);
   const bmiInfo = bmiLabel(bmi);
@@ -102,6 +106,12 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
           <span className="flex items-center gap-3 text-sm font-bold text-white"><Globe className="w-4 h-4" aria-hidden="true" /> Language</span>
           <LanguageSwitcher />
         </div>
+        {!isGuest && (
+          <>
+            <NavRow icon={KeyRound} title="Change password" onClick={() => setChangingPassword(true)} />
+            <NavRow icon={Trash2} title="Delete account" onClick={() => setConfirmDelete(true)} danger />
+          </>
+        )}
       </section>
 
       <button
@@ -114,6 +124,19 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
 
       {editing && user && <EditProfile user={user} onClose={() => setEditing(false)} />}
       {showParq && <ParqModal onClose={() => setShowParq(false)} />}
+      {changingPassword && <ChangePassword onClose={() => setChangingPassword(false)} />}
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete your account?"
+          message={`This permanently deletes your profile, workout history, plans, progress, reviews and photos.${user?.plan === 'plus' ? ' Your PLUS subscription is cancelled right away.' : ''} It can’t be undone.`}
+          confirmText="Continue"
+          danger
+          icon={<AlertTriangle className="w-8 h-8 text-red-300" />}
+          onConfirm={() => setDeleting(true)}
+          onClose={() => setConfirmDelete(false)}
+        />
+      )}
+      {deleting && <DeleteAccount onClose={() => setDeleting(false)} />}
     </div>
   );
 }
@@ -143,15 +166,133 @@ function Row({ icon: Icon, label, value }: { icon: LucideIcon; label: string; va
   );
 }
 
-function NavRow({ icon: Icon, title, href, onClick }: { icon: LucideIcon; title: string; href?: string; onClick?: () => void }) {
+function NavRow({ icon: Icon, title, href, onClick, danger = false }: { icon: LucideIcon; title: string; href?: string; onClick?: () => void; danger?: boolean }) {
   const inner = (
     <>
-      <span className="flex items-center gap-3 text-sm font-bold text-white"><Icon className="w-4 h-4" aria-hidden="true" /> {title}</span>
+      <span className={`flex items-center gap-3 text-sm font-bold ${danger ? 'text-red-300' : 'text-white'}`}><Icon className="w-4 h-4" aria-hidden="true" /> {title}</span>
       <ChevronRight className="w-4 h-4 text-white-70" aria-hidden="true" />
     </>
   );
   const className = 'w-full flex items-center justify-between p-4 bg-obsidian-wave rounded-2xl hover:bg-white/5';
   return href ? <Link href={href} className={className}>{inner}</Link> : <button type="button" onClick={onClick} className={className}>{inner}</button>;
+}
+
+// ─── Password and account ────────────────────────────────────────────────────
+const errorText = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
+
+function ChangePassword({ onClose }: { onClose: () => void }) {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [repeat, setRepeat] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (next !== repeat) {
+      setError('The new passwords don’t match.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiRequest('/auth/password', { method: 'PUT', body: { currentPassword: current, newPassword: next }, auth: true });
+      setDone(true);
+    } catch (err) {
+      setError(errorText(err, 'Could not change your password.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Change password" onClose={onClose} size="sm">
+      {done ? (
+        <div className="space-y-5">
+          <p role="status" className="flex items-start gap-2 bg-lime-light/10 border border-lime-light/30 rounded-xl p-3 text-sm text-white">
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-lime-light" aria-hidden="true" />
+            Password changed. You’re still signed in here; other devices will need to sign in again.
+          </p>
+          <button type="button" onClick={onClose} className="w-full bg-lime-light text-noir-eclipse font-extrabold py-4 rounded-2xl uppercase tracking-wider text-xs">Done</button>
+        </div>
+      ) : (
+        <form onSubmit={save} className="space-y-4">
+          <PasswordField label="Current password" value={current} onChange={setCurrent} autoComplete="current-password" />
+          <PasswordField label="New password" value={next} onChange={setNext} autoComplete="new-password" minLength={PROFILE.PASSWORD_MIN} hint={`At least ${PROFILE.PASSWORD_MIN} characters.`} />
+          <PasswordField label="Repeat new password" value={repeat} onChange={setRepeat} autoComplete="new-password" minLength={PROFILE.PASSWORD_MIN} />
+          {error && <FormError message={error} />}
+          <button type="submit" disabled={saving} className="w-full bg-lime-light text-noir-eclipse font-extrabold py-4 rounded-2xl uppercase tracking-wider text-xs flex items-center justify-center gap-2 disabled:opacity-60">
+            {saving ? <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Saving…</> : 'Change password'}
+          </button>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
+function DeleteAccount({ onClose }: { onClose: () => void }) {
+  const { logout } = useAuth();
+  const [password, setPassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const remove = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setDeleting(true);
+    try {
+      await apiRequest('/auth/account', { method: 'DELETE', body: { password }, auth: true });
+      logout();
+    } catch (err) {
+      setError(errorText(err, 'Could not delete your account.'));
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Modal title="Delete account" onClose={onClose} size="sm">
+      <form onSubmit={remove} className="space-y-4">
+        <p className="text-sm text-white-70">Enter your password to permanently delete your FitGuide account and everything in it.</p>
+        <PasswordField label="Password" value={password} onChange={setPassword} autoComplete="current-password" />
+        {error && <FormError message={error} />}
+        <button type="submit" disabled={deleting || !password} className="w-full bg-red-500 hover:bg-red-600 text-white font-extrabold py-4 rounded-2xl uppercase tracking-wider text-xs flex items-center justify-center gap-2 disabled:opacity-60">
+          {deleting ? <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Deleting…</> : 'Delete my account'}
+        </button>
+      </form>
+    </Modal>
+  );
+}
+
+function PasswordField({ label, value, onChange, autoComplete, minLength, hint }: {
+  label: string; value: string; onChange: (v: string) => void; autoComplete: string; minLength?: number; hint?: string;
+}) {
+  const id = useId();
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-xs font-bold text-white-70 uppercase tracking-wider">{label}</label>
+      <input
+        id={id}
+        type="password"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete}
+        minLength={minLength}
+        required
+        aria-describedby={hint ? `${id}-hint` : undefined}
+        className="w-full bg-noir-eclipse border border-white-30/20 rounded-xl px-3.5 py-2.5 text-white text-sm focus:border-lime-light"
+      />
+      {hint && <p id={`${id}-hint`} className="text-xs text-white-70">{hint}</p>}
+    </div>
+  );
+}
+
+function FormError({ message }: { message: string }) {
+  return (
+    <p role="alert" className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-sm text-red-300">
+      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" /> {message}
+    </p>
+  );
 }
 
 // ─── Edit form ───────────────────────────────────────────────────────────────

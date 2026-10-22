@@ -35,7 +35,8 @@ function defineAccountSuite(ctx) {
       await agent.put('/api/auth/password').send({ currentPassword: creds.password, newPassword: 'x'.repeat(PROFILE.PASSWORD_MIN - 1) }).expect(400);
       await agent.put('/api/auth/password').send({ newPassword: NEW_PASSWORD }).expect(400);
       await agent.put('/api/auth/password').send({ currentPassword: creds.password, newPassword: creds.password }).expect(400);
-      const wrong = await agent.put('/api/auth/password').send({ currentPassword: 'not-my-password', newPassword: NEW_PASSWORD }).expect(401);
+      // 403, not 401: clients treat 401 as an expired session and sign out.
+      const wrong = await agent.put('/api/auth/password').send({ currentPassword: 'not-my-password', newPassword: NEW_PASSWORD }).expect(403);
       assert.equal(wrong.body.code, 'WRONG_PASSWORD');
       // A wrong password must not end the session.
       await agent.get('/api/auth/me').expect(200);
@@ -85,7 +86,7 @@ function defineAccountSuite(ctx) {
       const { agent, user, creds } = await ctx().signUp('Not Leaving');
       await request(app).delete('/api/auth/account').send({ password: creds.password }).expect(401);
       await agent.delete('/api/auth/account').send({}).expect(400);
-      const res = await agent.delete('/api/auth/account').send({ password: 'not-my-password' }).expect(401);
+      const res = await agent.delete('/api/auth/account').send({ password: 'not-my-password' }).expect(403);
       assert.equal(res.body.code, 'WRONG_PASSWORD');
       assert.ok(await prisma.user.findUnique({ where: { id: user.id } }));
       await agent.delete('/api/auth/account').set('Origin', 'https://evil.example').send({ password: creds.password }).expect(403);

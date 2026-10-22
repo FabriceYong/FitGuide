@@ -68,6 +68,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | Feature | API | Web |
 |---|---|---|
 | Accounts: httpOnly cookie sessions, 15-minute access tokens with rotating refresh tokens, CSRF origin checks, rate limits | `routes/auth.js`, `services/authTokens.js` | `lib/api.js`, `src/proxy.js` |
+| Password change and account deletion (cancels PLUS, removes data and uploads) | `routes/auth.js`, `services/accounts.js` | Profile tab (`features/profile/`) |
 | Workout catalog, exercise library, programs | `routes/workouts.js`, `exercises.js`, `programs.js` | `/workouts`, `/programs` (server-rendered) |
 | Dashboard: home, explore (workouts and exercise library), programs, favorites, progress, reviews, calculators, profile | the routes above, `favorites.js`, `reviews.js`, `articles.js` | `/` (`components/Dashboard.tsx`, `features/dashboard/`) |
 | Sessions, program enrollments, body metrics, progress | `routes/sessions.js`, `enrollments.js`, `bodyMetrics.js`, `progress.js` | player, `/progress` |
@@ -119,6 +120,5 @@ keys are set, and show as unavailable otherwise:
   pages, the workout player, and shared plumbing (API client, auth context,
   site header). Some have lint warnings under React's newer rules. The
   dashboard and all newer pages are TypeScript and held to the strict rules.
-- There is no in-app password change or account deletion yet.
 - Apple Health has no web API and Google Fit's REST API is being retired,
   so those users import a CSV instead of connecting directly.

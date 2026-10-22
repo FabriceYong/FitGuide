@@ -177,7 +177,7 @@ router.put(
   async (req, res, next) => {
     try {
       if (!(await userStore.checkPassword(req.user.id, req.body.currentPassword))) {
-        return res.status(401).json({ success: false, code: 'WRONG_PASSWORD', message: 'Your current password is incorrect.' });
+        return res.status(403).json({ success: false, code: 'WRONG_PASSWORD', message: 'Your current password is incorrect.' });
       }
       if (req.body.newPassword === req.body.currentPassword) {
         return res.status(400).json({ success: false, message: 'Choose a password different from your current one.' });
@@ -202,7 +202,7 @@ router.delete(
   async (req, res, next) => {
     try {
       if (!(await userStore.checkPassword(req.user.id, req.body.password))) {
-        return res.status(401).json({ success: false, code: 'WRONG_PASSWORD', message: 'Your password is incorrect.' });
+        return res.status(403).json({ success: false, code: 'WRONG_PASSWORD', message: 'Your password is incorrect.' });
       }
       await accounts.deleteAccount(req.user.id);
       clearSessionCookies(res);

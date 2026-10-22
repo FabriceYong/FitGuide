@@ -10,7 +10,6 @@ import {
     Pause,
     RotateCcw,
     ChevronRight,
-    Sparkles,
     Flame,
     Zap,
     Target,
@@ -18,8 +17,9 @@ import {
     CheckCircle2,
     Volume2
 } from 'lucide-react';
+import { StepHeading } from '../ui';
 
-export const InteractiveConceptStep = ({ onContinue }) => {
+export const InteractiveConceptStep = () => {
     const [activeConcept, setActiveConcept] = useState(0);
 
     // Concept 1: Muscle Selector State
@@ -65,20 +65,8 @@ export const InteractiveConceptStep = ({ onContinue }) => {
     ];
 
     return (
-        <div className="flex flex-col justify-between min-h-[60vh] text-left p-6 w-full max-w-md mx-auto">
-            {/* Header */}
-            <div className="space-y-2 mb-4">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase bg-lime-light/20 text-lime-light border border-lime-light/30">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Interactive Showcase
-                </div>
-                <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white leading-tight">
-                    Explore FitGuide Core Engine
-                </h2>
-                <p className="text-xs text-white-70">
-                    Tap the tabs below to test live interactive features.
-                </p>
-            </div>
+        <div className="text-left w-full">
+            <StepHeading title="A quick look around" description="Try the tabs to preview some of what FitGuide does. The numbers here are examples." />
 
             {/* Concept Selector Tabs */}
             <div className="grid grid-cols-4 gap-1.5 p-1 bg-obsidian-wave border border-white-30/20 rounded-2xl mb-4">
@@ -90,14 +78,15 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                             key={concept.id}
                             type="button"
                             onClick={() => setActiveConcept(concept.id)}
-                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-200 cursor-pointer ${
+                            aria-pressed={isActive}
+                            className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-xl transition-all duration-200 cursor-pointer ${
                                 isActive
-                                    ? 'bg-lime-light text-noir-eclipse font-extrabold shadow-lg scale-[1.02]'
+                                    ? 'bg-lime-light text-noir-eclipse font-semibold'
                                     : 'text-white-70 hover:text-white hover:bg-white/5'
                             }`}
                         >
-                            <Icon className="w-4 h-4 mb-1" />
-                            <span className="text-[10px] truncate max-w-full font-bold">{concept.title}</span>
+                            <Icon className="w-5 h-5 mb-1" aria-hidden="true" />
+                            <span className="text-sm max-w-full font-semibold leading-tight">{concept.title}</span>
                         </button>
                     );
                 })}
@@ -115,10 +104,10 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                 {activeConcept === 0 && (
                     <div className="space-y-3 z-10">
                         <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-extrabold uppercase tracking-widest text-lime-light flex items-center gap-1">
+                            <span className="text-xs font-semibold text-lime-light flex items-center gap-1">
                                 <Target className="w-3 h-3" /> Target Muscle Selector
                             </span>
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-lime-light/10 text-lime-light border border-lime-light/20 font-semibold">
+                            <span className="text-xs px-2 py-0.5 rounded bg-lime-light/10 text-lime-light border border-lime-light/20 font-semibold">
                                 {muscleData[selectedMuscle].level}
                             </span>
                         </div>
@@ -130,7 +119,7 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                                     key={key}
                                     type="button"
                                     onClick={() => setSelectedMuscle(key)}
-                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
+                                    className={`px-2.5 py-1 rounded-lg text-sm font-bold capitalize transition-all cursor-pointer ${
                                         selectedMuscle === key
                                             ? 'bg-lime-light text-noir-eclipse scale-105 shadow'
                                             : 'bg-white/10 text-white-70 hover:bg-white/20 hover:text-white'
@@ -143,18 +132,18 @@ export const InteractiveConceptStep = ({ onContinue }) => {
 
                         {/* Targeted exercises list */}
                         <div className="bg-noir-eclipse/80 p-3 rounded-xl border border-white-30/10 space-y-2 mt-2">
-                            <h4 className="text-xs font-bold text-white flex items-center justify-between">
+                            <h4 className="text-sm font-bold text-white flex items-center justify-between">
                                 <span>{muscleData[selectedMuscle].name} Focus</span>
-                                <span className="text-[10px] text-white-50">3 Recommended Moves</span>
+                                <span className="text-xs text-white-70">3 Recommended Moves</span>
                             </h4>
                             <div className="space-y-1.5">
                                 {muscleData[selectedMuscle].exercises.map((ex, idx) => (
-                                    <div key={idx} className="flex items-center justify-between text-xs p-2 rounded-lg bg-white/5 border border-white-30/5">
-                                        <span className="font-medium text-white-90 flex items-center gap-2">
+                                    <div key={idx} className="flex items-center justify-between text-sm p-2 rounded-lg bg-white/5 border border-white-30/5">
+                                        <span className="font-medium text-white flex items-center gap-2">
                                             <span className="w-1.5 h-1.5 rounded-full bg-lime-light" />
                                             {ex}
                                         </span>
-                                        <span className="text-[10px] text-white-50 font-mono">3 × 12 reps</span>
+                                        <span className="text-xs text-white-70 font-mono">3 × 12 reps</span>
                                     </div>
                                 ))}
                             </div>
@@ -166,23 +155,23 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                 {activeConcept === 1 && (
                     <div className="space-y-3 z-10 flex flex-col justify-between h-full">
                         <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-extrabold uppercase tracking-widest text-lime-light flex items-center gap-1">
+                            <span className="text-xs font-semibold text-lime-light flex items-center gap-1">
                                 <Zap className="w-3 h-3" /> Live Workout Engine
                             </span>
-                            <div className="flex items-center gap-1 text-[10px] text-lime-light">
+                            <div className="flex items-center gap-1 text-xs text-lime-light">
                                 <Volume2 className="w-3 h-3 animate-pulse" />
                                 <span>Audio Beeps On</span>
                             </div>
                         </div>
 
                         <div className="bg-noir-eclipse/80 p-4 rounded-xl border border-white-30/10 text-center space-y-2">
-                            <div className="text-[10px] uppercase font-bold text-white-50 tracking-wider">
+                            <div className="text-xs font-bold text-white-70 tracking-wider">
                                 Current Set • Exercise 2 of 6
                             </div>
                             <div className="text-4xl font-black tracking-tight font-mono text-lime-light">
                                 00:{timerSeconds < 10 ? `0${timerSeconds}` : timerSeconds}
                             </div>
-                            <p className="text-xs font-bold text-white">Incline Dumbbell Press</p>
+                            <p className="text-sm font-bold text-white">Incline Dumbbell Press</p>
                         </div>
 
                         {/* Player Controls */}
@@ -200,7 +189,7 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                             <button
                                 type="button"
                                 onClick={() => setIsTimerRunning(!isTimerRunning)}
-                                className={`px-6 py-2.5 rounded-full font-extrabold text-xs uppercase flex items-center gap-2 transition-all cursor-pointer ${
+                                className={`px-6 py-2.5 rounded-full font-semibold text-sm flex items-center gap-2 transition-all cursor-pointer ${
                                     isTimerRunning
                                         ? 'bg-amber-400 text-noir-eclipse border border-amber-400/40 hover:bg-amber-400/90'
                                         : 'bg-lime-light text-noir-eclipse border border-lime-light/40 hover:bg-lime-light/90'
@@ -208,11 +197,11 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                             >
                                 {isTimerRunning ? (
                                     <>
-                                        <Pause className="w-4 h-4" /> PAUSE TIMER
+                                        <Pause className="w-4 h-4" /> Pause timer
                                     </>
                                 ) : (
                                     <>
-                                        <Play className="w-4 h-4" /> START STEP TIMER
+                                        <Play className="w-4 h-4" /> Start step timer
                                     </>
                                 )}
                             </button>
@@ -224,10 +213,10 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                 {activeConcept === 2 && (
                     <div className="space-y-3 z-10">
                         <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-extrabold uppercase tracking-widest text-lime-light flex items-center gap-1">
+                            <span className="text-xs font-semibold text-lime-light flex items-center gap-1">
                                 <Flame className="w-3 h-3" /> Precision Macro Calculator
                             </span>
-                            <span className="text-xs font-black text-white">{calories} kcal / day</span>
+                            <span className="text-sm font-black text-white">{calories} kcal / day</span>
                         </div>
 
                         {/* Interactive Calorie Slider */}
@@ -241,7 +230,7 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                                 onChange={(e) => setCalories(Number(e.target.value))}
                                 className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-lime-light"
                             />
-                            <div className="flex justify-between text-[9px] text-white-50 font-extrabold uppercase">
+                            <div className="flex justify-between text-xs text-white-70 font-semibold">
                                 <span>1500 kcal (Deficit)</span>
                                 <span>2500 kcal (Maintenance)</span>
                                 <span>3500 kcal (Bulk)</span>
@@ -252,7 +241,7 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                         <div className="bg-noir-eclipse/80 p-3 rounded-xl border border-white-30/10 space-y-2.5">
                             {/* Protein */}
                             <div>
-                                <div className="flex justify-between text-xs font-bold text-white mb-1">
+                                <div className="flex justify-between text-sm font-bold text-white mb-1">
                                     <span className="flex items-center gap-1.5">
                                         <span className="w-2 h-2 rounded-full bg-cyan-400" />
                                         Protein (30%)
@@ -266,7 +255,7 @@ export const InteractiveConceptStep = ({ onContinue }) => {
 
                             {/* Carbs */}
                             <div>
-                                <div className="flex justify-between text-xs font-bold text-white mb-1">
+                                <div className="flex justify-between text-sm font-bold text-white mb-1">
                                     <span className="flex items-center gap-1.5">
                                         <span className="w-2 h-2 rounded-full bg-emerald-400" />
                                         Carbohydrates (45%)
@@ -280,7 +269,7 @@ export const InteractiveConceptStep = ({ onContinue }) => {
 
                             {/* Healthy Fats */}
                             <div>
-                                <div className="flex justify-between text-xs font-bold text-white mb-1">
+                                <div className="flex justify-between text-sm font-bold text-white mb-1">
                                     <span className="flex items-center gap-1.5">
                                         <span className="w-2 h-2 rounded-full bg-amber-400" />
                                         Healthy Fats (25%)
@@ -299,7 +288,7 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                 {activeConcept === 3 && (
                     <div className="space-y-3 z-10">
                         <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-extrabold uppercase tracking-widest text-lime-light flex items-center gap-1">
+                            <span className="text-xs font-semibold text-lime-light flex items-center gap-1">
                                 <Award className="w-3 h-3" /> Body Health Analytics
                             </span>
                             <div className="flex gap-1">
@@ -308,7 +297,7 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                                         key={tab}
                                         type="button"
                                         onClick={() => setCalcTab(tab)}
-                                        className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase transition-all cursor-pointer ${
+                                        className={`px-2 py-0.5 rounded text-xs font-semibold transition-all cursor-pointer ${
                                             calcTab === tab
                                                 ? 'bg-lime-light text-noir-eclipse'
                                                 : 'bg-white/10 text-white-70 hover:text-white'
@@ -324,34 +313,34 @@ export const InteractiveConceptStep = ({ onContinue }) => {
                         <div className="bg-noir-eclipse/80 p-4 rounded-xl border border-white-30/10 space-y-2">
                             {calcTab === 'bmi' && (
                                 <div className="space-y-1 text-center">
-                                    <div className="text-[10px] text-white-50 font-extrabold uppercase">Body Mass Index (BMI)</div>
-                                    <div className="text-3xl font-black text-lime-light">22.4 <span className="text-xs font-normal text-emerald-400">(Normal Range)</span></div>
-                                    <p className="text-[11px] text-white-70">Optimal weight-to-height ratio for lean athletic performance.</p>
+                                    <div className="text-xs text-white-70 font-semibold">Body Mass Index (BMI)</div>
+                                    <div className="text-3xl font-black text-lime-light">22.4 <span className="text-sm font-normal text-emerald-400">(Normal Range)</span></div>
+                                    <p className="text-sm text-white-70">Optimal weight-to-height ratio for lean athletic performance.</p>
                                 </div>
                             )}
                             {calcTab === 'bmr' && (
                                 <div className="space-y-1 text-center">
-                                    <div className="text-[10px] text-white-50 font-extrabold uppercase">Basal Metabolic Rate (BMR)</div>
-                                    <div className="text-3xl font-black text-lime-light">1,780 <span className="text-xs font-normal text-cyan-400">kcal/day</span></div>
-                                    <p className="text-[11px] text-white-70">Calories burned naturally at rest every 24 hours.</p>
+                                    <div className="text-xs text-white-70 font-semibold">Basal Metabolic Rate (BMR)</div>
+                                    <div className="text-3xl font-black text-lime-light">1,780 <span className="text-sm font-normal text-cyan-400">kcal/day</span></div>
+                                    <p className="text-sm text-white-70">Calories burned naturally at rest every 24 hours.</p>
                                 </div>
                             )}
                             {calcTab === 'tdee' && (
                                 <div className="space-y-1 text-center">
-                                    <div className="text-[10px] text-white-50 font-extrabold uppercase">Total Daily Energy Expenditure</div>
-                                    <div className="text-3xl font-black text-lime-light">2,450 <span className="text-xs font-normal text-purple-400">kcal/day</span></div>
-                                    <p className="text-[11px] text-white-70">Calculated energy burn including workout sessions & daily steps.</p>
+                                    <div className="text-xs text-white-70 font-semibold">Total Daily Energy Expenditure</div>
+                                    <div className="text-3xl font-black text-lime-light">2,450 <span className="text-sm font-normal text-purple-400">kcal/day</span></div>
+                                    <p className="text-sm text-white-70">Calculated energy burn including workout sessions & daily steps.</p>
                                 </div>
                             )}
                         </div>
 
                         {/* Streak Tracker Badge */}
-                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white-30/10 text-xs">
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white-30/10 text-sm">
                             <span className="text-white-70 flex items-center gap-1.5 font-medium">
                                 <CheckCircle2 className="w-4 h-4 text-lime-light" />
                                 7-Day Consistency Streak Active
                             </span>
-                            <span className="font-extrabold text-lime-light">+120 XP</span>
+                            <span className="font-semibold text-lime-light">+120 XP</span>
                         </div>
                     </div>
                 )}

@@ -463,7 +463,7 @@ function EditProfile({ user, onClose }: { user: AuthUser; onClose: () => void })
           <label className="flex items-center justify-between gap-3 bg-white/5 border border-white-30/15 rounded-xl px-4 py-3 cursor-pointer">
             <span className="text-sm font-bold text-white">
               Show me on leaderboards
-              <span className="block text-xs font-normal text-white-70">Friends and challenge members see your first name and last initial.</span>
+              <span className="block text-sm font-normal text-white-70">Friends and challenge members see your first name and last initial.</span>
             </span>
             <input type="checkbox" checked={form.showOnLeaderboards} onChange={(e) => set('showOnLeaderboards', e.target.checked)} className="w-5 h-5 accent-lime-light" />
           </label>
@@ -474,7 +474,7 @@ function EditProfile({ user, onClose }: { user: AuthUser; onClose: () => void })
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" /> {error}
           </p>
         )}
-        <button type="submit" disabled={saving || uploading} className="w-full bg-lime-light text-noir-eclipse font-extrabold py-4 rounded-2xl uppercase tracking-wider text-xs flex items-center justify-center gap-2 disabled:opacity-60">
+        <button type="submit" disabled={saving || uploading} className="w-full h-11 bg-lime-light text-noir-eclipse font-semibold rounded-lg text-[15px] flex items-center justify-center gap-2 hover:bg-lime-light/90 disabled:opacity-60">
           {saved ? <><CheckCircle2 className="w-4 h-4" aria-hidden="true" /> Saved</> : saving ? <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Saving…</> : 'Save changes'}
         </button>
       </form>
@@ -487,14 +487,14 @@ function TextField({ label, value, onChange, type = 'text', ...rest }: {
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-xs font-bold text-white-70 uppercase tracking-wider">{label}</span>
+      <span className="block text-sm font-medium text-white">{label}</span>
       <input
         type={type}
         inputMode={type === 'number' ? 'decimal' : undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         {...rest}
-        className="w-full bg-noir-eclipse border border-white-30/20 rounded-xl px-3.5 py-2.5 text-white text-sm focus:border-lime-light"
+        className="w-full h-11 bg-noir-eclipse border border-white-30/40 rounded-lg px-3.5 text-white text-base focus:outline-none focus:border-lime-light focus:ring-2 focus:ring-lime-light/30"
       />
     </label>
   );
@@ -504,7 +504,7 @@ function TextField({ label, value, onChange, type = 'text', ...rest }: {
 function MultiChoices({ label, options, value, onChange }: { label: string; options: readonly (readonly [string, string])[]; value: string[]; onChange: (v: string[]) => void }) {
   return (
     <fieldset className="space-y-2">
-      <legend className="text-xs font-bold text-white-70 uppercase tracking-wider mb-2">{label}</legend>
+      <legend className="text-sm font-medium text-white mb-2">{label}</legend>
       <div className="flex flex-wrap gap-2">
         {options.map(([id, text]) => {
           const on = value.includes(id);
@@ -514,7 +514,7 @@ function MultiChoices({ label, options, value, onChange }: { label: string; opti
               type="button"
               onClick={() => onChange(on ? value.filter((v) => v !== id) : [...value, id])}
               aria-pressed={on}
-              className={`py-2 px-3 rounded-full text-xs font-bold border ${on ? 'bg-lime-light/15 border-lime-light text-white' : 'bg-white/5 border-white-30/15 text-white-70'}`}
+              className={`h-10 px-4 rounded-full text-sm font-medium border ${on ? 'bg-lime-light/15 border-lime-light text-white' : 'bg-white/5 border-white-30/30 text-white-70 hover:text-white'}`}
             >
               {text}
             </button>
@@ -528,15 +528,15 @@ function MultiChoices({ label, options, value, onChange }: { label: string; opti
 function Choices({ label, options, value, onChange }: { label: string; options: readonly string[]; value: string; onChange: (v: string) => void }) {
   return (
     <fieldset className="space-y-2">
-      <legend className="text-xs font-bold text-white-70 uppercase tracking-wider mb-2">{label}</legend>
-      <div className="grid grid-cols-2 gap-2">
+      <legend className="text-sm font-medium text-white mb-2">{label}</legend>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {options.map((o) => (
           <button
             key={o}
             type="button"
             onClick={() => onChange(o)}
             aria-pressed={value === o}
-            className={`py-2 px-3 rounded-xl text-xs font-bold border text-left ${value === o ? 'bg-lime-light/15 border-lime-light text-white' : 'bg-white/5 border-white-30/15 text-white-70'}`}
+            className={`min-h-10 py-2 px-3.5 rounded-lg text-sm font-medium border text-left ${value === o ? 'bg-lime-light/15 border-lime-light text-white' : 'bg-white/5 border-white-30/30 text-white-70 hover:text-white'}`}
           >
             {o}
           </button>

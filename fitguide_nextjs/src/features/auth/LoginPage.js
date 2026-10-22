@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Dumbbell, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
+import { AuthPage, Field, StepHeading, inputClass, linkButton, primaryButton } from '../onboarding/ui';
 
 export const LoginPage = ({ onLoginSuccess, onSwitchToRegister }) => {
     const [email, setEmail] = useState('');
@@ -26,136 +27,87 @@ export const LoginPage = ({ onLoginSuccess, onSwitchToRegister }) => {
     };
 
     return (
-        <div className="min-h-screen bg-noir-eclipse text-white flex flex-col font-poppins">
-            {/* Header */}
-            <div className="flex items-center justify-center pt-12 pb-8">
-                <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 rounded-xl bg-lime-light flex items-center justify-center text-noir-eclipse border border-lime-light/40">
-                        <Dumbbell className="w-6 h-6 fill-current" />
-                    </div>
-                    <div>
-                        <span className="font-extrabold text-2xl tracking-tight text-white">FitGuide</span>
-                    </div>
+        <AuthPage
+            width="max-w-[440px]"
+            header={(
+                <>
+                    <span className="hidden sm:inline">New to FitGuide? </span>
+                    <button type="button" onClick={onSwitchToRegister} disabled={isLoading} className={linkButton}>
+                        Create an account
+                    </button>
+                </>
+            )}
+        >
+            <StepHeading as="h1" title="Sign in" description="Welcome back. Sign in to continue your training." />
+
+            {error && (
+                <div role="alert" className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-lg p-3.5 mb-6">
+                    <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                    <p className="text-sm text-red-200 leading-snug">{error}</p>
                 </div>
-            </div>
+            )}
 
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col justify-center px-6 max-w-md mx-auto w-full">
-                <div className="space-y-2 mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white leading-tight">
-                        Welcome Back
-                    </h1>
-                    <p className="text-sm text-white-70">
-                        Sign in to continue your fitness journey
-                    </p>
-                </div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+                <Field label="Email" htmlFor="email">
+                    <input
+                        id="email"
+                        type="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        required
+                        disabled={isLoading}
+                        className={inputClass}
+                    />
+                </Field>
 
-                {/* Error Banner */}
-                {error && (
-                    <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-6 animate-[fadeIn_0.2s_ease-out]">
-                        <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-red-300 leading-snug">{error}</p>
-                    </div>
-                )}
-
-                {/* Login Form */}
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Email Field */}
-                    <div className="space-y-2">
-                        <label htmlFor="email" className="text-sm font-bold text-white block">
-                            Email Address
-                        </label>
+                <Field label="Password" htmlFor="password">
+                    <div className="relative">
                         <input
-                            id="email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Enter your email"
+                            id="password"
+                            type={showPassword ? 'text' : 'password'}
+                            autoComplete="current-password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
                             required
                             disabled={isLoading}
-                            className="w-full px-4 py-4 bg-obsidian-wave border border-white-30/20 rounded-2xl text-white placeholder:text-white-30 focus:outline-none focus:ring-2 focus:ring-lime-light focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={`${inputClass} pr-11`}
                         />
-                    </div>
-
-                    {/* Password Field */}
-                    <div className="space-y-2">
-                        <label htmlFor="password" className="text-sm font-bold text-white block">
-                            Password
-                        </label>
-                        <div className="relative">
-                            <input
-                                id="password"
-                                type={showPassword ? 'text' : 'password'}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="Enter your password"
-                                required
-                                disabled={isLoading}
-                                className="w-full px-4 py-4 pr-12 bg-obsidian-wave border border-white-30/20 rounded-2xl text-white placeholder:text-white-30 focus:outline-none focus:ring-2 focus:ring-lime-light focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                disabled={isLoading}
-                                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white-30 hover:text-white transition-colors disabled:cursor-not-allowed"
-                            >
-                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Login Button */}
-                    <button
-                        type="submit"
-                        disabled={isLoading || !email || !password}
-                        className="w-full bg-lime-light text-noir-eclipse font-bold py-4 rounded-2xl hover:bg-lime-light/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group cursor-pointer border border-lime-light/30"
-                    >
-                        {isLoading ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-noir-eclipse/20 border-t-noir-eclipse rounded-full animate-spin" />
-                                Signing In...
-                            </>
-                        ) : (
-                            <>
-                                Sign In
-                                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                            </>
-                        )}
-                    </button>
-                </form>
-
-                {/* Register Link */}
-                <div className="mt-8 text-center">
-                    <p className="text-white-70 text-sm">
-                        Don't have an account?{' '}
                         <button
-                            onClick={onSwitchToRegister}
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
                             disabled={isLoading}
-                            className="text-lime-light font-bold hover:underline focus:outline-none focus:underline disabled:cursor-not-allowed cursor-pointer"
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            aria-pressed={showPassword}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md flex items-center justify-center text-white-70 hover:text-white cursor-pointer"
                         >
-                            Create Account
+                            {showPassword ? <EyeOff className="w-5 h-5" aria-hidden="true" /> : <Eye className="w-5 h-5" aria-hidden="true" />}
                         </button>
-                    </p>
-                </div>
-
-                {/* Demo Credentials */}
-                <div className="mt-6 p-4 bg-obsidian-wave/50 rounded-2xl border border-white-30/10">
-                    <p className="text-xs text-white-30 text-center mb-2 font-bold uppercase tracking-wide">
-                        Demo Credentials
-                    </p>
-                    <div className="text-xs text-white-70 space-y-1">
-                        <p><strong>Email:</strong> demo@fitguide.com</p>
-                        <p><strong>Password:</strong> demo123</p>
                     </div>
-                </div>
+                </Field>
+
+                <button type="submit" disabled={isLoading || !email || !password} className={`${primaryButton} w-full`}>
+                    {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Signing in…</> : 'Sign in'}
+                </button>
+            </form>
+
+            <p className="mt-6 text-center text-sm text-white-70">
+                Don&apos;t have an account?{' '}
+                <button type="button" onClick={onSwitchToRegister} disabled={isLoading} className={linkButton}>
+                    Create an account
+                </button>
+            </p>
+
+            <div className="mt-8 p-4 rounded-lg border border-white-30/20 bg-white/[0.03] text-sm">
+                <p className="font-semibold text-white mb-1">Demo account</p>
+                <p className="text-white-70">Email: demo@fitguide.com</p>
+                <p className="text-white-70">Password: demo123</p>
             </div>
 
-            {/* Footer */}
-            <div className="pb-8 px-6">
-                <p className="text-center text-xs text-white-30">
-                    © 2024 FitGuide. Your fitness journey starts here.
-                </p>
-            </div>
-        </div>
+            <p className="mt-8 text-center text-xs text-white-70">
+                © {new Date().getFullYear()} FitGuide
+            </p>
+        </AuthPage>
     );
 };

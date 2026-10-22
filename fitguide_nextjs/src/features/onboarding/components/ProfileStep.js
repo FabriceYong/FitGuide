@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { User, Mail, Lock, Camera, Loader2, AlertCircle, Eye, EyeOff, Sparkles, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { User, Loader2, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 import { apiRequest, setSession } from '../../../lib/api';
+import { Field, StepHeading, inputClass, primaryButton, secondaryButton } from '../ui';
 
-export const ProfileStep = ({ onboardingData, onComplete }) => {
+const GOAL_LABELS = { Vitality: 'Overall health', Muscle: 'Build muscle', Weight: 'Lose fat', Flexibility: 'Mobility' };
+
+export const ProfileStep = ({ onboardingData, onComplete, onBack }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -93,51 +96,39 @@ export const ProfileStep = ({ onboardingData, onComplete }) => {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    return (
-        <div className="flex flex-col justify-center min-h-[60vh] text-left p-6 w-full max-w-md mx-auto relative z-10">
-            <div className="space-y-2 mb-5">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-lime-light tracking-widest uppercase bg-lime-light/10 px-3 py-1 rounded-full border border-lime-light/30">
-                    <Sparkles className="w-3 h-3" /> Finalizing Profile
-                </span>
-                <h2 className="text-3xl font-extrabold tracking-tight text-white leading-tight">
-                    Create Your Account & Sync
-                </h2>
-                <p className="text-xs text-white-70">
-                    Save your custom workouts, target weight progress, and favorite plans.
-                </p>
-            </div>
+    const summary = [
+        ['Goal', GOAL_LABELS[onboardingData.goal] || onboardingData.goal],
+        ['Level', onboardingData.fitnessLevel],
+        ['Height', `${onboardingData.height} cm`],
+        ['Weight', `${onboardingData.weight} kg (target ${onboardingData.targetWeight} kg)`],
+        ['Diet', onboardingData.diet],
+        ...(onboardingData.focusAreas?.length ? [['Focus', onboardingData.focusAreas.join(', ')]] : []),
+    ];
 
-            {/* Summary Badge of Onboarding Choices */}
-            <div className="bg-obsidian-wave/90 border border-white-30/15 rounded-2xl p-3.5 mb-5 space-y-2 text-xs backdrop-blur-md">
-                <div className="text-[10px] uppercase font-extrabold tracking-wider text-lime-light flex items-center justify-between">
-                    <span>Your Profile Summary</span>
-                    <ShieldCheck className="w-3.5 h-3.5 text-lime-light" />
-                </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 pt-1">
-                    <span className="text-white-60">Gender: <strong className="text-white">{onboardingData.gender}</strong></span>
-                    <span className="text-white-60">Height: <strong className="text-white">{onboardingData.height} cm</strong></span>
-                    <span className="text-white-60">Weight: <strong className="text-white">{onboardingData.weight} kg</strong></span>
-                    <span className="text-white-60">Target: <strong className="text-white">{onboardingData.targetWeight} kg</strong></span>
-                    <span className="text-white-60">Level: <strong className="text-white">{onboardingData.fitnessLevel}</strong></span>
-                    <span className="text-white-60">Status: <strong className="text-white">{onboardingData.activityStatus}</strong></span>
-                </div>
-                <div className="border-t border-white-30/10 pt-2">
-                    <span className="text-white-60">Goal: <strong className="text-lime-light">{onboardingData.goal}</strong></span>
-                    <span className="text-white-60 ml-3">Diet: <strong className="text-lime-light">{onboardingData.diet}</strong></span>
-                </div>
-                {onboardingData.focusAreas?.length > 0 && (
-                    <div className="text-white-60">Focus: <strong className="text-white">{onboardingData.focusAreas.join(', ')}</strong></div>
-                )}
-            </div>
+    return (
+        <div>
+            <StepHeading
+                title="Create your account"
+                description="Save your answers, workouts and progress, and pick up on any device."
+            />
+
+            <dl className="rounded-xl border border-white-30/20 bg-white/[0.03] p-4 mb-8 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+                {summary.map(([label, value]) => (
+                    <React.Fragment key={label}>
+                        <dt className="text-white-70">{label}</dt>
+                        <dd className="text-white font-medium">{value}</dd>
+                    </React.Fragment>
+                ))}
+            </dl>
 
             {error && (
-                <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-4">
-                    <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-red-300 leading-snug">{error}</p>
+                <div role="alert" className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-lg p-3.5 mb-6">
+                    <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                    <p className="text-sm text-red-200 leading-snug">{error}</p>
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-3.5">
+            <form onSubmit={handleSubmit} className="space-y-5">
                 <input
                     ref={fileInputRef}
                     type="file"
@@ -146,88 +137,65 @@ export const ProfileStep = ({ onboardingData, onComplete }) => {
                     className="hidden"
                 />
 
-                {/* Avatar Selection */}
-                <div className="flex justify-center mb-3">
+                {/* Optional profile photo */}
+                <div className="flex items-center gap-4">
+                    <span className="relative w-14 h-14 rounded-full bg-noir-eclipse border border-white-30/40 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {avatarPreview ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={avatarPreview} alt="Your new profile photo" className="w-full h-full object-cover" />
+                        ) : (
+                            <User className="w-6 h-6 text-white-70" aria-hidden="true" />
+                        )}
+                        {isUploadingAvatar && (
+                            <span className="absolute inset-0 bg-noir-eclipse/60 flex items-center justify-center">
+                                <Loader2 className="w-5 h-5 text-lime-light animate-spin" aria-hidden="true" />
+                            </span>
+                        )}
+                    </span>
+                    <div>
+                        <button type="button" onClick={handleAvatarClick} disabled={isLoading} className={`${secondaryButton} h-10 px-4 text-sm`}>
+                            {avatarPreview ? 'Change photo' : 'Add a photo'}
+                        </button>
+                        <p className="mt-1 text-sm text-white-70">Optional. JPEG, PNG, WebP or GIF, up to 5 MB.</p>
+                    </div>
+                </div>
+
+                <Field label="Full name" htmlFor="signup-name">
+                    <input
+                        id="signup-name"
+                        type="text"
+                        autoComplete="name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className={inputClass}
+                        required
+                        disabled={isLoading}
+                    />
+                </Field>
+
+                <Field label="Email" htmlFor="signup-email">
+                    <input
+                        id="signup-email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={inputClass}
+                        required
+                        disabled={isLoading}
+                    />
+                </Field>
+
+                <Field label="Password" htmlFor="signup-password" hint="At least 6 characters.">
                     <div className="relative">
-                        <button
-                            type="button"
-                            onClick={handleAvatarClick}
-                            disabled={isUploadingAvatar}
-                            className="w-20 h-20 rounded-full bg-obsidian-wave border-2 border-lime-light flex items-center justify-center overflow-hidden shadow-[0_0_20px_rgba(0,196,180,0.3)] group relative cursor-pointer"
-                        >
-                            {avatarPreview ? (
-                                <img src={avatarPreview} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                <User className="w-9 h-9 text-white-30 group-hover:text-lime-light transition-colors" />
-                            )}
-                            {isUploadingAvatar && (
-                                <div className="absolute inset-0 bg-noir-eclipse/60 flex items-center justify-center rounded-full">
-                                    <Loader2 className="w-6 h-6 text-lime-light animate-spin" />
-                                </div>
-                            )}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleAvatarClick}
-                            disabled={isUploadingAvatar}
-                            className="absolute bottom-0 right-0 p-1.5 bg-lime-light text-noir-eclipse rounded-full shadow-lg hover:scale-110 transition-transform cursor-pointer"
-                        >
-                            <Camera className="w-3.5 h-3.5" />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Full Name */}
-                <div className="space-y-1">
-                    <label className="text-[10px] font-extrabold text-white-70 uppercase tracking-widest">
-                        Full Name
-                    </label>
-                    <div className="flex items-center bg-obsidian-wave border border-white-30/30 rounded-xl px-3.5 py-2.5 focus-within:border-lime-light transition-colors">
-                        <User className="w-4 h-4 text-white-30 mr-2.5" />
                         <input
-                            type="text"
-                            placeholder="Sarah Connor"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="bg-transparent text-white w-full focus:outline-none placeholder-white-30 text-xs font-medium"
-                            required
-                            disabled={isLoading}
-                        />
-                    </div>
-                </div>
-
-                {/* Email */}
-                <div className="space-y-1">
-                    <label className="text-[10px] font-extrabold text-white-70 uppercase tracking-widest">
-                        Email Address
-                    </label>
-                    <div className="flex items-center bg-obsidian-wave border border-white-30/30 rounded-xl px-3.5 py-2.5 focus-within:border-lime-light transition-colors">
-                        <Mail className="w-4 h-4 text-white-30 mr-2.5" />
-                        <input
-                            type="email"
-                            placeholder="sarah@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="bg-transparent text-white w-full focus:outline-none placeholder-white-30 text-xs font-medium"
-                            required
-                            disabled={isLoading}
-                        />
-                    </div>
-                </div>
-
-                {/* Password */}
-                <div className="space-y-1">
-                    <label className="text-[10px] font-extrabold text-white-70 uppercase tracking-widest">
-                        Password
-                    </label>
-                    <div className="relative flex items-center bg-obsidian-wave border border-white-30/30 rounded-xl px-3.5 py-2.5 focus-within:border-lime-light transition-colors">
-                        <Lock className="w-4 h-4 text-white-30 mr-2.5" />
-                        <input
+                            id="signup-password"
                             type={showPassword ? 'text' : 'password'}
-                            placeholder="••••••••"
+                            autoComplete="new-password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="bg-transparent text-white w-full focus:outline-none placeholder-white-30 text-xs font-medium"
+                            className={`${inputClass} pr-11`}
                             required
                             minLength={6}
                             disabled={isLoading}
@@ -236,28 +204,21 @@ export const ProfileStep = ({ onboardingData, onComplete }) => {
                             type="button"
                             onClick={() => setShowPassword((prev) => !prev)}
                             disabled={isLoading}
-                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white-30 hover:text-white transition-colors cursor-pointer"
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            aria-pressed={showPassword}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md flex items-center justify-center text-white-70 hover:text-white cursor-pointer"
                         >
-                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            {showPassword ? <EyeOff className="w-5 h-5" aria-hidden="true" /> : <Eye className="w-5 h-5" aria-hidden="true" />}
                         </button>
                     </div>
-                </div>
+                </Field>
 
-                {/* Submit Button */}
-                <div className="pt-3">
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="w-full bg-lime-light text-noir-eclipse font-extrabold py-4 rounded-xl hover:bg-lime-light/90 active:scale-[0.98] transition-all uppercase tracking-wider text-xs select-none disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer border border-lime-light/40"
-                    >
-                        {isLoading ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                CREATING ACCOUNT...
-                            </>
-                        ) : (
-                            'FINISH & ENTER FITGUIDE →'
-                        )}
+                <div className="mt-10 pt-6 border-t border-white-30/15 flex items-center justify-between gap-3">
+                    <button type="button" onClick={onBack} disabled={isLoading} className={secondaryButton}>
+                        <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Back
+                    </button>
+                    <button type="submit" disabled={isLoading} className={primaryButton}>
+                        {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Creating account…</> : 'Create account'}
                     </button>
                 </div>
             </form>

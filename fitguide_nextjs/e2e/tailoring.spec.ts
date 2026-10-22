@@ -9,16 +9,16 @@ test('sign-up answers tailor the home recommendations', async ({ page }) => {
   const account = newAccount('Tailor Tester');
   await page.goto('/?signup=1');
   await next(page, /get started/i);
-  await next(page, /continue to personalization/i);
+  await next(page); // feature preview
 
   // Biometrics: gender, then the goal.
   await page.getByRole('button', { name: /^Female/ }).click();
   await next(page);
   await next(page); // activity level: keep Beginner / Active
-  await page.getByRole('button', { name: /Fat Loss & Conditioning/ }).click();
+  await page.getByRole('button', { name: /Lose fat/ }).click();
   await next(page);
   await next(page); // target weight
-  await next(page, /choose my diet/i);
+  await next(page); // diet
 
   // Focus areas arrive suggested from the goal and gender, and can be changed.
   const focus = page.getByRole('group', { name: 'Focus areas' });
@@ -39,10 +39,10 @@ test('sign-up answers tailor the home recommendations', async ({ page }) => {
   await next(page);
 
   await expect(page.getByText('Full Body, Core, Glutes')).toBeVisible();
-  await page.getByPlaceholder('Sarah Connor').fill(account.name);
-  await page.getByPlaceholder('sarah@example.com').fill(account.email);
-  await page.getByPlaceholder('••••••••').fill(account.password);
-  await page.getByRole('button', { name: /finish & enter fitguide/i }).click();
+  await page.getByLabel('Full name').fill(account.name);
+  await page.getByLabel('Email').fill(account.email);
+  await page.getByLabel('Password', { exact: true }).fill(account.password);
+  await page.getByRole('button', { name: 'Create account' }).click();
 
   // The account holds the answers.
   await expect(page.getByText('Recommended for you')).toBeVisible();
@@ -75,7 +75,7 @@ test('changing training preferences in the profile changes the picks', async ({ 
   await page.context().clearCookies();
   await page.goto('/');
   await page.getByLabel('Email').fill(account.email);
-  await page.getByLabel('Password').fill(account.password);
+  await page.getByLabel('Password', { exact: true }).fill(account.password);
   await page.getByRole('button', { name: /sign in/i }).click();
   await expect(recommendations(page).getByText('No equipment needed').first()).toBeVisible();
 

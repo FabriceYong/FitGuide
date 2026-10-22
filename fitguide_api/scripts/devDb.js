@@ -5,11 +5,14 @@
  * running until Ctrl+C.
  */
 const path = require('path');
-const { startEmbeddedPostgres, migrateDeploy } = require('../db/embedded');
+const { portInUse, startEmbeddedPostgres, migrateDeploy } = require('../db/embedded');
 
 const PORT = Number(process.env.DEV_DB_PORT) || 5433;
 
 async function main() {
+  if (await portInUse(PORT)) {
+    throw new Error(`Port ${PORT} is already in use, probably by \`npm run db:dev\` running in another terminal or another worktree (only one can run at a time). Stop that one with Ctrl+C, or use another port: set DEV_DB_PORT and the port in DATABASE_URL.`);
+  }
   const db = await startEmbeddedPostgres({ dir: path.join(__dirname, '..', '.devdb'), port: PORT });
   migrateDeploy(db.url);
   process.env.DATABASE_URL = db.url;
@@ -34,6 +37,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err);
+  console.error(`❌ ${err instanceof Error ? err.message : `Could not start the dev database (${err})`}`);
   process.exit(1);
 });

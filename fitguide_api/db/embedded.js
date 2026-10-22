@@ -24,23 +24,46 @@ function freePort() {
   });
 }
 
+/** Whether something already listens on this local port. */
+function portInUse(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', () => resolve(true));
+    server.once('listening', () => server.close(() => resolve(false)));
+    server.listen(port, '127.0.0.1');
+  });
+}
+
 /**
  * Start Postgres in `dir` (initialising it on first use) and make sure
  * `database` exists. Returns { url, stop }.
  */
 async function startEmbeddedPostgres({ dir, port, database = 'fitguide', persistent = true, onLog = () => {} }) {
   const { default: EmbeddedPostgres } = await import('embedded-postgres');
+  // Keep Postgres's last log lines: if it exits while starting, embedded-postgres
+  // rejects with no error at all, so the log is the only clue to why.
+  const recent = [];
+  const log = (message) => {
+    recent.push(...String(message).split(/\r?\n/).filter(Boolean));
+    recent.splice(0, Math.max(0, recent.length - 15));
+    onLog(message);
+  };
   const pg = new EmbeddedPostgres({
     databaseDir: dir,
     user: USER,
     password: PASSWORD,
     port,
     persistent,
-    onLog,
-    onError: onLog,
+    onLog: log,
+    onError: log,
   });
   if (!fs.existsSync(path.join(dir, 'PG_VERSION'))) await pg.initialise();
-  await pg.start();
+  try {
+    await pg.start();
+  } catch (err) {
+    const reason = err ? `: ${err.message || err}` : '';
+    throw new Error(`PostgreSQL stopped while starting${reason}. Its last log lines:\n  ${recent.join('\n  ') || '(none)'}`);
+  }
   try {
     await pg.createDatabase(database);
   } catch (err) {
@@ -88,4 +111,4 @@ function migrateDeploy(url) {
   });
 }
 
-module.exports = { freePort, startEmbeddedPostgres, migrateDeploy, stopCluster };
+module.exports = { freePort, portInUse, startEmbeddedPostgres, migrateDeploy, stopCluster };

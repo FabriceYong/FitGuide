@@ -134,6 +134,13 @@ function defineBillingSuite(ctx) {
       assert.equal(locked.body.workout.locked, true);
       assert.deepEqual(locked.body.workout.steps, []);
       await request(app).get('/api/workouts/leg-day-destroyer').expect(200).expect((r) => assert.equal(r.body.workout.locked, true));
+      // The list and favorites don't leak the steps either.
+      const listed = (await request(app).get('/api/workouts').expect(200)).body.workouts.find((w) => w.slug === 'leg-day-destroyer');
+      assert.equal(listed.locked, true);
+      assert.deepEqual(listed.steps, []);
+      const faved = await free.agent.post('/api/favorites/leg-day-destroyer').expect(200);
+      assert.equal(faved.body.favorites[0].locked, true);
+      assert.deepEqual(faved.body.favorites[0].steps, []);
       const now = Date.now();
       await free.agent.post('/api/sessions').send({ workoutSlug: 'leg-day-destroyer', startedAt: new Date(now - 3600e3).toISOString(), completedAt: new Date(now - 60e3).toISOString(), durationSec: 1800 }).expect(402);
       const enroll = await free.agent.post('/api/enrollments').send({ programSlug: 'strength-builder' }).expect(402);
@@ -141,6 +148,8 @@ function defineBillingSuite(ctx) {
 
       const open = await payer.agent.get('/api/workouts/leg-day-destroyer').expect(200);
       assert.equal(open.body.workout.locked, undefined);
+      const openList = (await payer.agent.get('/api/workouts').expect(200)).body.workouts.find((w) => w.slug === 'leg-day-destroyer');
+      assert.equal(openList.locked, undefined);
       await payer.agent.post('/api/enrollments').send({ programSlug: 'strength-builder' }).expect(201);
 
       await admin.agent.patch('/api/admin/workouts/leg-day-destroyer').send({ isPremium: false }).expect(200);

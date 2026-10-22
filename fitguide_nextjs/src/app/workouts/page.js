@@ -38,7 +38,7 @@ export default async function WorkoutsPage() {
         )}
 
         {[...byCategory.entries()].map(([category, items]) => (
-          <section key={category} className="space-y-4">
+          <section key={category} id={category.toLowerCase().replace(/\s+/g, '-')} className="space-y-4 scroll-mt-20">
             <h2 className="text-lg font-bold">{category}</h2>
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((w) => (

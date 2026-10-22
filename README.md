@@ -69,6 +69,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 |---|---|---|
 | Accounts: httpOnly cookie sessions, 15-minute access tokens with rotating refresh tokens, CSRF origin checks, rate limits | `routes/auth.js`, `services/authTokens.js` | `lib/api.js`, `src/proxy.js` |
 | Workout catalog, exercise library, programs | `routes/workouts.js`, `exercises.js`, `programs.js` | `/workouts`, `/programs` (server-rendered) |
+| Dashboard: home, explore (workouts and exercise library), programs, favorites, progress, reviews, calculators, profile | the routes above, `favorites.js`, `reviews.js`, `articles.js` | `/` (`components/Dashboard.tsx`, `features/dashboard/`) |
 | Sessions, program enrollments, body metrics, progress | `routes/sessions.js`, `enrollments.js`, `bodyMetrics.js`, `progress.js` | player, `/progress` |
 | Personal plan generator and rules-based adaptation | `services/planGenerator.js`, `routes/plan.js` | `/plan` |
 | AI coach (Claude) with plan tools | `services/coach.js`, `routes/coach.js` | `/plan` |
@@ -114,8 +115,10 @@ keys are set, and show as unavailable otherwise:
 
 - Only the site header, offline screens and the PLUS page are translated;
   the rest of the interface is English-only so far.
-- Older screens (the dashboard tabs, onboarding, player) are still
-  JavaScript and have lint warnings under React's newer rules; new code is
-  TypeScript and held to the strict rules.
+- Still JavaScript: sign-in and onboarding, the workout and program detail
+  pages, the workout player, and shared plumbing (API client, auth context,
+  site header). Some have lint warnings under React's newer rules. The
+  dashboard and all newer pages are TypeScript and held to the strict rules.
+- There is no in-app password change or account deletion yet.
 - Apple Health has no web API and Google Fit's REST API is being retired,
   so those users import a CSV instead of connecting directly.

@@ -2,18 +2,19 @@ const express = require('express');
 const userStore = require('../stores/userStore');
 const workoutStore = require('../stores/workoutStore');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const { forViewer } = require('../services/billing');
 
 const router = express.Router();
 
 // Every favorites route requires a signed-in user. Workouts are referenced by slug.
 router.use(authMiddleware);
 
-const respondWithFavorites = async (res, slugs, message) => {
+const respondWithFavorites = async (req, res, slugs, message) => {
   res.json({
     success: true,
     ...(message && { message }),
     favoriteSlugs: slugs,
-    favorites: await workoutStore.getManyBySlugs(slugs),
+    favorites: (await workoutStore.getManyBySlugs(slugs)).map((w) => forViewer(w, req.user)),
   });
 };
 
@@ -23,7 +24,7 @@ const respondWithFavorites = async (res, slugs, message) => {
  */
 router.get('/', async (req, res, next) => {
   try {
-    await respondWithFavorites(res, await userStore.getFavorites(req.user.id));
+    await respondWithFavorites(req, res, await userStore.getFavorites(req.user.id));
   } catch (err) {
     next(err);
   }
@@ -52,7 +53,7 @@ router.post('/:slug', async (req, res, next) => {
     if (!(await workoutStore.exists(slug))) {
       return res.status(404).json({ success: false, message: 'Workout not found' });
     }
-    await respondWithFavorites(res, await userStore.addFavorite(req.user.id, slug), 'Workout added to favorites');
+    await respondWithFavorites(req, res, await userStore.addFavorite(req.user.id, slug), 'Workout added to favorites');
   } catch (err) {
     next(err);
   }
@@ -64,7 +65,7 @@ router.post('/:slug', async (req, res, next) => {
  */
 router.delete('/:slug', async (req, res, next) => {
   try {
-    await respondWithFavorites(res, await userStore.removeFavorite(req.user.id, req.params.slug), 'Workout removed from favorites');
+    await respondWithFavorites(req, res, await userStore.removeFavorite(req.user.id, req.params.slug), 'Workout removed from favorites');
   } catch (err) {
     next(err);
   }

@@ -35,7 +35,6 @@ export const LoginPage = ({ onLoginSuccess, onSwitchToRegister }) => {
                     </div>
                     <div>
                         <span className="font-extrabold text-2xl tracking-tight text-white">FitGuide</span>
-                        <span className="text-xs block font-bold text-lime-light tracking-widest leading-none mt-1">PLUS</span>
                     </div>
                 </div>
             </div>

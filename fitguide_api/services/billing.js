@@ -36,6 +36,11 @@ const setStripe = (client) => { stripe = client; };
 const webBase = () => (process.env.WEB_APP_URL || getCorsOrigins()[0] || 'http://localhost:3000').replace(/\/+$/, '');
 const isPlus = (user) => user?.plan === 'plus';
 
+/** A PLUS workout as this viewer may see it: the overview for everyone, the steps for members and admins. */
+const forViewer = (workout, user) => (workout.isPremium && !isPlus(user) && user?.role !== 'admin'
+  ? { ...workout, steps: [], locked: true }
+  : workout);
+
 // Prices change rarely; cache what Stripe says for an hour.
 let priceCache = { at: 0, data: null };
 async function prices() {
@@ -161,4 +166,4 @@ async function handleWebhook(rawBody, signature) {
   }
 }
 
-module.exports = { BillingError, isEnabled, isPlus, setStripe, status, checkout, portal, handleWebhook, applySubscription };
+module.exports = { BillingError, isEnabled, isPlus, forViewer, setStripe, status, checkout, portal, handleWebhook, applySubscription };

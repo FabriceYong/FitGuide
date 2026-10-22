@@ -14,6 +14,9 @@ export interface AuthUser {
   goal?: string;
   diet?: string;
   avatarUrl?: string | null;
+  birthYear?: number | null;
+  showOnLeaderboards?: boolean;
+  createdAt?: string;
   role?: 'user' | 'creator' | 'admin';
   plan?: 'free' | 'plus';
   isGuest?: boolean;

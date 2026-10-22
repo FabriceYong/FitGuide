@@ -133,6 +133,12 @@ async function snapshot(user, todayYmd, tzOffset) {
       targetWeightKg: user.targetWeight,
       diet: user.diet,
       birthYear: user.birthYear,
+      // Training preferences; empty means not answered. Respect limitations.
+      focusAreas: user.focusAreas,
+      equipment: user.equipment,
+      limitations: user.limitations,
+      workoutMinutes: user.workoutMinutes,
+      daysPerWeek: user.daysPerWeek,
     },
     plan: plan ? { title: plan.programTitle, currentWeek: plan.currentWeek, weeks: plan.weeks, adherencePct: plan.adherencePct, nextDays: plan.schedule.filter((d) => d.status !== 'done').slice(0, 5).map((d) => ({ week: d.week, day: d.day, date: d.date, title: d.title, status: d.status })) } : null,
     nutritionToday: {

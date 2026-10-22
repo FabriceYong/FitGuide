@@ -7,17 +7,20 @@ import type { Workout } from '../../../types/catalog';
 /**
  * A workout tile linking to its page. With onToggleFavorite it also shows a
  * heart button (kept outside the link so both are separate tab stops).
+ * `calories` replaces the catalog estimate (e.g. with one for this user).
  */
 export function WorkoutCard({
   workout,
   favorite,
   onToggleFavorite,
   tall = false,
+  calories = workout.calories,
 }: {
   workout: Workout;
   favorite?: boolean;
   onToggleFavorite?: (slug: string) => void;
   tall?: boolean;
+  calories?: number | null;
 }) {
   const color = categoryColor(workout.category);
   const image = getWorkoutSpecificImage(workout.title, workout.category, 'small', workout.thumbnailUrl);
@@ -37,7 +40,7 @@ export function WorkoutCard({
           <span className="block font-extrabold text-white text-base leading-tight line-clamp-2">{workout.title}</span>
           <span className="flex items-center gap-1 text-xs text-white mt-1">
             <Clock className="w-3.5 h-3.5" aria-hidden="true" /> {workout.duration} min · {workout.difficulty}
-            {workout.calories ? ` · ~${workout.calories} kcal` : ''}
+            {calories ? ` · ~${calories} kcal` : ''}
           </span>
         </span>
       </Link>

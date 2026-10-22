@@ -33,6 +33,8 @@ export interface Workout {
   steps: WorkoutStep[];
   thumbnailUrl?: string | null;
   tags: string[];
+  cautions?: string[];
+  prerequisites?: string[];
   isPremium: boolean;
   locked?: boolean;
   viewCount: number;

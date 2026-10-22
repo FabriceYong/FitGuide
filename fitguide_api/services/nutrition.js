@@ -5,11 +5,9 @@
  *
  * These are general estimates for healthy adults, not medical advice.
  */
-const { NUTRITION } = require('@fitguide/shared');
+const { NUTRITION, restingKcal } = require('@fitguide/shared');
 
-// Mifflin-St Jeor offsets. For "Non-binary" / "Prefer not to say" use the midpoint.
-const SEX_OFFSET = { Male: 5, Female: -161 };
-const MIDPOINT_OFFSET = -78;
+// Used when the profile has no birth year (restingKcal assumes the same).
 const ASSUMED_AGE = 30;
 
 // Total daily energy = BMR x activity factor.
@@ -45,8 +43,7 @@ const round = (n, step = 1) => Math.round(n / step) * step;
  */
 function targets(profile, year = new Date().getFullYear()) {
   const age = profile.birthYear ? year - profile.birthYear : ASSUMED_AGE;
-  const offset = SEX_OFFSET[profile.gender] ?? MIDPOINT_OFFSET;
-  const bmr = 10 * profile.weight + 6.25 * profile.height - 5 * age + offset;
+  const bmr = restingKcal(profile, year);
   const tdee = bmr * (ACTIVITY_FACTOR[profile.activityStatus] || 1.465);
   // A deficit never goes below BMR, and never below 1200 kcal.
   const calories = round(Math.max(tdee * (1 + (GOAL_ADJUSTMENT[profile.goal] || 0)), Math.min(bmr, tdee), 1200), 10);

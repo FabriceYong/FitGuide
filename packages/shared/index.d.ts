@@ -12,7 +12,74 @@ export declare const PROFILE: {
   readonly PASSWORD_MIN: number;
   readonly MIN_BIRTH_YEAR: number;
   readonly MIN_AGE: number;
+  readonly FOCUS_AREAS: readonly FocusArea[];
+  readonly EQUIPMENT_KITS: readonly EquipmentKit[];
+  readonly LIMITATIONS: readonly Limitation[];
+  readonly WORKOUT_MINUTES: Range;
+  readonly DAYS_PER_WEEK: Range;
 };
+
+// ── Tailoring (tailoring.js) ──────────────────────────────────────────────────
+export type FocusArea = 'Full Body' | 'Core' | 'Glutes' | 'Legs' | 'Back' | 'Chest' | 'Shoulders' | 'Arms';
+export type EquipmentKit = 'none' | 'yoga-props' | 'weights' | 'bands' | 'gym' | 'pool' | 'boxing';
+export type Limitation = 'knees' | 'lower-back' | 'shoulders' | 'wrists' | 'low-impact';
+
+/** The profile fields tailoring reads. All optional: missing ones are ignored. */
+export interface TailoringProfile {
+  gender?: string;
+  height?: number;
+  weight?: number;
+  birthYear?: number | null;
+  goal?: string;
+  fitnessLevel?: string;
+  focusAreas?: readonly string[];
+  equipment?: readonly string[];
+  workoutMinutes?: number | null;
+  limitations?: readonly string[];
+  plan?: string;
+  role?: string;
+}
+
+/** The workout fields tailoring reads. */
+export interface TailorableWorkout {
+  slug: string;
+  category: string;
+  difficulty: string;
+  duration: number;
+  intensity?: string;
+  equipment?: readonly string[];
+  targetMuscles?: readonly string[];
+  tags?: readonly string[];
+  cautions?: readonly string[];
+  prerequisites?: readonly string[];
+  isPremium?: boolean;
+}
+
+export interface WorkoutFit {
+  score: number;
+  /** Up to three short reasons it suits the user, best first. */
+  reasons: string[];
+  /** The user's limitations this workout loads. */
+  conflicts: Limitation[];
+  /** Equipment it needs that the user said they don't have. */
+  missingEquipment: string[];
+}
+
+export declare const FOCUS_AREAS: Readonly<Record<FocusArea, readonly string[]>>;
+export declare const EQUIPMENT_KITS: Readonly<Record<EquipmentKit, { label: string; items: readonly string[] }>>;
+export declare const LIMITATIONS: Readonly<Record<Limitation, { label: string }>>;
+export declare function suggestedFocusAreas(profile: { goal?: string; gender?: string }): FocusArea[];
+export declare function restingKcal(profile: TailoringProfile & { weight: number; height: number }, year?: number): number;
+export declare function calorieFactor(profile: TailoringProfile | null | undefined, year?: number): number;
+export declare function personalCalories<T extends number | null | undefined>(kcal: T, profile: TailoringProfile | null | undefined, year?: number): T;
+export declare function requiredEquipment(workout: TailorableWorkout): string[];
+export declare function limitationConflicts(workout: TailorableWorkout, limitations: readonly string[] | undefined): Limitation[];
+export declare function workoutFit(workout: TailorableWorkout, profile?: TailoringProfile, options?: { recentSlugs?: readonly string[] }): WorkoutFit;
+export declare function rankWorkouts<W extends TailorableWorkout>(
+  workouts: readonly W[],
+  profile: TailoringProfile | null | undefined,
+  options?: { recentSlugs?: readonly string[]; day?: number; limit?: number },
+): (WorkoutFit & { workout: W })[];
 
 export declare const CATALOG: {
   readonly WORKOUT_CATEGORIES: readonly string[];

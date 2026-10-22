@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  AlertCircle, ArrowRight, BookOpen, CalendarDays, Calculator, Clock, Crown, Dumbbell, ExternalLink, Flame, Lightbulb,
+  AlertCircle, ArrowRight, BookOpen, CalendarDays, Calculator, Check, Clock, Crown, Dumbbell, ExternalLink, Flame, Lightbulb,
   RefreshCw, ShieldCheck, Sparkles, Star, Target, TrendingUp, Users, Utensils, X, type LucideIcon,
 } from 'lucide-react';
-import { useAuth } from '../../../contexts/AuthContext';
+import { personalCalories, rankWorkouts } from '@fitguide/shared';
+import { useAuth, type AuthUser } from '../../../contexts/AuthContext';
 import { useWorkouts } from '../../../context/WorkoutContext';
 import { fetchFeedArticles, fetchReviews, type FeedId } from '../../../services/contentService';
 import { fetchProgressSummary, fetchPrograms, type ProgressSummary, type SessionRecord } from '../../../services/trainingService';
@@ -25,33 +26,30 @@ import { WorkoutCard } from './WorkoutCard';
 /** Days since 1970, used to rotate daily picks. */
 const dayNumber = () => Math.floor(Date.now() / 864e5);
 
-// Categories that suit each profile goal, best first.
-const GOAL_CATEGORIES: Record<string, string[]> = {
-  Muscle: ['Strength', 'CrossFit', 'HIIT'],
-  Weight: ['HIIT', 'Cardio', 'Martial Arts', 'Dance', 'Swimming', 'CrossFit'],
-  Flexibility: ['Yoga', 'Flexibility', 'Pilates'],
-  Vitality: ['Cardio', 'Yoga', 'Pilates', 'Dance', 'Swimming', 'Strength'],
-};
-
 /**
- * Three workouts for this user: their level (or "All Levels"), categories
- * that fit their goal, not done in the last week, free ones first for free
- * accounts. The pick rotates daily so the list doesn't go stale.
+ * Three workouts for this user, from their whole profile (goal, level, focus
+ * areas, equipment, time, limitations; see @fitguide/shared tailoring), each
+ * with the reasons it fits. Workouts done in the last week drop back, and
+ * the pick rotates daily so the list doesn't go stale.
  */
-function recommend(workouts: Workout[], user: { fitnessLevel?: string; goal?: string; plan?: string } | null, recent: SessionRecord[]) {
-  const doneLately = new Set(recent.filter((s) => Date.now() - new Date(s.completedAt).getTime() < 7 * 864e5).map((s) => s.workoutSlug));
-  const preferred = GOAL_CATEGORIES[user?.goal || ''] || [];
-  const day = dayNumber();
-  const score = (w: Workout) =>
-    (w.difficulty === user?.fitnessLevel || w.difficulty === 'All Levels' ? 4 : 0)
-    + (preferred.includes(w.category) ? 3 - preferred.indexOf(w.category) / preferred.length : 0)
-    + (doneLately.has(w.slug) ? -5 : 0)
-    + (w.isPremium && user?.plan !== 'plus' ? -2 : 0);
-  return workouts
-    .map((w, i) => ({ w, s: score(w), r: (i + day) % workouts.length }))
-    .sort((a, b) => b.s - a.s || a.r - b.r)
-    .slice(0, 3)
-    .map((x) => x.w);
+function recommend(workouts: Workout[], user: AuthUser | null, recent: SessionRecord[]) {
+  const recentSlugs = recent.filter((s) => Date.now() - new Date(s.completedAt).getTime() < 7 * 864e5).map((s) => s.workoutSlug);
+  return rankWorkouts(workouts, user, { recentSlugs, day: dayNumber(), limit: 3 });
+}
+
+/** "Matched to your level (Beginner), goal (Weight) and focus areas", naming what the profile has. */
+function matchedTo(user: AuthUser | null) {
+  const parts = [
+    user?.fitnessLevel && `level (${user.fitnessLevel})`,
+    user?.goal && `goal (${user.goal})`,
+    user?.focusAreas?.length && 'focus areas',
+    user?.equipment?.length && 'equipment',
+    user?.workoutMinutes && 'time',
+    user?.limitations?.length && 'limitations',
+  ].filter(Boolean) as string[];
+  if (!parts.length) return null;
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+  return `Matched to your ${list}.`;
 }
 
 const TIPS = [
@@ -91,7 +89,8 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
   }, []);
 
   const summary = progress?.summary;
-  const recommended = useMemo(() => recommend(workouts, user, progress?.recentSessions || []), [workouts, user, progress]);
+  const picks = useMemo(() => recommend(workouts, user, progress?.recentSessions || []), [workouts, user, progress]);
+  const recommended = useMemo(() => picks.map((p) => p.workout), [picks]);
   const enrollment = summary?.activeEnrollment || null;
   const nextDay = enrollment?.nextDay || null;
 
@@ -223,8 +222,11 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 id="home-recommended" className="text-2xl font-extrabold text-white">Recommended for you</h2>
-            {user?.fitnessLevel && (
-              <p className="text-sm text-white-70 mt-1">Matched to your level ({user.fitnessLevel}){user.goal ? ` and goal (${user.goal})` : ''}. Change these in your profile.</p>
+            {matchedTo(user) && (
+              <p className="text-sm text-white-70 mt-1">
+                {matchedTo(user)}{' '}
+                <button type="button" onClick={() => onNavigate('profile')} className="underline hover:text-white">Change these in your profile</button>.
+              </p>
             )}
           </div>
           <button type="button" onClick={() => onNavigate('explore')} className="text-sm font-semibold text-lime-light hover:underline shrink-0">See all →</button>
@@ -233,11 +235,24 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6" aria-hidden="true">
             {Array.from({ length: 3 }, (_, i) => <div key={i} className="h-72 bg-obsidian-wave rounded-[24px] animate-pulse" />)}
           </div>
-        ) : recommended.length === 0 ? (
+        ) : picks.length === 0 ? (
           <p className="text-white-70">No workouts to recommend yet.</p>
         ) : (
-          <ul className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {recommended.map((w) => <li key={w.slug}><WorkoutCard workout={w} tall /></li>)}
+          <ul className="grid grid-cols-1 md:grid-cols-3 gap-6" aria-label="Recommended workouts">
+            {picks.map((p) => (
+              <li key={p.workout.slug} className="space-y-2">
+                <WorkoutCard workout={p.workout} tall calories={personalCalories(p.workout.calories, user)} />
+                {p.reasons.length > 0 && (
+                  <ul className="flex flex-wrap gap-1.5" aria-label={`Why ${p.workout.title} suits you`}>
+                    {p.reasons.map((r) => (
+                      <li key={r} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-lime-light/10 border border-lime-light/25 text-[11px] font-semibold text-white">
+                        <Check className="w-3 h-3 text-lime-light" aria-hidden="true" /> {r}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
           </ul>
         )}
       </section>

@@ -16,6 +16,12 @@ export interface AuthUser {
   avatarUrl?: string | null;
   birthYear?: number | null;
   showOnLeaderboards?: boolean;
+  /** Training preferences: empty / null means not answered (see @fitguide/shared tailoring). */
+  focusAreas?: string[];
+  equipment?: string[];
+  limitations?: string[];
+  workoutMinutes?: number | null;
+  daysPerWeek?: number | null;
   createdAt?: string;
   role?: 'user' | 'creator' | 'admin';
   plan?: 'free' | 'plus';

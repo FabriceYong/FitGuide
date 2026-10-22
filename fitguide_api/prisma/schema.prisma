@@ -28,6 +28,14 @@ model User {
   activityStatus     String    @default("Active")
   goal               String    @default("Vitality")
   diet               String    @default("Mediterranean Diet")
+  // Training preferences that tailor recommendations (options in
+  // packages/shared/tailoring.js). An empty list means "not answered";
+  // equipment ["none"] means bodyweight only.
+  focusAreas         String[]  @default([])
+  equipment          String[]  @default([])
+  limitations        String[]  @default([])
+  workoutMinutes     Int?
+  daysPerWeek        Int?
   role               String    @default("user") // user | admin
   birthYear          Int?
   // Shared to add friends; created on first use.

@@ -3,10 +3,10 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  Activity, AlertCircle, AlertTriangle, Camera, CheckCircle2, ChevronRight, Crown, Edit3, Globe, HeartPulse, KeyRound, Loader2, LogOut,
-  PenTool, Ruler, Scale, Shield, Target, Trash2, TrendingUp, User, Utensils, Watch, type LucideIcon,
+  Activity, AlertCircle, AlertTriangle, Camera, CheckCircle2, ChevronRight, Clock, Crosshair, Crown, Dumbbell, Edit3, Globe, HeartPulse, KeyRound, Loader2, LogOut,
+  PenTool, Ruler, Scale, Shield, ShieldAlert, Target, Trash2, TrendingUp, User, Utensils, Watch, type LucideIcon,
 } from 'lucide-react';
-import { PROFILE } from '@fitguide/shared';
+import { EQUIPMENT_KITS, LIMITATIONS, PROFILE, type EquipmentKit, type Limitation } from '@fitguide/shared';
 import { apiRequest, assetUrl } from '../../../lib/api';
 import { useAuth, type AuthUser } from '../../../contexts/AuthContext';
 import { Modal } from '../../../components/Modal';
@@ -25,6 +25,12 @@ const bmiLabel = (bmi: number | null) => {
   if (bmi < 30) return { label: 'Overweight', color: '#FB923C' };
   return { label: 'Obesity', color: '#FCA5A5' };
 };
+
+/** "30 min · 3 a week", from whichever of the two the user gave. */
+const workoutHabit = (u: AuthUser | null) => [
+  u?.workoutMinutes ? `${u.workoutMinutes} min` : null,
+  u?.daysPerWeek ? `${u.daysPerWeek} a week` : null,
+].filter(Boolean).join(' · ');
 
 const ACTIVITY_TEXT: Record<string, string> = {
   Inactive: 'Little daily movement',
@@ -93,6 +99,10 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
         <Row icon={TrendingUp} label="Level" value={user?.fitnessLevel || 'Not set'} />
         <Row icon={Activity} label="Activity" value={user?.activityStatus ? `${user.activityStatus} · ${ACTIVITY_TEXT[user.activityStatus] || ''}` : 'Not set'} />
         <Row icon={Utensils} label="Diet" value={user?.diet || 'Not set'} />
+        <Row icon={Crosshair} label="Focus" value={user?.focusAreas?.length ? user.focusAreas.join(', ') : 'Not set'} />
+        <Row icon={Dumbbell} label="Equipment" value={user?.equipment?.length ? user.equipment.map((k) => EQUIPMENT_KITS[k as EquipmentKit]?.label || k).join(', ') : 'Not set'} />
+        <Row icon={Clock} label="Workouts" value={workoutHabit(user) || 'Not set'} />
+        <Row icon={ShieldAlert} label="Go easy on" value={user?.limitations?.length ? user.limitations.map((l) => LIMITATIONS[l as Limitation]?.label || l).join(', ') : 'Nothing'} />
         <p className="text-xs text-white-70">These shape your recommendations, generated plans and calorie targets.</p>
       </section>
 
@@ -311,9 +321,19 @@ type Form = {
   diet: string;
   avatarUrl: string | null;
   showOnLeaderboards: boolean;
+  focusAreas: string[];
+  equipment: string[];
+  limitations: string[];
+  workoutMinutes: string;
+  daysPerWeek: string;
 };
 
 const toForm = (u: AuthUser): Form => ({
+  focusAreas: u.focusAreas || [],
+  equipment: u.equipment || [],
+  limitations: u.limitations || [],
+  workoutMinutes: u.workoutMinutes ? String(u.workoutMinutes) : '',
+  daysPerWeek: u.daysPerWeek ? String(u.daysPerWeek) : '',
   name: u.name || '',
   gender: u.gender || 'Prefer not to say',
   height: u.height ? String(u.height) : '',
@@ -370,13 +390,17 @@ function EditProfile({ user, onClose }: { user: AuthUser; onClose: () => void })
       weight: numberOrNull(form.weight),
       targetWeight: numberOrNull(form.targetWeight),
       birthYear: numberOrNull(form.birthYear),
+      workoutMinutes: numberOrNull(form.workoutMinutes),
+      daysPerWeek: numberOrNull(form.daysPerWeek),
     };
+    // Optional fields an empty value clears.
+    const clearable = new Set(['birthYear', 'workoutMinutes', 'daysPerWeek']);
     try {
       if (isGuest) {
         updateUser(changes as Partial<AuthUser>);
       } else {
         // The API rejects nulls for body measurements: leave empty ones unchanged.
-        const body = Object.fromEntries(Object.entries(changes).filter(([k, v]) => v !== null || k === 'birthYear'));
+        const body = Object.fromEntries(Object.entries(changes).filter(([k, v]) => v !== null || clearable.has(k)));
         const data = await apiRequest('/auth/profile', { method: 'PUT', body, auth: true });
         updateUser(data.user);
       }
@@ -421,6 +445,20 @@ function EditProfile({ user, onClose }: { user: AuthUser; onClose: () => void })
         <Choices label="Main goal" options={PROFILE.GOALS} value={form.goal} onChange={(v) => set('goal', v)} />
         <Choices label="Diet" options={PROFILE.DIETS} value={form.diet} onChange={(v) => set('diet', v)} />
 
+        <MultiChoices label="Focus areas" options={PROFILE.FOCUS_AREAS.map((a) => [a, a])} value={form.focusAreas} onChange={(v) => set('focusAreas', v)} />
+        <MultiChoices
+          label="Equipment you have"
+          options={PROFILE.EQUIPMENT_KITS.map((k) => [k, EQUIPMENT_KITS[k].label])}
+          value={form.equipment}
+          // "No equipment" and the kits exclude each other.
+          onChange={(v) => set('equipment', v.includes('none') && !form.equipment.includes('none') ? ['none'] : v.filter((k) => k !== 'none' || v.length === 1))}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <TextField label="Minutes per workout" type="number" value={form.workoutMinutes} onChange={(v) => set('workoutMinutes', v)} min={PROFILE.WORKOUT_MINUTES[0]} max={PROFILE.WORKOUT_MINUTES[1]} />
+          <TextField label="Workouts per week" type="number" value={form.daysPerWeek} onChange={(v) => set('daysPerWeek', v)} min={PROFILE.DAYS_PER_WEEK[0]} max={PROFILE.DAYS_PER_WEEK[1]} />
+        </div>
+        <MultiChoices label="Go easy on" options={PROFILE.LIMITATIONS.map((l) => [l, LIMITATIONS[l].label])} value={form.limitations} onChange={(v) => set('limitations', v)} />
+
         {!isGuest && (
           <label className="flex items-center justify-between gap-3 bg-white/5 border border-white-30/15 rounded-xl px-4 py-3 cursor-pointer">
             <span className="text-sm font-bold text-white">
@@ -459,6 +497,31 @@ function TextField({ label, value, onChange, type = 'text', ...rest }: {
         className="w-full bg-noir-eclipse border border-white-30/20 rounded-xl px-3.5 py-2.5 text-white text-sm focus:border-lime-light"
       />
     </label>
+  );
+}
+
+/** Pick any number of options, given as [value, label] pairs. */
+function MultiChoices({ label, options, value, onChange }: { label: string; options: readonly (readonly [string, string])[]; value: string[]; onChange: (v: string[]) => void }) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-xs font-bold text-white-70 uppercase tracking-wider mb-2">{label}</legend>
+      <div className="flex flex-wrap gap-2">
+        {options.map(([id, text]) => {
+          const on = value.includes(id);
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onChange(on ? value.filter((v) => v !== id) : [...value, id])}
+              aria-pressed={on}
+              className={`py-2 px-3 rounded-full text-xs font-bold border ${on ? 'bg-lime-light/15 border-lime-light text-white' : 'bg-white/5 border-white-30/15 text-white-70'}`}
+            >
+              {text}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 

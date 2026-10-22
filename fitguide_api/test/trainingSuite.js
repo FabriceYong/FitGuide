@@ -157,8 +157,10 @@ function defineTrainingSuite(ctx) {
       assert.equal(s.workoutTitle, 'Core Strength Circuit');
       assert.equal(s.status, 'completed');
       assert.deepEqual(s.sets.map((x) => x.exerciseSlug), ['plank', 'back-squat', null, null]);
-      // core-power-blast: 150 kcal over 20 min → 20 min logged = 150 kcal
-      assert.equal(s.calories, 150);
+      // core-power-blast: 150 kcal over 20 min for the reference adult → 20 min
+      // logged, scaled to this default profile (70 kg, 170 cm, assumed 30, no
+      // sex given): resting 1534.5 / 1680 kcal → 137 kcal
+      assert.equal(s.calories, 137);
 
       const recordKeys = res.body.newRecords.map((r) => r.exerciseSlug || r.exerciseName).sort();
       assert.deepEqual(recordKeys, ['Mystery move', 'back-squat', 'plank']);

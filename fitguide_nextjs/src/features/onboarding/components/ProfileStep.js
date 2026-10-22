@@ -37,6 +37,11 @@ export const ProfileStep = ({ onboardingData, onComplete }) => {
                     activityStatus: onboardingData.activityStatus || 'Active',
                     goal: onboardingData.goal || 'Vitality',
                     diet: onboardingData.diet || 'Mediterranean Diet',
+                    focusAreas: onboardingData.focusAreas || [],
+                    equipment: onboardingData.equipment || [],
+                    limitations: onboardingData.limitations || [],
+                    workoutMinutes: onboardingData.workoutMinutes ?? null,
+                    daysPerWeek: onboardingData.daysPerWeek ?? null,
                 },
             });
 
@@ -120,6 +125,9 @@ export const ProfileStep = ({ onboardingData, onComplete }) => {
                     <span className="text-white-60">Goal: <strong className="text-lime-light">{onboardingData.goal}</strong></span>
                     <span className="text-white-60 ml-3">Diet: <strong className="text-lime-light">{onboardingData.diet}</strong></span>
                 </div>
+                {onboardingData.focusAreas?.length > 0 && (
+                    <div className="text-white-60">Focus: <strong className="text-white">{onboardingData.focusAreas.join(', ')}</strong></div>
+                )}
             </div>
 
             {error && (

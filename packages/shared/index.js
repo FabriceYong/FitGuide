@@ -4,8 +4,11 @@
  * form and the endpoint it posts to can't drift apart.
  *
  * Plain CommonJS with no dependencies, so it loads in Node and in the
- * Next.js bundle alike.
+ * Next.js bundle alike. tailoring.js holds the rules that turn a profile
+ * into recommendations and personal calorie estimates.
  */
+
+const tailoring = require('./tailoring');
 
 const PROFILE = {
   GENDERS: ['Male', 'Female', 'Non-binary', 'Prefer not to say'],
@@ -21,6 +24,12 @@ const PROFILE = {
   // Users must be at least 13.
   MIN_BIRTH_YEAR: 1900,
   MIN_AGE: 13,
+  // Training preferences (see tailoring.js for what each option means).
+  FOCUS_AREAS: Object.keys(tailoring.FOCUS_AREAS),
+  EQUIPMENT_KITS: Object.keys(tailoring.EQUIPMENT_KITS),
+  LIMITATIONS: Object.keys(tailoring.LIMITATIONS),
+  WORKOUT_MINUTES: [10, 120],
+  DAYS_PER_WEEK: [1, 7],
 };
 
 const CATALOG = {
@@ -62,4 +71,4 @@ const NUTRITION = {
   MAX_SERVINGS: 20,
 };
 
-module.exports = { PROFILE, CATALOG, TRAINING, NUTRITION };
+module.exports = { PROFILE, CATALOG, TRAINING, NUTRITION, ...tailoring };

@@ -28,6 +28,15 @@ const profileRules = [
   body('diet').optional().isIn(DIETS).withMessage('Invalid diet'),
   body('avatarUrl').optional({ values: 'null' }).isString().isLength({ max: 500 }),
   body('showOnLeaderboards').optional().isBoolean().withMessage('showOnLeaderboards must be true or false').toBoolean(),
+  ...[['focusAreas', PROFILE.FOCUS_AREAS, 'focus area'], ['equipment', PROFILE.EQUIPMENT_KITS, 'equipment option'], ['limitations', PROFILE.LIMITATIONS, 'limitation']]
+    .flatMap(([field, allowed, noun]) => [
+      body(field).optional({ values: 'null' }).isArray({ max: allowed.length }).withMessage(`${field} must be a list`),
+      body(`${field}.*`).isIn(allowed).withMessage(`Unknown ${noun}`),
+    ]),
+  body('workoutMinutes').optional({ values: 'null' }).isInt({ min: PROFILE.WORKOUT_MINUTES[0], max: PROFILE.WORKOUT_MINUTES[1] })
+    .withMessage(`Workout length must be ${PROFILE.WORKOUT_MINUTES[0]}–${PROFILE.WORKOUT_MINUTES[1]} minutes`),
+  body('daysPerWeek').optional({ values: 'null' }).isInt({ min: PROFILE.DAYS_PER_WEEK[0], max: PROFILE.DAYS_PER_WEEK[1] })
+    .withMessage(`Days per week must be ${PROFILE.DAYS_PER_WEEK[0]}–${PROFILE.DAYS_PER_WEEK[1]}`),
   body('birthYear').optional({ values: 'null' }).custom((value) => {
     const year = Number(value);
     return Number.isInteger(year) && year >= PROFILE.MIN_BIRTH_YEAR && year <= new Date().getFullYear() - PROFILE.MIN_AGE;

@@ -19,11 +19,21 @@ const PROFILE_DEFAULTS = {
   avatarUrl: null,
   birthYear: null,
   showOnLeaderboards: true,
+  // Training preferences: empty / null means not answered.
+  focusAreas: [],
+  equipment: [],
+  limitations: [],
+  workoutMinutes: null,
+  daysPerWeek: null,
 };
 
 // Fields a user may change about themselves through the profile endpoint.
-const EDITABLE_FIELDS = ['name', 'gender', 'height', 'weight', 'targetWeight', 'fitnessLevel', 'activityStatus', 'goal', 'diet', 'avatarUrl', 'birthYear', 'showOnLeaderboards'];
-const NUMERIC_FIELDS = new Set(['height', 'weight', 'targetWeight', 'birthYear']);
+const EDITABLE_FIELDS = [
+  'name', 'gender', 'height', 'weight', 'targetWeight', 'fitnessLevel', 'activityStatus', 'goal', 'diet', 'avatarUrl', 'birthYear', 'showOnLeaderboards',
+  'focusAreas', 'equipment', 'limitations', 'workoutMinutes', 'daysPerWeek',
+];
+const NUMERIC_FIELDS = new Set(['height', 'weight', 'targetWeight', 'birthYear', 'workoutMinutes', 'daysPerWeek']);
+const LIST_FIELDS = new Set(['focusAreas', 'equipment', 'limitations']);
 
 const withFavorites = { favorites: { select: { workoutSlug: true }, orderBy: { createdAt: 'asc' } } };
 
@@ -50,7 +60,12 @@ function pickProfileUpdates(body) {
   const updates = {};
   for (const field of EDITABLE_FIELDS) {
     if (body[field] === undefined || body[field] === '') continue;
-    if (body[field] === null) updates[field] = null; // clearing an optional field
+    if (body[field] === null) updates[field] = LIST_FIELDS.has(field) ? [] : null; // clearing an optional field
+    else if (LIST_FIELDS.has(field)) {
+      const list = [...new Set(body[field])];
+      // "No equipment" and a kit together means the kit.
+      updates[field] = field === 'equipment' && list.length > 1 ? list.filter((k) => k !== 'none') : list;
+    }
     else updates[field] = NUMERIC_FIELDS.has(field) ? Number(body[field]) : body[field];
   }
   return updates;

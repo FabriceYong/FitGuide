@@ -248,6 +248,37 @@ function defineApiSuite() {
         await alice.agent.put('/api/auth/profile').send({ height: 9999 }).expect(400);
       });
 
+      it('stores training preferences from sign-up and profile edits', async () => {
+        const creds = { ...newAccount('Prefs'), gender: 'Female', focusAreas: ['Glutes', 'Core', 'Glutes'], equipment: ['none'], limitations: ['knees'], workoutMinutes: 30, daysPerWeek: 3 };
+        const agent = request.agent(app);
+        const { user } = (await agent.post('/api/auth/register').send(creds).expect(201)).body;
+        assert.deepEqual(user.focusAreas, ['Glutes', 'Core']);
+        assert.deepEqual(user.equipment, ['none']);
+        assert.deepEqual(user.limitations, ['knees']);
+        assert.equal(user.workoutMinutes, 30);
+        assert.equal(user.daysPerWeek, 3);
+
+        // "No equipment" plus a kit keeps the kit; null clears a list or a number.
+        const edited = (await agent.put('/api/auth/profile').send({ equipment: ['none', 'weights'], limitations: null, workoutMinutes: null }).expect(200)).body.user;
+        assert.deepEqual(edited.equipment, ['weights']);
+        assert.deepEqual(edited.limitations, []);
+        assert.equal(edited.workoutMinutes, null);
+        assert.deepEqual(edited.focusAreas, ['Glutes', 'Core']);
+
+        // Accounts that never answered get empty preferences.
+        assert.deepEqual(bob.user.focusAreas, []);
+        assert.equal(bob.user.daysPerWeek, null);
+      });
+
+      it('validates training preferences', async () => {
+        await alice.agent.put('/api/auth/profile').send({ focusAreas: ['Toes'] }).expect(400);
+        await alice.agent.put('/api/auth/profile').send({ focusAreas: 'Glutes' }).expect(400);
+        await alice.agent.put('/api/auth/profile').send({ equipment: ['spaceship'] }).expect(400);
+        await alice.agent.put('/api/auth/profile').send({ limitations: ['everything'] }).expect(400);
+        await alice.agent.put('/api/auth/profile').send({ workoutMinutes: 5 }).expect(400);
+        await alice.agent.put('/api/auth/profile').send({ daysPerWeek: 8 }).expect(400);
+      });
+
       it('requires auth', async () => {
         await request(app).put('/api/auth/profile').send({ name: 'Anon' }).expect(401);
       });

@@ -5,6 +5,8 @@
  * Professional Dark UI Redesign (FitGuide Next.js)
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { calorieFactor } from '@fitguide/shared';
+import { useAuth } from '../../contexts/AuthContext';
 import { useExerciseGif } from './hooks/useExerciseGif';
 import { SessionSummary } from './SessionSummary';
 import {
@@ -56,6 +58,9 @@ function CircularTimer({ timeRemaining, totalDuration, color, isPlaying }) {
  * @param {(result?: object) => void} props.onComplete  Called when the user leaves the summary
  */
 export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', program = null, onExit, onComplete }) => {
+  const { user } = useAuth();
+  // The workout's burn rate scaled to this user's body, as the API does when saving.
+  const caloriesPerMinute = ((workout?.calories || 0) / (workout?.duration || 1)) * calorieFactor(user);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -85,7 +90,7 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
 
   const totalSteps = steps.length;
   const progress = ((completedSteps.size) / totalSteps) * 100;
-  const estimatedCaloriesBurned = Math.floor((totalElapsedTime / 60) * ((workout?.calories || 200) / (workout?.duration || 30)));
+  const estimatedCaloriesBurned = Math.floor((totalElapsedTime / 60) * caloriesPerMinute);
 
   function generateEnhancedDefaultSteps() {
     const cat = (workout?.category || '').toLowerCase();
@@ -444,7 +449,7 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
         <SessionSummary
           draft={buildSessionDraft()}
           status={summary.status}
-          caloriesPerMinute={(workout?.calories || 0) / (workout?.duration || 1)}
+          caloriesPerMinute={caloriesPerMinute}
           tintColor={tintColor}
           onDone={(result) => (summary.status === 'completed' || result ? onComplete(result) : onExit())}
           onResume={summary.status === 'partial' ? () => setSummary(null) : undefined}

@@ -9,13 +9,16 @@ import { GoalStep } from './components/GoalStep';
 import { WeightStep } from './components/WeightStep';
 import { DietStep } from './components/DietStep';
 import { ProfileStep } from './components/ProfileStep';
+import { FocusStep } from './components/FocusStep';
+import { TrainingSetupStep } from './components/TrainingSetupStep';
 import { ArrowRight, FastForward } from 'lucide-react';
+import { suggestedFocusAreas } from '@fitguide/shared';
 
 export const OnboardingWizard = ({ onFinish, onBackToLogin }) => {
     const [step, setStep] = useState(0);
 
     // Accumulated onboarding data — all biometric + preference fields
-    const [onboardingData, setOnboardingData] = useState({
+    const [answers, setAnswers] = useState({
         gender: 'Prefer not to say',
         height: 170,
         weight: 70,
@@ -24,7 +27,16 @@ export const OnboardingWizard = ({ onFinish, onBackToLogin }) => {
         activityStatus: 'Active',
         goal: 'Vitality',
         diet: 'Mediterranean Diet',
+        // null until the user changes them: until then they follow the
+        // suggestions for the goal and gender chosen above.
+        focusAreas: null,
+        equipment: [],
+        workoutMinutes: null,
+        daysPerWeek: null,
+        limitations: [],
     });
+    const suggestedFocus = suggestedFocusAreas(answers);
+    const onboardingData = { ...answers, focusAreas: answers.focusAreas ?? suggestedFocus };
 
     // Step 0: Welcome
     // Step 1: Interactive Concept Showcase
@@ -33,8 +45,11 @@ export const OnboardingWizard = ({ onFinish, onBackToLogin }) => {
     // Step 4: Goal
     // Step 5: Target Weight
     // Step 6: Diet
-    // Step 7: Profile / Register
-    const totalSteps = 8;
+    // Step 7: Focus areas
+    // Step 8: Equipment, time, frequency, limitations
+    // Step 9: Profile / Register
+    const DIET_STEP = 6;
+    const totalSteps = 10;
 
     const handleNext = () => {
         if (step < totalSteps - 1) {
@@ -63,41 +78,45 @@ export const OnboardingWizard = ({ onFinish, onBackToLogin }) => {
     };
 
     const handleGenderSelected = (gender) => {
-        setOnboardingData((prev) => ({ ...prev, gender }));
+        setAnswers((prev) => ({ ...prev, gender }));
     };
 
     const handleHeightSelected = (height) => {
-        setOnboardingData((prev) => ({ ...prev, height }));
+        setAnswers((prev) => ({ ...prev, height }));
     };
 
     const handleWeightSelected = (weight) => {
-        setOnboardingData((prev) => ({ ...prev, weight }));
+        setAnswers((prev) => ({ ...prev, weight }));
     };
 
     const handleFitnessLevelSelected = (fitnessLevel) => {
-        setOnboardingData((prev) => ({ ...prev, fitnessLevel }));
+        setAnswers((prev) => ({ ...prev, fitnessLevel }));
     };
 
     const handleActivityStatusSelected = (activityStatus) => {
-        setOnboardingData((prev) => ({ ...prev, activityStatus }));
+        setAnswers((prev) => ({ ...prev, activityStatus }));
     };
 
     const handleGoalSelected = (goal) => {
-        setOnboardingData((prev) => ({ ...prev, goal }));
+        setAnswers((prev) => ({ ...prev, goal }));
     };
 
     const handleTargetWeightSelected = (targetWeight) => {
-        setOnboardingData((prev) => ({ ...prev, targetWeight }));
+        setAnswers((prev) => ({ ...prev, targetWeight }));
     };
 
     const handleDietSelected = (diet) => {
-        setOnboardingData((prev) => ({ ...prev, diet }));
+        setAnswers((prev) => ({ ...prev, diet }));
+    };
+
+    const handleTrainingChange = (changes) => {
+        setAnswers((prev) => ({ ...prev, ...changes }));
     };
 
     const stepLabel = () => {
         if (step === 0) return 'GET STARTED';
         if (step === 1) return 'CONTINUE TO PERSONALIZATION';
-        if (step === totalSteps - 2) return 'CHOOSE MY DIET';
+        if (step === DIET_STEP) return 'CHOOSE MY DIET';
         return 'CONTINUE';
     };
 
@@ -190,7 +209,23 @@ export const OnboardingWizard = ({ onFinish, onBackToLogin }) => {
                 {step === 4 && <GoalStep selectedGoal={onboardingData.goal} onGoalSelected={handleGoalSelected} />}
                 {step === 5 && <WeightStep onWeightSelected={handleTargetWeightSelected} />}
                 {step === 6 && <DietStep selectedDiet={onboardingData.diet} onDietSelected={handleDietSelected} />}
-                {step === 7 && <ProfileStep onboardingData={onboardingData} onComplete={onFinish} />}
+                {step === 7 && (
+                    <FocusStep
+                        selected={onboardingData.focusAreas}
+                        suggested={suggestedFocus}
+                        onChange={(focusAreas) => handleTrainingChange({ focusAreas })}
+                    />
+                )}
+                {step === 8 && (
+                    <TrainingSetupStep
+                        equipment={onboardingData.equipment}
+                        workoutMinutes={onboardingData.workoutMinutes}
+                        daysPerWeek={onboardingData.daysPerWeek}
+                        limitations={onboardingData.limitations}
+                        onChange={handleTrainingChange}
+                    />
+                )}
+                {step === 9 && <ProfileStep onboardingData={onboardingData} onComplete={onFinish} />}
             </div>
 
             {/* Bottom Sticky Action Bar (Steps 0 - 6) */}

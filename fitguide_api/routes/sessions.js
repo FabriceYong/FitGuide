@@ -8,6 +8,7 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 const { isPlus } = require('../services/billing');
 const { rejectInvalid, pick } = require('../utils/validate');
 const { isUniqueViolation } = require('../db/prisma');
+const { calorieFactor } = require('@fitguide/shared');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -61,7 +62,7 @@ function linkExercises(sets, exercises) {
 
 // ─── POST /api/sessions ───────────────────────────────────────────────────────
 // Save a finished (or partly finished) workout. Calories are estimated here
-// from the workout's rate, not taken from the client. With a clientId,
+// from the workout's rate and the user's body, not taken from the client. With a clientId,
 // sending the same session again returns the saved one (200, duplicate: true).
 router.post('/', sessionRules, rejectInvalid, async (req, res, next) => {
   try {
@@ -96,7 +97,8 @@ router.post('/', sessionRules, rejectInvalid, async (req, res, next) => {
     }
 
     const exercises = await exerciseStore.all();
-    const rate = workout.calories && workout.duration ? workout.calories / (workout.duration * 60) : 0;
+    // The workout's rate for a reference adult, scaled to this user's body (see calorieFactor).
+    const rate = workout.calories && workout.duration ? (workout.calories / (workout.duration * 60)) * calorieFactor(req.user) : 0;
     let session;
     try {
       session = await sessionStore.create(req.user.id, {

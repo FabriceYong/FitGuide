@@ -9,7 +9,7 @@ friends and challenges, and a PLUS subscription.
 | `fitguide_api/` | Express API on PostgreSQL (Prisma) |
 | `fitguide_nextjs/` | Next.js 16 web app (React 19, Tailwind 4; new code in TypeScript), installable as a PWA |
 | `packages/shared/` | Enums and limits both apps validate against (`@fitguide/shared`) |
-| `lib/`, `android/`, `ios/`, … | The original Flutter prototype. Not connected to the API and not maintained here |
+| `lib/`, `android/`, `ios/`, `test/` | The mobile app (Flutter): the same pages, features and look as the website, on the same API |
 | `docs/archive/` | Old status notes and one-time scripts, kept for history |
 
 ## Quick start (local)
@@ -42,6 +42,24 @@ Prefer Docker? `docker compose up -d db` at the repo root and use the
 Open the web app on `localhost` (not `127.0.0.1`), the same host as the API,
 so the session cookies are shared.
 
+### Mobile app
+
+Needs Flutter 3.35 or newer (Dart 3.9). With the API running (step 4 above):
+
+```bash
+flutter pub get
+flutter run --dart-define=API_URL=http://localhost:5001/api --dart-define=WEB_URL=http://localhost:3000
+```
+
+Without `API_URL`, debug builds use the local API (`10.0.2.2` from the
+Android emulator, `localhost` elsewhere). On a real phone, use your
+computer's LAN address. `WEB_URL` is where the admin and creator studio
+links open. The app signs in with bearer tokens (`X-Auth-Transport: bearer`)
+kept in the platform's secure storage, so it needs no cookies.
+
+To try it in a browser, add the Flutter dev server's origin to
+`CORS_ORIGINS` in `fitguide_api/.env`.
+
 Useful commands in `fitguide_api/`:
 
 | Command | What it does |
@@ -57,6 +75,7 @@ Useful commands in `fitguide_api/`:
 cd fitguide_api && npm test             # ~180 API tests on a throwaway embedded Postgres
 cd fitguide_nextjs && npm run test:e2e  # Playwright: real browser flows + axe accessibility checks
 cd fitguide_nextjs && npm run lint && npm run typecheck && npm run build
+flutter analyze && flutter test          # mobile app: recommendation rules, screens, accessibility, 200% text
 ```
 
 The end-to-end tests start their own API (port 5055) and web app (port
@@ -122,3 +141,10 @@ keys are set, and show as unavailable otherwise:
   dashboard and all newer pages are TypeScript and held to the strict rules.
 - Apple Health has no web API and Google Fit's REST API is being retired,
   so those users import a CSV instead of connecting directly.
+- Mobile app: the admin CMS and creator studio stay on the website (the app
+  links to them). PLUS checkout and wearable sign-in open in the browser;
+  App Store and Play rules may require in-app purchases before a store
+  release. Release builds are still signed with the debug key and use the
+  default launcher icons. Screen-reader labels and touch sizes are checked
+  by tests, but the app hasn't been tried with TalkBack or VoiceOver on a
+  phone yet.

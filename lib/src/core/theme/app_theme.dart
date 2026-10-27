@@ -1,338 +1,139 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
+/// The website's Tailwind sizes are for desktop screens; on a phone they are
+/// set on this mobile type scale. Small text keeps its size and larger text
+/// shrinks progressively: body 14 → 13.5, base 16 → 15, headings 24 → 20,
+/// 30 → 23, 36 → 26.
+const _mobileScale = <(double, double)>[
+  (12, 12), (14, 13.5), (16, 15), (18, 16), (20, 17), (24, 20), (30, 23), (36, 26), (48, 32), (60, 38),
+];
+
+/// [size] on the mobile type scale, interpolated between its steps.
+double mobileSize(double size) {
+  if (size <= _mobileScale.first.$1) return size;
+  for (var i = 1; i < _mobileScale.length; i++) {
+    final (fromA, toA) = _mobileScale[i - 1];
+    final (fromB, toB) = _mobileScale[i];
+    if (size <= fromB) return toA + (size - fromA) / (fromB - fromA) * (toB - toA);
+  }
+  final (from, to) = _mobileScale.last;
+  return size * to / from;
+}
+
+/// Poppins text, given in the site's sizes (Tailwind: xs 12, sm 14, base 16,
+/// lg 18, xl 20, 2xl 24, 3xl 30, 4xl 36) and drawn on the mobile scale;
+/// bold 700, extrabold 800, black 900.
+TextStyle fg({
+  double size = 14,
+  FontWeight weight = FontWeight.w400,
+  Color color = AppColors.white,
+  double? height,
+  double? letterSpacing,
+  FontStyle? fontStyle,
+  List<FontFeature>? features,
+  TextDecoration? decoration,
+}) {
+  return GoogleFonts.poppins(
+    fontSize: mobileSize(size),
+    fontWeight: weight,
+    color: color,
+    height: height,
+    letterSpacing: letterSpacing,
+    fontStyle: fontStyle,
+    fontFeatures: features,
+    decoration: decoration,
+    decorationColor: color,
+  );
+}
+
+/// `uppercase tracking-wider` labels.
+TextStyle fgLabel({double size = 12, Color color = AppColors.white70, FontWeight weight = FontWeight.w700, double tracking = 0.05}) =>
+    fg(size: size, weight: weight, color: color, letterSpacing: size * tracking);
+
+const tabularFigures = [FontFeature.tabularFigures()];
+
+/// Whether the system text size is well above normal (over 130%), for the few
+/// layouts that stack instead of sitting on one line.
+bool largeText(BuildContext context) => MediaQuery.textScalerOf(context).scale(100) > 130;
+
 class AppTheme {
   static ThemeData get darkTheme {
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
+    final base = ThemeData(useMaterial3: true, brightness: Brightness.dark);
+    return base.copyWith(
       scaffoldBackgroundColor: AppColors.noirEclipse,
-
+      canvasColor: AppColors.noirEclipse,
       colorScheme: const ColorScheme.dark(
         primary: AppColors.limeLight,
         secondary: AppColors.royalNebula,
         surface: AppColors.obsidianWave,
-        surfaceContainerHighest: AppColors.cardSurface,
         onPrimary: AppColors.noirEclipse,
         onSecondary: AppColors.white,
         onSurface: AppColors.white,
-        error: AppColors.error,
+        error: AppColors.red400,
         onError: AppColors.white,
       ),
-
-      // Typography with enhanced hierarchy
-      textTheme: GoogleFonts.interTextTheme(
-        ThemeData.dark().textTheme.copyWith(
-          displayLarge: GoogleFonts.inter(
-            fontSize: 57,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.25,
-            color: AppColors.white,
-            height: 1.12,
-          ),
-          displayMedium: GoogleFonts.inter(
-            fontSize: 45,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0,
-            color: AppColors.white,
-            height: 1.16,
-          ),
-          displaySmall: GoogleFonts.inter(
-            fontSize: 36,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0,
-            color: AppColors.white,
-            height: 1.22,
-          ),
-          headlineLarge: GoogleFonts.inter(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0,
-            color: AppColors.white,
-            height: 1.25,
-          ),
-          headlineMedium: GoogleFonts.inter(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0,
-            color: AppColors.white,
-            height: 1.29,
-          ),
-          headlineSmall: GoogleFonts.inter(
-            fontSize: 24,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0,
-            color: AppColors.white,
-            height: 1.33,
-          ),
-          titleLarge: GoogleFonts.inter(
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0,
-            color: AppColors.white,
-            height: 1.27,
-          ),
-          titleMedium: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.15,
-            color: AppColors.white,
-            height: 1.5,
-          ),
-          titleSmall: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.1,
-            color: AppColors.white,
-            height: 1.43,
-          ),
-          bodyLarge: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.normal,
-            letterSpacing: 0.5,
-            color: AppColors.white90,
-            height: 1.5,
-          ),
-          bodyMedium: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.normal,
-            letterSpacing: 0.25,
-            color: AppColors.white70,
-            height: 1.43,
-          ),
-          bodySmall: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.normal,
-            letterSpacing: 0.4,
-            color: AppColors.white70,
-            height: 1.33,
-          ),
-          labelLarge: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-            color: AppColors.white,
-            height: 1.43,
-          ),
-          labelMedium: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            color: AppColors.white70,
-            height: 1.33,
-          ),
-          labelSmall: GoogleFonts.inter(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.8,
-            color: AppColors.white50,
-            height: 1.2,
-          ),
-        ),
+      textTheme: GoogleFonts.poppinsTextTheme(base.textTheme).apply(bodyColor: AppColors.white, displayColor: AppColors.white),
+      iconTheme: const IconThemeData(color: AppColors.white, size: 20),
+      dividerTheme: DividerThemeData(color: AppColors.white30A(0.1), thickness: 1, space: 1),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: AppColors.limeLight,
+        selectionColor: AppColors.limeLight.withValues(alpha: 0.3),
+        selectionHandleColor: AppColors.limeLight,
       ),
-
-      // Enhanced Button Styles
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style:
-            ElevatedButton.styleFrom(
-              backgroundColor: AppColors.limeLight,
-              foregroundColor: AppColors.noirEclipse,
-              elevation: 0,
-              shadowColor: AppColors.limeLight.withValues(alpha: 0.4),
-              textStyle: GoogleFonts.inter(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                letterSpacing: 0.5,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ).copyWith(
-              elevation: WidgetStateProperty.resolveWith<double>((
-                Set<WidgetState> states,
-              ) {
-                if (states.contains(WidgetState.pressed)) return 2;
-                if (states.contains(WidgetState.hovered)) return 4;
-                return 0;
-              }),
-            ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.limeLight),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppColors.obsidianWave,
+        contentTextStyle: fg(size: 14),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999), side: BorderSide(color: AppColors.white30A(0.2))),
       ),
-
-      // Outlined Button Style
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.white,
-          side: const BorderSide(color: AppColors.white30, width: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          textStyle: GoogleFonts.inter(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            letterSpacing: 0.5,
-          ),
-        ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: AppColors.obsidianWave,
+        headerBackgroundColor: AppColors.noirEclipse,
+        headerForegroundColor: AppColors.white,
+        todayForegroundColor: WidgetStateProperty.all(AppColors.limeLight),
+        dayForegroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? AppColors.noirEclipse : AppColors.white),
+        dayBackgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? AppColors.limeLight : null),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
-
-      // Text Button Style
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.limeLight,
-          textStyle: GoogleFonts.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            letterSpacing: 0.25,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: AppColors.limeLight,
+        inactiveTrackColor: AppColors.whiteA(0.1),
+        thumbColor: AppColors.limeLight,
+        overlayColor: AppColors.limeLight.withValues(alpha: 0.2),
+        trackHeight: 8,
+        // Just enough room for the thumb, so the track lines up with the text around it.
+        padding: const EdgeInsets.symmetric(horizontal: 10),
       ),
-
-      // Card Theme
-      cardTheme: const CardThemeData(
-        color: AppColors.obsidianWave,
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? AppColors.noirEclipse : AppColors.white70),
+        trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? AppColors.limeLight : AppColors.whiteA(0.1)),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? AppColors.limeLight : Colors.transparent),
+        checkColor: WidgetStateProperty.all(AppColors.noirEclipse),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.noirEclipse,
         elevation: 0,
-        shadowColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(20)),
-        ),
-        margin: EdgeInsets.all(0),
-      ),
-
-      // Input Decoration Theme
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: AppColors.obsidianWave,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 16,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.white10, width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.limeLight, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.error, width: 1),
-        ),
-        hintStyle: GoogleFonts.inter(color: AppColors.white30, fontSize: 14),
-        labelStyle: GoogleFonts.inter(color: AppColors.white70, fontSize: 14),
-      ),
-
-      // AppBar Theme
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: false,
-        iconTheme: const IconThemeData(color: AppColors.white),
-        titleTextStyle: GoogleFonts.inter(
-          color: AppColors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-        systemOverlayStyle: const SystemUiOverlayStyle(
+        systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
           systemNavigationBarColor: AppColors.noirEclipse,
           systemNavigationBarIconBrightness: Brightness.light,
         ),
       ),
-
-      // Bottom Navigation Bar Theme
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: AppColors.noirEclipse,
-        selectedItemColor: AppColors.limeLight,
-        unselectedItemColor: AppColors.white30,
-        type: BottomNavigationBarType.fixed,
-        elevation: 0,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
-        selectedLabelStyle: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedLabelStyle: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.normal,
-        ),
-      ),
-
-      // Icon Theme
-      iconTheme: const IconThemeData(color: AppColors.white, size: 24),
-
-      // Divider Theme
-      dividerTheme: const DividerThemeData(
-        color: AppColors.white10,
-        thickness: 1,
-        space: 1,
-      ),
-
-      // Chip Theme
-      chipTheme: ChipThemeData(
-        backgroundColor: AppColors.obsidianWave,
-        deleteIconColor: AppColors.white70,
-        disabledColor: AppColors.white10,
-        selectedColor: AppColors.limeLight,
-        secondarySelectedColor: AppColors.royalNebula,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        labelStyle: GoogleFonts.inter(
-          color: AppColors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-        secondaryLabelStyle: GoogleFonts.inter(
-          color: AppColors.noirEclipse,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-        brightness: Brightness.dark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      ),
-
-      // Dialog Theme
-      dialogTheme: const DialogThemeData(
-        backgroundColor: AppColors.cardSurface,
-        elevation: 8,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(24)),
-        ),
-        titleTextStyle: TextStyle(
-          color: AppColors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-        contentTextStyle: TextStyle(color: AppColors.white70, fontSize: 14),
-      ),
-
-      // Snackbar Theme
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.cardSurface,
-        contentTextStyle: GoogleFonts.inter(
-          color: AppColors.white,
-          fontSize: 14,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        behavior: SnackBarBehavior.floating,
-      ),
-
-      // Page Transitions
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: CupertinoPageTransitionsBuilder(),
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
           TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
           TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
         },
       ),

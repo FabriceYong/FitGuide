@@ -1,6 +1,16 @@
-# Local PostgreSQL for the API (alternative to `npm run db:dev`).
-#   docker compose up -d db
-# then set DATABASE_URL=postgresql://fitguide:fitguide@localhost:5432/fitguide?schema=public
+# The whole FitGuide stack: database, API, website and the Flutter app (web build).
+#
+#   docker compose up -d --build     start everything (first build takes a while)
+#   docker compose down              stop (data is kept in Docker volumes)
+#
+#   Website   http://localhost:3000
+#   App       http://localhost:8080
+#   API       http://localhost:5001/api
+#   Database  postgresql://fitguide:fitguide@localhost:5432/fitguide
+#
+# Ports and optional keys come from a .env file next to this one (copy
+# .env.example to .env). Optional API keys (coach, Stripe, wearables, ...)
+# are also read from fitguide_api/.env when it exists.
 services:
   db:
     image: postgres:17-alpine
@@ -9,7 +19,7 @@ services:
       POSTGRES_PASSWORD: fitguide
       POSTGRES_DB: fitguide
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - fitguide-db:/var/lib/postgresql/data
     healthcheck:
@@ -17,5 +27,65 @@ services:
       interval: 5s
       retries: 10
 
+  api:
+    build:
+      context: .
+      dockerfile: fitguide_api/Dockerfile
+    env_file:
+      - path: fitguide_api/.env
+        required: false
+    # These win over fitguide_api/.env, which is set up for running outside Docker
+    environment:
+      PORT: 5001
+      DATABASE_URL: postgresql://fitguide:fitguide@db:5432/fitguide?schema=public
+      JWT_SECRET: ${JWT_SECRET:-local-docker-only-secret-change-me-0123456789abcdef}
+      CORS_ORIGINS: http://localhost:${WEB_PORT:-3000},http://localhost:${APP_PORT:-8080}
+      WEB_APP_URL: http://localhost:${WEB_PORT:-3000}
+      API_PUBLIC_URL: http://localhost:${API_PORT:-5001}
+      # Plain http on localhost
+      COOKIE_SECURE: "false"
+    ports:
+      - "${API_PORT:-5001}:5001"
+    volumes:
+      - fitguide-uploads:/app/fitguide_api/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5001/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      start_period: 30s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: fitguide_nextjs/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-5001}/api
+        NEXT_PUBLIC_SITE_URL: http://localhost:${WEB_PORT:-3000}
+        NEXT_PUBLIC_UNSPLASH_ACCESS_KEY: ${NEXT_PUBLIC_UNSPLASH_ACCESS_KEY:-}
+    environment:
+      # Server-side rendering reaches the API inside the Docker network
+      API_URL: http://api:5001/api
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      dockerfile: app.Dockerfile
+      args:
+        API_URL: http://localhost:${API_PORT:-5001}/api
+        WEB_URL: http://localhost:${WEB_PORT:-3000}
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      - api
+
 volumes:
   fitguide-db:
+  fitguide-uploads:

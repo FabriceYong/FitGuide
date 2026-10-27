@@ -1,0 +1,26 @@
+# Every image builds from the repo root; keep the context small and secret-free.
+.git
+.claude
+.vscode
+.idea
+docs
+**/node_modules
+**/.next
+**/.env
+**/.env.*
+!**/.env.example
+
+# API runtime data
+fitguide_api/.devdb
+fitguide_api/uploads
+fitguide_nextjs/playwright-report
+fitguide_nextjs/test-results
+
+# Flutter build output and the native platforms (the app image builds for the web)
+.dart_tool
+build
+android
+ios
+linux
+macos
+windows

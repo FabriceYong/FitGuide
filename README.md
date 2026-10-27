@@ -12,10 +12,43 @@ friends and challenges, and a PLUS subscription.
 | `lib/`, `android/`, `ios/`, `test/` | The mobile app (Flutter): the same pages, features and look as the website, on the same API |
 | `docs/archive/` | Old status notes and one-time scripts, kept for history |
 
-## Quick start (local)
+## Quick start (Docker)
 
-Needs Node.js 22 or newer. No Docker needed: the API can run a real
-PostgreSQL from `node_modules`.
+Needs Docker Desktop. From this folder:
+
+```bash
+docker compose up -d --build
+```
+
+That builds and starts all four parts. The first build downloads the
+Flutter SDK and takes several minutes; later starts are quick.
+
+| Part | Address |
+|---|---|
+| Website | http://localhost:3000 |
+| Mobile app (Flutter web build) | http://localhost:8080 |
+| API | http://localhost:5001/api |
+| Database | `postgresql://fitguide:fitguide@localhost:5432/fitguide` |
+
+```bash
+docker compose down                                      # stop (data is kept)
+docker compose logs -f api                               # follow one part's logs
+docker compose up -d --build web                         # rebuild one part after changing it
+docker compose exec api npm run db:seed -- --demo        # add demo@fitguide.com / demo123
+docker compose exec api npm run make-admin -- you@example.com
+docker compose down -v                                   # stop and delete all data
+```
+
+Ports and the Unsplash key are set in a `.env` file next to
+`docker-compose.yml` (copy `.env.example`). Optional API keys (AI coach,
+Stripe, wearables) go in `fitguide_api/.env`, which the API container also
+reads. The images run the production builds; for hot reload while you edit,
+use the local setup below.
+
+## Quick start (local, without Docker)
+
+Needs Node.js 22 or newer. The API can run a real PostgreSQL from
+`node_modules`.
 
 ```bash
 # 1. Install
@@ -36,8 +69,9 @@ npm run dev                   # http://localhost:5001
 cd ../fitguide_nextjs && npm run dev    # http://localhost:3000
 ```
 
-Prefer Docker? `docker compose up -d db` at the repo root and use the
-`DATABASE_URL` from `docker-compose.yml`.
+To use Docker for the database only: `docker compose up -d db`, then set
+`DATABASE_URL=postgresql://fitguide:fitguide@localhost:5432/fitguide?schema=public`
+in `fitguide_api/.env` and skip step 3.
 
 Open the web app on `localhost` (not `127.0.0.1`), the same host as the API,
 so the session cookies are shared.

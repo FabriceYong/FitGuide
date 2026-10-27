@@ -1,9 +1,19 @@
-# syntax=docker/dockerfile:1
 # FitGuide Flutter app, built for the web and served by nginx:
 #   docker compose build app
 # Phones and emulators still use `flutter run` (see README).
+FROM debian:bookworm-slim AS build
+
+# Only the web toolchain: no Android SDK, so the download stays small
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl git unzip xz-utils \
+  && rm -rf /var/lib/apt/lists/*
 ARG FLUTTER_VERSION=3.44.6
-FROM ghcr.io/cirruslabs/flutter:${FLUTTER_VERSION} AS build
+RUN git clone --depth 1 --branch ${FLUTTER_VERSION} https://github.com/flutter/flutter.git /opt/flutter
+ENV PATH=/opt/flutter/bin:$PATH \
+    FLUTTER_SUPPRESS_ANALYTICS=true
+RUN git config --global --add safe.directory /opt/flutter \
+  && flutter config --no-analytics --no-cli-animations \
+  && flutter precache --web --no-android --no-ios
 
 WORKDIR /src
 COPY pubspec.yaml pubspec.lock ./

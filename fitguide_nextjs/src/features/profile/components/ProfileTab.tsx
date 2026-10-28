@@ -414,7 +414,7 @@ function EditProfile({ user, onClose }: { user: AuthUser; onClose: () => void })
   };
 
   return (
-    <Modal title="Edit profile" onClose={onClose} placement="sheet">
+    <Modal title="Edit profile" onClose={onClose} size="lg">
       <form onSubmit={save} className="space-y-5">
         <div className="flex justify-center">
           <div className="relative">

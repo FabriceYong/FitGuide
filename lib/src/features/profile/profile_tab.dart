@@ -102,7 +102,7 @@ class ProfileTab extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   height: 40,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  onPressed: user == null ? null : () => showFgModal<void>(context, title: 'Edit profile', sheet: true, builder: (_) => _EditProfile(user: user)),
+                  onPressed: user == null ? null : () => showFgModal<void>(context, title: 'Edit profile', maxWidth: 672, builder: (_) => _EditProfile(user: user)),
                 ),
                 if (auth.isGuest)
                   FgButton(label: 'Create an account', radius: 12, fontSize: 14, fontWeight: FontWeight.w700, height: 40, padding: const EdgeInsets.symmetric(horizontal: 16), onPressed: auth.startSignUp),

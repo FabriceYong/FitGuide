@@ -31,9 +31,10 @@ export function Modal({
   }, []);
 
   const width = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl' }[size];
+  // Tailwind's reset zeroes the <dialog>'s auto margins, which are what centre it
   const position = placement === 'sheet'
-    ? 'mb-0 sm:mb-auto rounded-t-3xl sm:rounded-3xl'
-    : 'rounded-3xl';
+    ? 'mx-auto mt-auto mb-0 sm:mb-auto rounded-t-3xl sm:rounded-3xl'
+    : 'm-auto rounded-3xl';
   return (
     <dialog
       ref={ref}

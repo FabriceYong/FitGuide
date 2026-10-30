@@ -53,6 +53,9 @@ function matchDemo(name, instruction) {
 // app's web build needs, so they are served through the API
 // (GET /api/exercise-media/picture/:slug/:frame), cached, which also spares
 // wger's server. Free Exercise DB images come from jsDelivr, which allows it.
+// Where clients reach this API, for picture URLs served through it.
+const apiBaseOf = (req) => (process.env.API_PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+
 const slugOf = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const proxied = (media) => media?.source === 'wger';
 
@@ -75,4 +78,4 @@ const publicDemo = (demo, apiBase) => (demo ? { name: demo.name, media: clientMe
 
 const allDemos = (apiBase) => DEMOS.map(({ regexps: _r, ...demo }) => ({ ...demo, media: clientMedia(demo, apiBase) }));
 
-module.exports = { matchDemo, publicDemo, allDemos, pictureSource };
+module.exports = { matchDemo, publicDemo, allDemos, pictureSource, apiBaseOf };

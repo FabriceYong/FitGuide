@@ -8,6 +8,7 @@ import { ApiError } from '../../lib/api';
 import { enrollInProgram, fetchEnrollments, leaveProgram, localToday } from '../../services/trainingService';
 import { LEVEL_COLORS } from './ProgramCard';
 import { scheduleHref } from '../progress/format';
+import { ProgramCoach } from '../coaches/ProgramCoach';
 
 export const STATUS_STYLES = {
     done: { label: 'Done', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
@@ -95,7 +96,12 @@ export function ProgramDetail({ program, workouts }) {
                     <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-white/5 text-white-70">{program.goal}</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl font-extrabold">{program.title}</h1>
-                {program.createdBy && <p className="text-sm text-white-70">By {program.createdBy}, FitGuide creator</p>}
+                {program.createdBy && (
+                    <p className="text-sm text-white-70">
+                        By {program.coachId ? <Link href={`/coaches/${program.coachId}`} className="underline">{program.createdBy}</Link> : program.createdBy}, FitGuide coach
+                        {program.inPerson && <> · trained in person</>}
+                    </p>
+                )}
                 <p className="text-white-70 max-w-3xl leading-relaxed">{program.description}</p>
                 <div className="flex flex-wrap gap-5 text-sm text-white-70">
                     <span className="flex items-center gap-1.5"><CalendarDays className="w-4 h-4" />{program.weeks} weeks</span>
@@ -103,6 +109,8 @@ export function ProgramDetail({ program, workouts }) {
                     <span className="flex items-center gap-1.5"><Check className="w-4 h-4" />{program.days.length} sessions in total</span>
                 </div>
             </section>
+
+            {program.coachId && <ProgramCoach coachId={program.coachId} programTitle={program.title} inPerson={Boolean(program.inPerson)} />}
 
             {/* Enrollment */}
             <section className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-6 space-y-4">

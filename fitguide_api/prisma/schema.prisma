@@ -36,7 +36,7 @@ model User {
   limitations        String[]  @default([])
   workoutMinutes     Int?
   daysPerWeek        Int?
-  role               String    @default("user") // user | admin
+  role               String    @default("user") // user | creator (a coach) | admin
   birthYear          Int?
   // Shared to add friends; created on first use.
   friendCode         String?   @unique
@@ -74,6 +74,8 @@ model User {
   challengesCreated      Challenge[]
   challengeMemberships   ChallengeMember[]
   createdPrograms        Program[]            @relation("ProgramCreator")
+  createdWorkouts        Workout[]            @relation("WorkoutCreator")
+  coachProfile           CoachProfile?
 
   @@map("users")
 }
@@ -127,15 +129,21 @@ model Workout {
   reps             Int?
   isPublished      Boolean  @default(true)
   isPremium        Boolean  @default(false)
+  // Coach-written workouts go through review like coach programs.
+  creatorId        String?
+  status           String   @default("published") // draft | pending | published | rejected
+  reviewNote       String?  @db.VarChar(500)
   viewCount        Int      @default(0)
   likeCount        Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  likes WorkoutLike[]
+  creator User?         @relation("WorkoutCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  likes   WorkoutLike[]
 
   @@index([category])
   @@index([difficulty])
+  @@index([creatorId, status])
   @@map("workouts")
 }
 
@@ -189,6 +197,8 @@ model Program {
   reviewNote    String?  @db.VarChar(500)
   // Only for PLUS members (see billing).
   isPremium     Boolean  @default(false)
+  // Trained in person by the coach: members contact them to request a spot.
+  inPerson      Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -217,6 +227,27 @@ model ProgramDay {
 
   @@unique([programId, week, day])
   @@map("program_days")
+}
+
+// A member's application to coach on FitGuide, and once an admin approves it
+// (which gives them the creator role), their public coach profile. Contact
+// details are shown to signed-in members only.
+model CoachProfile {
+  userId       String   @id
+  status       String   @default("pending") // pending | approved | declined
+  bio          String   @db.VarChar(1000)
+  specialties  String[] @default([])
+  contactEmail String?  @db.VarChar(200)
+  phone        String?  @db.VarChar(40)
+  location     String?  @db.VarChar(120)
+  reviewNote   String?  @db.VarChar(500)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("coach_profiles")
 }
 
 // ─── Per-user data ───────────────────────────────────────────────────────────

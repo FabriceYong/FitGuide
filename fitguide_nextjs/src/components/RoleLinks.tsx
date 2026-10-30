@@ -5,13 +5,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { navLinkClass } from './navLinkClass';
 import { useT } from '../i18n/client';
 
-/** Header links only creators and admins see. */
+/** Header links only coaches (the creator role) and admins see. The admin dashboard has its own AdminButton. */
 export function RoleLinks({ active }: { active?: string }) {
   const { user } = useAuth();
   const t = useT();
   const links = [
     ...(user?.role === 'creator' || user?.role === 'admin' ? [{ href: '/studio', label: t('nav.studio') }] : []),
-    ...(user?.role === 'admin' ? [{ href: '/admin', label: t('nav.admin') }] : []),
   ];
   return (
     <>

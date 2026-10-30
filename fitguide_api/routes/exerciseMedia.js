@@ -11,7 +11,7 @@
 const express = require('express');
 const https = require('https');
 const { gifsAllowed } = require('../utils/media');
-const { matchDemo, publicDemo, allDemos, pictureSource } = require('../utils/exerciseDemos');
+const { matchDemo, publicDemo, allDemos, pictureSource, apiBaseOf: apiBase } = require('../utils/exerciseDemos');
 
 const router = express.Router();
 
@@ -19,9 +19,6 @@ const router = express.Router();
 
 // The list changes only with a deploy; an hour keeps clients close behind.
 const ONE_HOUR = 'public, max-age=3600';
-
-// Where clients reach this API, for picture URLs served through it.
-const apiBase = (req) => (process.env.API_PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
 
 // GET /api/exercise-media/demos: every movement with its patterns and picture,
 // for clients that match steps themselves (the app).

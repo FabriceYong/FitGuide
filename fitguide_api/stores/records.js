@@ -30,12 +30,17 @@ const exerciseCatalog = {
   },
 };
 
-const programInclude = { days: { orderBy: [{ week: 'asc' }, { day: 'asc' }] }, creator: { select: { name: true } } };
-const programPublic = ({ days, ownerId, generatedFrom, creatorId: _c, creator, reviewNote: _r, ...program }) => ({
+const programInclude = {
+  days: { orderBy: [{ week: 'asc' }, { day: 'asc' }] },
+  creator: { select: { name: true, coachProfile: { select: { status: true } } } },
+};
+const programPublic = ({ days, ownerId, generatedFrom, creatorId, creator, reviewNote: _r, ...program }) => ({
   ...catalogPublic(program),
   isPersonal: Boolean(ownerId),
-  // Creator programs show who wrote them (first name + initial).
+  // Creator programs show who wrote them (first name + initial), and link to
+  // the coach's profile (GET /api/coaches/:id) once they have one.
   createdBy: creator ? displayName(creator.name) : null,
+  coachId: creator?.coachProfile?.status === 'approved' ? creatorId : null,
   ...(generatedFrom && { generatedFrom }),
   days: days.map(({ id: _id, programId: _p, notes, ...d }) => (notes ? { ...d, notes } : d)),
 });

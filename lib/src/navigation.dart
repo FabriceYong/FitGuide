@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'core/config.dart';
+import 'features/coaches/coach_screen.dart';
 import 'features/community/community_screen.dart';
 import 'features/nutrition/nutrition_screen.dart';
 import 'features/plan/plan_screen.dart';
@@ -43,11 +44,13 @@ void openWorkout(BuildContext context, String slug) => Navigator.of(context).pus
 
 void openProgram(BuildContext context, String slug) => Navigator.of(context).push(pageRoute(ProgramDetailScreen(slug: slug)));
 
+void openCoach(BuildContext context, String id) => Navigator.of(context).push(pageRoute(CoachScreen(id: id)));
+
 /// Open the guided player for a workout, for a program day when [program] is set.
 void openPlayer(BuildContext context, String slug, {ProgramContext? program}) =>
     Navigator.of(context).push(pageRoute(PlayerScreen(slug: slug, program: program)));
 
-/// Pages that only exist on the website (creator studio, admin).
+/// Pages that only exist on the website (coach studio, admin).
 Future<void> openWebPage(String path) => launchUrl(Uri.parse('${AppConfig.webBase}$path'), mode: LaunchMode.externalApplication);
 
 Future<void> openExternal(String url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -90,6 +93,7 @@ void openHref(BuildContext context, String href) {
   }
   if (path == '/programs') return toDashboard(context, DashboardTab.programs);
   if (path.startsWith('/programs/')) return openProgram(context, path.split('/')[2]);
+  if (path.startsWith('/coaches/')) return openCoach(context, path.split('/')[2]);
   if (path == '/progress') return toDashboard(context, DashboardTab.progress);
   switch (path) {
     case '/plan':

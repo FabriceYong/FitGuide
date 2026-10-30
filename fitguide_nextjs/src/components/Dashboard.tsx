@@ -26,6 +26,7 @@ import { ImageAttribution } from './ImageAttribution';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { Modal } from './Modal';
 import { RoleLinks } from './RoleLinks';
+import { AdminButton } from './AdminButton';
 import { navLinkClass } from './navLinkClass';
 
 const TAB_ITEMS: { id: TabId; label: string; icon: LucideIcon; mobileBar?: boolean }[] = [
@@ -109,6 +110,7 @@ export default function Dashboard() {
               <RoleLinks active="/" />
             </nav>
             <LanguageSwitcher />
+            <AdminButton />
             <button type="button" onClick={() => setTab('profile')} className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-xl hover:bg-white/5">
               <span className="sr-only lg:hidden">Your profile</span>
               <span className="text-right hidden lg:block">
@@ -201,10 +203,11 @@ export default function Dashboard() {
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               {avatar}
-              <span>
+              <span className="flex-1 min-w-0">
                 <span className="block font-bold">{user?.name}</span>
                 <span className="block text-xs text-white-70">{isGuest ? 'Guest' : user?.email}</span>
               </span>
+              <AdminButton />
             </div>
             <nav aria-label="Dashboard sections">
               <ul className="grid grid-cols-2 gap-2">

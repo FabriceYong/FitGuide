@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Dumbbell } from 'lucide-react';
 import { RoleLinks } from './RoleLinks';
+import { AdminButton } from './AdminButton';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { navLinkClass } from './navLinkClass';
 import { getT } from '../i18n/server';
@@ -37,6 +38,7 @@ export async function SiteHeader({ active }) {
             <RoleLinks active={active} />
           </nav>
           <LanguageSwitcher />
+          <AdminButton active={active === '/admin'} />
         </div>
       </div>
     </header>

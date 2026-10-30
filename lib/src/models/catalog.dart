@@ -160,10 +160,18 @@ class ProgramDetail extends ProgramSummary {
   ProgramDetail(super.j, Json workouts)
       : days = asJsonList(j['days']).map(ProgramDay.new).toList(),
         createdBy = asString(j['createdBy']),
+        coachId = asString(j['coachId']),
+        inPerson = asBool(j['inPerson']),
         workouts = workouts.map((slug, w) => MapEntry(slug, Workout(asJson(w))));
 
   final List<ProgramDay> days;
   final String? createdBy;
+
+  /// The coach who wrote it, once they have a coach profile (GET /coaches/:id).
+  final String? coachId;
+
+  /// Trained in person: members contact the coach to request a spot.
+  final bool inPerson;
   final Map<String, Workout> workouts;
 }
 

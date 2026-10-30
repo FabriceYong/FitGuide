@@ -7,12 +7,12 @@ import { Check, Loader2, Pencil, Plus, ShieldCheck, Trash2, X } from 'lucide-rea
 import { CATALOG } from '@fitguide/shared';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  createOfficialChallenge, deleteReview, fetchActivity, fetchAnalytics, fetchAdminPrograms, fetchAdminReviews, fetchAdminWorkouts, fetchStats, fetchUsers,
-  reviewProgram, saveWorkout, setUserRole, setWorkoutFlags,
-  type AdminReview, type AdminUser, type AdminWorkout, type CatalogProgram, type Stats,
+  createOfficialChallenge, deleteReview, fetchActivity, fetchAnalytics, fetchAdminCoaches, fetchAdminPrograms, fetchAdminReviews, fetchAdminWorkouts, fetchStats, fetchUsers,
+  reviewCoach, reviewProgram, saveWorkout, setUserRole, setWorkoutFlags,
+  type AdminCoach, type AdminReview, type AdminUser, type AdminWorkout, type CatalogProgram, type Stats,
 } from '../../services/adminService';
 
-const TABS = ['Overview', 'Analytics', 'Programs', 'Workouts', 'Users', 'Challenges', 'Reviews'] as const;
+const TABS = ['Overview', 'Analytics', 'Coaches', 'Programs', 'Workouts', 'Users', 'Challenges', 'Reviews'] as const;
 type Tab = (typeof TABS)[number];
 
 const card = 'bg-obsidian-wave border border-white-30/10 rounded-2xl p-5';
@@ -38,6 +38,7 @@ function Overview() {
   const tiles: [string, number][] = [
     ['Members', stats.users], ['New this week', stats.newUsers], ['Active this week', stats.activeUsers], ['Workouts this week', stats.sessionsWeek],
     ['PLUS members', stats.plusMembers], ['Programs to review', stats.pendingPrograms], ['Catalog workouts', stats.workouts], ['Reviews', stats.reviews],
+    ['Coach applications', stats.pendingCoaches], ['Coach workouts to review', stats.pendingWorkouts], ['Coaches', stats.coaches],
   ];
   return (
     <div className="space-y-6">
@@ -143,8 +144,14 @@ function Programs() {
   const { data, error, reload } = useLoad(loader);
   const [notes, setNotes] = useState<Record<string, string>>({});
 
+  const [failure, setFailure] = useState<string | null>(null);
   const decide = async (p: CatalogProgram, change: Parameters<typeof reviewProgram>[1]) => {
-    await reviewProgram(p.slug, change);
+    setFailure(null);
+    try {
+      await reviewProgram(p.slug, change);
+    } catch (err) {
+      setFailure((err as Error).message);
+    }
     reload();
   };
 
@@ -159,7 +166,7 @@ function Programs() {
           <option value="">All</option>
         </select>
       </label>
-      {error && <p role="alert" className="text-red-300 text-sm">{error}</p>}
+      {(error || failure) && <p role="alert" className="text-red-300 text-sm">{error || failure}</p>}
       {!data ? <Loader2 className="w-5 h-5 animate-spin" /> : data.length === 0 ? <p className="text-sm text-white-70">Nothing here.</p> : (
         <ul className="space-y-3">
           {data.map((p) => (
@@ -167,7 +174,7 @@ function Programs() {
               <div className="flex flex-wrap justify-between gap-3">
                 <div>
                   <p className="font-bold">{p.title} <span className="text-xs text-white-70 font-normal">· {p.status}{p.isPremium && ' · PLUS'}</span></p>
-                  <p className="text-xs text-white-70">{p.level} · {p.goal} · {p.weeks} weeks · {p.days.length} sessions · by {p.creator?.name || 'FitGuide'}</p>
+                  <p className="text-xs text-white-70">{p.level} · {p.goal} · {p.weeks} weeks · {p.days.length} sessions{p.inPerson && ' · in person'} · by {p.creator?.name || 'FitGuide'}</p>
                 </div>
                 {p.status === 'published' && <Link href={`/programs/${p.slug}`} className="text-xs underline text-white-70">View</Link>}
               </div>
@@ -265,9 +272,35 @@ function WorkoutEditor({ initial, isNew, onDone }: { initial: AdminWorkout; isNe
   );
 }
 
+/** A coach's workout waiting for review: its steps, and publish or reject. */
+function WorkoutReview({ workout: w, onDone }: { workout: AdminWorkout; onDone: () => void }) {
+  const [note, setNote] = useState('');
+  const decide = (change: { status: string; reviewNote?: string | null }) => setWorkoutFlags(w.slug, change).then(onDone);
+  return (
+    <li className={`${card} space-y-3`}>
+      <div>
+        <p className="font-bold">{w.title} <span className="text-xs text-white-70 font-normal">· by {w.creator?.name || 'a coach'}</span></p>
+        <p className="text-xs text-white-70">{w.category} · {w.difficulty} · {w.duration} min · {w.steps.length} steps</p>
+      </div>
+      <p className="text-sm text-white-70">{w.description}</p>
+      <ol className="text-sm list-decimal pl-5 space-y-0.5">
+        {w.steps.map((s, i) => (
+          <li key={i}>{s.instruction}{s.duration ? <span className="text-white-70"> · {s.duration}s</span> : null}{s.exerciseName && <span className="text-white-70"> · demo: {s.exerciseName}</span>}{(s.gifUrl || s.imageUrl) && <span className="text-white-70"> · own picture</span>}</li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={() => decide({ status: 'published', reviewNote: null })} className={`${small} bg-lime-light text-noir-eclipse flex items-center gap-1`}><Check className="w-3.5 h-3.5" /> Publish</button>
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What should change?" aria-label="Rejection note" className={`${field} max-w-xs`} />
+        <button onClick={() => decide({ status: 'rejected', reviewNote: note || 'Please revise and resubmit.' })} className={`${small} bg-white/10 flex items-center gap-1`}><X className="w-3.5 h-3.5" /> Reject</button>
+      </div>
+    </li>
+  );
+}
+
 function Workouts() {
   const [search, setSearch] = useState('');
-  const loader = useCallback(() => fetchAdminWorkouts(search), [search]);
+  const [status, setStatus] = useState('');
+  const loader = useCallback(() => fetchAdminWorkouts(search, status || undefined), [search, status]);
   const { data, error, reload } = useLoad(loader);
   const [editing, setEditing] = useState<{ workout: AdminWorkout; isNew: boolean } | null>(null);
 
@@ -276,16 +309,27 @@ function Workouts() {
     <div className="space-y-4">
       <div className="flex gap-2">
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search workouts" aria-label="Search workouts" className={field} />
+        <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Show" className={`${field} w-auto`}>
+          <option value="">All</option>
+          <option value="pending">Coach workouts to review</option>
+        </select>
         <button onClick={() => setEditing({ workout: emptyWorkout(), isNew: true })} className={`${small} bg-lime-light text-noir-eclipse flex items-center gap-1 shrink-0`}><Plus className="w-3.5 h-3.5" /> New</button>
       </div>
       {error && <p role="alert" className="text-red-300 text-sm">{error}</p>}
-      {!data ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+      {!data ? <Loader2 className="w-5 h-5 animate-spin" /> : status === 'pending' ? (
+        data.length ? <ul className="space-y-3">{data.map((w) => <WorkoutReview key={w.slug} workout={w} onDone={reload} />)}</ul> : <p className="text-sm text-white-70">Nothing to review.</p>
+      ) : (
         <ul className="divide-y divide-white-30/10">
           {data.map((w) => (
             <li key={w.slug} className="flex flex-wrap items-center gap-3 py-2.5">
               <div className="flex-1 min-w-[200px]">
                 <p className={`font-semibold text-sm ${w.isPublished ? '' : 'text-white-70 line-through'}`}>{w.title}</p>
-                <p className="text-xs text-white-70">{w.category} · {w.difficulty} · {w.duration} min</p>
+                <p className="text-xs text-white-70">
+                  {w.category} · {w.difficulty} · {w.duration} min
+                  {w.creator && ` · by ${w.creator.name}`}
+                  {w.status === 'pending' && ' · waiting for review'}
+                  {w.status === 'rejected' && ' · changes requested'}
+                </p>
               </div>
               <label className="text-xs font-bold flex items-center gap-1.5"><input type="checkbox" checked={w.isPublished} onChange={(e) => setWorkoutFlags(w.slug, { isPublished: e.target.checked }).then(reload)} className="accent-lime-light" /> Published</label>
               <label className="text-xs font-bold flex items-center gap-1.5"><input type="checkbox" checked={w.isPremium} onChange={(e) => setWorkoutFlags(w.slug, { isPremium: e.target.checked }).then(reload)} className="accent-lime-light" /> PLUS</label>
@@ -319,13 +363,64 @@ function Users() {
                 </div>
                 <select value={u.role} disabled={u.id === me?.id} aria-label={`Role for ${u.name}`} onChange={(e) => setUserRole(u.id, e.target.value as AdminUser['role']).then(reload)} className={`${field} w-auto`}>
                   <option value="user">Member</option>
-                  <option value="creator">Creator</option>
+                  <option value="creator">Coach</option>
                   <option value="admin">Admin</option>
                 </select>
               </li>
             ))}
           </ul>
         </>
+      )}
+    </div>
+  );
+}
+
+function Coaches() {
+  const [status, setStatus] = useState('pending');
+  const loader = useCallback(() => fetchAdminCoaches(status || undefined), [status]);
+  const { data, error, reload } = useLoad(loader);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const decide = (c: AdminCoach, change: Parameters<typeof reviewCoach>[1]) => reviewCoach(c.userId, change).then(reload);
+  const STATUS: Record<AdminCoach['status'], string> = { pending: 'Waiting for review', approved: 'Approved coach', declined: 'Declined' };
+
+  return (
+    <div className="space-y-4">
+      <label className="text-xs font-bold text-white-70 inline-flex items-center gap-2">Show
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className={`${field} w-auto`}>
+          <option value="pending">Applications to review</option>
+          <option value="approved">Approved coaches</option>
+          <option value="declined">Declined</option>
+          <option value="">All</option>
+        </select>
+      </label>
+      <p className="text-xs text-white-70">Approving an application makes the member a coach: they get the coach studio, and their profile and contact details appear on their programs. Declining an approved coach takes that away again.</p>
+      {error && <p role="alert" className="text-red-300 text-sm">{error}</p>}
+      {!data ? <Loader2 className="w-5 h-5 animate-spin" /> : data.length === 0 ? <p className="text-sm text-white-70">Nothing here.</p> : (
+        <ul className="space-y-3">
+          {data.map((c) => (
+            <li key={c.userId} className={`${card} space-y-3`}>
+              <div className="flex flex-wrap justify-between gap-3">
+                <div>
+                  <p className="font-bold">{c.name} <span className="text-xs text-white-70 font-normal">· {STATUS[c.status]} · account {c.email}</span></p>
+                  {c.specialties.length > 0 && <p className="text-xs text-white-70">{c.specialties.join(' · ')}</p>}
+                </div>
+                {c.status === 'approved' && <Link href={`/coaches/${c.userId}`} className="text-xs underline text-white-70">Profile</Link>}
+              </div>
+              <p className="text-sm text-white-70 whitespace-pre-line">{c.bio}</p>
+              <p className="text-xs text-white-70">{[c.contactEmail, c.phone, c.location].filter(Boolean).join(' · ')}</p>
+              {c.reviewNote && <p className="text-xs text-amber-200">Note: {c.reviewNote}</p>}
+              <div className="flex flex-wrap items-center gap-2">
+                {c.status !== 'approved' && <button onClick={() => decide(c, { status: 'approved', reviewNote: null })} className={`${small} bg-lime-light text-noir-eclipse flex items-center gap-1`}><Check className="w-3.5 h-3.5" /> Approve</button>}
+                {c.status !== 'declined' && (
+                  <>
+                    <input value={notes[c.userId] || ''} onChange={(e) => setNotes({ ...notes, [c.userId]: e.target.value })} placeholder="Reason (shown to them)" aria-label={`Reason for declining ${c.name}`} className={`${field} max-w-xs`} />
+                    <button onClick={() => decide(c, { status: 'declined', reviewNote: notes[c.userId] || null })} className={`${small} bg-white/10 flex items-center gap-1`}><X className="w-3.5 h-3.5" /> {c.status === 'approved' ? 'Remove coach' : 'Decline'}</button>
+                  </>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -401,6 +496,7 @@ export function AdminView() {
       <div role="tabpanel">
         {tab === 'Overview' && <Overview />}
         {tab === 'Analytics' && <AnalyticsTab />}
+        {tab === 'Coaches' && <Coaches />}
         {tab === 'Programs' && <Programs />}
         {tab === 'Workouts' && <Workouts />}
         {tab === 'Users' && <Users />}

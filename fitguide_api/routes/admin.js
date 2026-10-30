@@ -1,6 +1,7 @@
 /**
- * Admin CMS: catalog editing, program review, user roles, official
- * challenges, review moderation and usage stats. Admins only.
+ * Admin CMS: catalog editing, review of coach programs and workouts, coach
+ * applications, user roles, official challenges, review moderation and usage
+ * stats. Admins only.
  */
 const express = require('express');
 const crypto = require('crypto');
@@ -34,7 +35,7 @@ const handle = (fn) => async (req, res, next) => {
 
 router.get('/stats', handle(async (_req, res) => {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [users, newUsers, sessionsWeek, activeUsers, reviews, pendingPrograms, workouts, plus] = await Promise.all([
+  const [users, newUsers, sessionsWeek, activeUsers, reviews, pendingPrograms, workouts, plus, pendingWorkouts, pendingCoaches, coaches] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { createdAt: { gte: weekAgo } } }),
     prisma.workoutSession.count({ where: { completedAt: { gte: weekAgo } } }),
@@ -43,19 +44,31 @@ router.get('/stats', handle(async (_req, res) => {
     prisma.program.count({ where: { status: 'pending', ownerId: null } }),
     prisma.workout.count(),
     prisma.user.count({ where: { plan: 'plus' } }).catch(() => 0),
+    prisma.workout.count({ where: { status: 'pending' } }),
+    prisma.coachProfile.count({ where: { status: 'pending' } }),
+    prisma.user.count({ where: { role: 'creator' } }),
   ]);
-  res.json({ success: true, stats: { users, newUsers, sessionsWeek, activeUsers, reviews, pendingPrograms, workouts, plusMembers: plus } });
+  res.json({
+    success: true,
+    stats: { users, newUsers, sessionsWeek, activeUsers, reviews, pendingPrograms, workouts, plusMembers: plus, pendingWorkouts, pendingCoaches, coaches },
+  });
 }));
 
 // ─── Workouts ─────────────────────────────────────────────────────────────────
 
-router.get('/workouts', handle(async (req, res) => {
+// GET /api/admin/workouts?search=&status=pending — coach workouts come with their author.
+router.get('/workouts', [query('status').optional().isIn(['draft', 'pending', 'published', 'rejected'])], rejectInvalid, handle(async (req, res) => {
   const search = req.query.search ? String(req.query.search).slice(0, 100) : '';
   const workouts = await prisma.workout.findMany({
-    where: search ? { title: { contains: search, mode: 'insensitive' } } : {},
+    where: {
+      ...(search && { title: { contains: search, mode: 'insensitive' } }),
+      // A coach's drafts stay private until they submit them.
+      ...(req.query.status ? { status: req.query.status } : { NOT: { status: 'draft', creatorId: { not: null } } }),
+    },
+    include: { creator: { select: { id: true, name: true } } },
     orderBy: { createdAt: 'asc' },
   });
-  res.json({ success: true, workouts: workouts.map(({ id: _id, ...w }) => w) });
+  res.json({ success: true, workouts: workouts.map(({ id: _id, creatorId: _c, ...w }) => w) });
 }));
 
 router.post('/workouts', handle(async (req, res) => {
@@ -65,20 +78,29 @@ router.post('/workouts', handle(async (req, res) => {
 }));
 
 router.put('/workouts/:slug', handle(async (req, res) => {
-  const { slug, ...data } = validate(schemas.workout, { ...req.body, slug: req.params.slug });
+  const { slug, ...fields } = validate(schemas.workout, { ...req.body, slug: req.params.slug });
+  const data = { ...fields, steps: catalogAdmin.withDemoNames(fields.steps), ...(fields.isPublished && { status: 'published' }) };
   const { count } = await prisma.workout.updateMany({ where: { slug }, data });
   if (!count) return res.status(404).json({ success: false, message: 'Workout not found.' });
   res.json({ success: true, workout: await prisma.workout.findUnique({ where: { slug } }) });
 }));
 
-// Publish/unpublish or mark premium. Workouts are never deleted, because
-// sessions, favorites and programs refer to them by slug.
+// Publish/unpublish or mark premium, or review a coach's workout
+// ({ status: published|rejected|draft, reviewNote }). Workouts are never
+// deleted, because sessions, favorites and programs refer to them by slug.
 router.patch(
   '/workouts/:slug',
-  [body('isPublished').optional().isBoolean().toBoolean(), body('isPremium').optional().isBoolean().toBoolean()],
+  [
+    body('isPublished').optional().isBoolean().toBoolean(),
+    body('isPremium').optional().isBoolean().toBoolean(),
+    body('status').optional().isIn(['published', 'rejected', 'draft']),
+    body('reviewNote').optional({ values: 'null' }).isString().isLength({ max: 500 }),
+  ],
   rejectInvalid,
   handle(async (req, res) => {
-    const data = Object.fromEntries(['isPublished', 'isPremium'].filter((k) => req.body[k] !== undefined).map((k) => [k, req.body[k]]));
+    const data = Object.fromEntries(['isPublished', 'isPremium', 'reviewNote'].filter((k) => req.body[k] !== undefined).map((k) => [k, req.body[k]]));
+    if (req.body.isPublished) data.status = 'published';
+    if (req.body.status) Object.assign(data, { status: req.body.status, isPublished: req.body.status === 'published' });
     const { count } = await prisma.workout.updateMany({ where: { slug: req.params.slug }, data });
     if (!count) return res.status(404).json({ success: false, message: 'Workout not found.' });
     res.json({ success: true });
@@ -139,6 +161,13 @@ router.patch(
     if (req.body.status) Object.assign(data, { status: req.body.status, isPublished: req.body.status === 'published' });
     if (req.body.reviewNote !== undefined) data.reviewNote = req.body.reviewNote;
     if (req.body.isPremium !== undefined) data.isPremium = req.body.isPremium;
+    if (req.body.status === 'published') {
+      const program = await prisma.program.findFirst({ where: { slug: req.params.slug, ownerId: null } });
+      const waiting = program ? await catalogAdmin.unpublishedWorkouts(program.id) : [];
+      if (waiting.length) {
+        return res.status(409).json({ success: false, message: `Publish the coach's workouts first: ${waiting.join(', ')}` });
+      }
+    }
     const { count } = await prisma.program.updateMany({ where: { slug: req.params.slug, ownerId: null }, data });
     if (!count) return res.status(404).json({ success: false, message: 'Program not found.' });
     const program = await prisma.program.findUnique({ where: { slug: req.params.slug }, include: catalogAdmin.include });
@@ -173,6 +202,43 @@ router.patch('/users/:id', [body('role').isIn(ROLES)], rejectInvalid, handle(asy
   if (!count) return res.status(404).json({ success: false, message: 'User not found.' });
   res.json({ success: true });
 }));
+
+// ─── Coach applications ───────────────────────────────────────────────────────
+
+// GET /api/admin/coaches?status=pending — applications and approved coaches
+router.get('/coaches', [query('status').optional().isIn(['pending', 'approved', 'declined'])], rejectInvalid, handle(async (req, res) => {
+  const profiles = await prisma.coachProfile.findMany({
+    where: req.query.status ? { status: req.query.status } : {},
+    include: { user: { select: { name: true, email: true, role: true } } },
+    orderBy: [{ status: 'desc' }, { updatedAt: 'desc' }],
+  });
+  res.json({
+    success: true,
+    coaches: profiles.map(({ user, ...p }) => ({ ...p, name: user.name, email: user.email, role: user.role })),
+  });
+}));
+
+// PATCH /api/admin/coaches/:userId { status: approved|declined, reviewNote? }
+// Approving makes the member a coach (the creator role); declining an
+// approved coach takes the role away again. Admins keep their own role.
+router.patch(
+  '/coaches/:userId',
+  [body('status').isIn(['approved', 'declined']), body('reviewNote').optional({ values: 'null' }).isString().isLength({ max: 500 })],
+  rejectInvalid,
+  handle(async (req, res) => {
+    const profile = await prisma.coachProfile.findUnique({ where: { userId: req.params.userId }, include: { user: { select: { role: true } } } });
+    if (!profile) return res.status(404).json({ success: false, message: 'Application not found.' });
+    const role = req.body.status === 'approved' ? 'creator' : 'user';
+    await prisma.$transaction([
+      prisma.coachProfile.update({
+        where: { userId: profile.userId },
+        data: { status: req.body.status, reviewNote: req.body.reviewNote ?? null },
+      }),
+      ...(profile.user.role === 'admin' ? [] : [prisma.user.update({ where: { id: profile.userId }, data: { role } })]),
+    ]);
+    res.json({ success: true });
+  }),
+);
 
 // ─── Official challenges ──────────────────────────────────────────────────────
 

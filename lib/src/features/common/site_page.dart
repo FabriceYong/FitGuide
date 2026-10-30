@@ -13,6 +13,7 @@ import '../nutrition/nutrition_screen.dart';
 import '../plan/plan_screen.dart';
 import '../plus/plus_screen.dart';
 import '../workout/workouts_catalog_screen.dart';
+import 'admin_button.dart';
 import 'brand.dart';
 
 /// The layout of the website's standalone pages (/plan, /nutrition, …):
@@ -88,7 +89,6 @@ class SiteHeader extends StatelessWidget {
     final links = [
       for (final (href, key) in _links) (href, locale.t(key)),
       if (user?.isCreator ?? false) ('/studio', locale.t('nav.studio')),
-      if (user?.isAdmin ?? false) ('/admin', locale.t('nav.admin')),
     ];
     final canPop = Navigator.of(context).canPop();
     // On a tablet the links sit in the header row, as on the website; on a
@@ -135,6 +135,8 @@ class SiteHeader extends StatelessWidget {
                     ] else
                       const Spacer(),
                     const LanguageSwitcher(),
+                    const SizedBox(width: 8),
+                    const AdminButton(),
                   ],
                 ),
               ),

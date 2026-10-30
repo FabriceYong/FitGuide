@@ -6,23 +6,22 @@ import { Loader2, PenTool, Plus, Send, Trash2 } from 'lucide-react';
 import { CATALOG } from '@fitguide/shared';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  createProgram, deleteProgram, fetchMyPrograms, fetchWorkoutOptions, submitProgram, updateProgram,
-  type CatalogProgram, type ProgramInput,
+  createProgram, deleteProgram, fetchCoachProfile, fetchMyPrograms, fetchMyWorkouts, fetchWorkoutOptions, saveCoachProfile, submitProgram, updateProgram,
+  type CatalogProgram, type CoachApplication, type CoachWorkout, type CoachWorkoutInput, type ProgramInput,
 } from '../../services/adminService';
+import { CoachProfileForm, emptyCoachProfile } from '../coaches/CoachProfileForm';
+import { StudioDashboard } from './StudioDashboard';
+import { CoachWorkoutEditor, STATUS_TEXT, WorkoutList, blankWorkout, toInput } from './StudioWorkouts';
 
 const card = 'bg-obsidian-wave border border-white-30/10 rounded-2xl p-5';
 const field = 'w-full bg-noir-eclipse border border-white-30/20 rounded-xl px-3 py-2 text-sm text-white';
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const STATUS_TEXT: Record<CatalogProgram['status'], string> = {
-  draft: 'Draft',
-  pending: 'Waiting for review',
-  published: 'Published',
-  rejected: 'Changes requested',
-};
+const TABS = ['Dashboard', 'Workouts', 'Programs', 'Profile'] as const;
+type Tab = (typeof TABS)[number];
 
-type WorkoutOption = { slug: string; title: string; category: string; duration: number };
+type WorkoutOption = { slug: string; title: string; category: string; duration: number; mine?: boolean };
 
-const blank = (): ProgramInput => ({ title: '', description: '', level: 'Beginner', goal: '', weeks: 4, daysPerWeek: 3, days: [] });
+const blank = (): ProgramInput => ({ title: '', description: '', level: 'Beginner', goal: '', weeks: 4, daysPerWeek: 3, inPerson: false, days: [] });
 
 function ProgramEditor({ initial, slug, workouts, onDone }: { initial: ProgramInput; slug: string | null; workouts: WorkoutOption[]; onDone: () => void }) {
   const [p, setP] = useState<ProgramInput>(initial);
@@ -60,6 +59,9 @@ function ProgramEditor({ initial, slug, workouts, onDone }: { initial: ProgramIn
     }
   };
 
+  const mine = workouts.filter((w) => w.mine);
+  const catalog = workouts.filter((w) => !w.mine);
+
   return (
     <form onSubmit={submit} className={`${card} space-y-4`}>
       <h2 className="font-extrabold text-lg">{slug ? 'Edit program' : 'New program'}</h2>
@@ -72,6 +74,10 @@ function ProgramEditor({ initial, slug, workouts, onDone }: { initial: ProgramIn
         </label>
         <label className="text-xs font-bold text-white-70">Weeks
           <select value={p.weeks} onChange={(e) => setP({ ...p, weeks: Number(e.target.value) })} className={`${field} mt-1`}>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n}>{n}</option>)}</select>
+        </label>
+        <label className="md:col-span-2 text-sm font-bold flex items-start gap-2">
+          <input type="checkbox" checked={Boolean(p.inPerson)} onChange={(e) => setP({ ...p, inPerson: e.target.checked })} className="accent-lime-light mt-1" />
+          <span>I train people in person for this program<span className="block text-xs font-normal text-white-70">Members see your contact details and a button to request a spot.</span></span>
         </label>
       </div>
 
@@ -88,7 +94,14 @@ function ProgramEditor({ initial, slug, workouts, onDone }: { initial: ProgramIn
                 <label key={name} className="text-[11px] font-bold text-white-70">{name}
                   <select value={slot(week, i + 1)} onChange={(e) => setSlot(week, i + 1, e.target.value)} className={`${field} mt-1 text-xs`}>
                     <option value="">Rest</option>
-                    {workouts.map((w) => <option key={w.slug} value={w.slug}>{w.title} ({w.duration}m)</option>)}
+                    {mine.length > 0 && (
+                      <optgroup label="Your workouts">
+                        {mine.map((w) => <option key={w.slug} value={w.slug}>{w.title} ({w.duration}m)</option>)}
+                      </optgroup>
+                    )}
+                    <optgroup label="FitGuide catalog">
+                      {catalog.map((w) => <option key={w.slug} value={w.slug}>{w.title} ({w.duration}m)</option>)}
+                    </optgroup>
                   </select>
                 </label>
               ))}
@@ -106,19 +119,50 @@ function ProgramEditor({ initial, slug, workouts, onDone }: { initial: ProgramIn
   );
 }
 
-/** /studio: creators write programs and submit them for review. */
+function CoachProfileTab() {
+  const [profile, setProfile] = useState<CoachApplication | null | undefined>(undefined);
+  const [saved, setSaved] = useState(false);
+  const { user } = useAuth();
+  useEffect(() => {
+    fetchCoachProfile().then(setProfile).catch(() => setProfile(null));
+  }, []);
+  if (profile === undefined) return <Loader2 className="w-5 h-5 animate-spin" />;
+  return (
+    <div className={`${card} space-y-4 max-w-3xl`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-extrabold text-lg">Your coach profile</h2>
+        {profile && user && <Link href={`/coaches/${user.id}`} className="text-xs font-bold underline text-white-70">See your public profile</Link>}
+      </div>
+      <CoachProfileForm
+        initial={profile || emptyCoachProfile()}
+        submitLabel="Save profile"
+        onSubmit={async (input) => {
+          setProfile(await saveCoachProfile(input));
+          setSaved(true);
+        }}
+      />
+      {saved && <p role="status" className="text-sm text-lime-light">Saved.</p>}
+    </div>
+  );
+}
+
+/** /studio: coaches see who follows their programs, and write workouts and programs for review. */
 export function StudioView() {
   const { ready, user } = useAuth();
+  const [tab, setTab] = useState<Tab>('Dashboard');
   const [programs, setPrograms] = useState<CatalogProgram[] | null>(null);
-  const [workouts, setWorkouts] = useState<WorkoutOption[]>([]);
+  const [myWorkouts, setMyWorkouts] = useState<CoachWorkout[] | null>(null);
+  const [catalog, setCatalog] = useState<WorkoutOption[]>([]);
   const [editing, setEditing] = useState<{ input: ProgramInput; slug: string | null } | null>(null);
+  const [editingWorkout, setEditingWorkout] = useState<{ input: CoachWorkoutInput; slug: string | null } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const allowed = user?.role === 'creator' || user?.role === 'admin';
 
-  const load = useCallback(() => Promise.all([fetchMyPrograms(), fetchWorkoutOptions()]), []);
-  const show = useCallback(([mine, all]: [CatalogProgram[], WorkoutOption[]]) => {
+  const load = useCallback(() => Promise.all([fetchMyPrograms(), fetchMyWorkouts(), fetchWorkoutOptions()]), []);
+  const show = useCallback(([mine, workouts, all]: [CatalogProgram[], CoachWorkout[], WorkoutOption[]]) => {
     setPrograms(mine);
-    setWorkouts(all);
+    setMyWorkouts(workouts);
+    setCatalog(all);
   }, []);
   const refresh = () => load().then(show).catch((err: Error) => setMessage(err.message));
 
@@ -140,48 +184,88 @@ export function StudioView() {
   if (!allowed) {
     return (
       <div className={`${card} space-y-2`}>
-        <h1 className="text-2xl font-extrabold">Creator studio</h1>
-        <p className="text-white-70 text-sm">The studio is for FitGuide creators. Coaches and trainers who&apos;d like to publish programs can ask the FitGuide team for creator access.</p>
+        <h1 className="text-2xl font-extrabold">Coach studio</h1>
+        <p className="text-white-70 text-sm">The studio is for FitGuide coaches. Coaches and trainers can apply from their profile: open your profile and choose <strong>Become a coach</strong>.</p>
       </div>
     );
   }
 
+  // Your own workouts (any status) can go in your programs; they must be published before the program.
+  const workoutOptions: WorkoutOption[] = [
+    ...(myWorkouts || []).filter((w) => !w.isPublished).map((w) => ({ slug: w.slug, title: `${w.title} · ${STATUS_TEXT[w.status].toLowerCase()}`, category: w.category, duration: w.duration, mine: true })),
+    ...catalog.map((w) => ({ ...w, mine: (myWorkouts || []).some((m) => m.slug === w.slug) })),
+  ];
+
+  const switchTab = (next: Tab) => {
+    setTab(next);
+    setMessage(null);
+    setEditing(null);
+    setEditingWorkout(null);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl md:text-4xl font-extrabold flex items-center gap-3"><PenTool className="w-8 h-8 text-lime-light" /> Creator studio</h1>
-        {!editing && <button onClick={() => setEditing({ input: blank(), slug: null })} className="flex items-center gap-1.5 text-sm font-bold px-4 py-2.5 rounded-xl bg-lime-light text-noir-eclipse"><Plus className="w-4 h-4" /> New program</button>}
+      <h1 className="text-3xl md:text-4xl font-extrabold flex items-center gap-3"><PenTool className="w-8 h-8 text-lime-light" /> Coach studio</h1>
+      <div role="tablist" aria-label="Studio sections" className="flex flex-wrap gap-2">
+        {TABS.map((t) => (
+          <button key={t} role="tab" aria-selected={tab === t} onClick={() => switchTab(t)} className={`text-xs font-bold px-3 py-2 rounded-lg ${tab === t ? 'bg-lime-light text-noir-eclipse' : 'bg-white/10'}`}>{t}</button>
+        ))}
       </div>
-      <p className="text-sm text-white-70 max-w-3xl">Build a multi-week program from catalog workouts. When it&apos;s ready, submit it: the FitGuide team reviews it before it appears in Programs with your name.</p>
       {message && <p role="status" className="text-sm bg-white/5 border border-white-30/10 rounded-xl px-4 py-3">{message}</p>}
 
-      {editing ? (
-        <ProgramEditor initial={editing.input} slug={editing.slug} workouts={workouts} onDone={() => { setEditing(null); refresh(); }} />
-      ) : !programs ? <Loader2 className="w-5 h-5 animate-spin" /> : programs.length === 0 ? (
-        <p className="text-white-70 text-sm">You haven&apos;t written a program yet.</p>
-      ) : (
-        <ul className="space-y-3">
-          {programs.map((p) => (
-            <li key={p.slug} className={`${card} flex flex-wrap items-start justify-between gap-3`}>
-              <div className="min-w-0">
-                <p className="font-bold">{p.title}</p>
-                <p className="text-xs text-white-70">{STATUS_TEXT[p.status]} · {p.weeks} weeks · {p.days.length} sessions</p>
-                {p.status === 'rejected' && p.reviewNote && <p className="text-sm text-amber-200 mt-1">Reviewer: {p.reviewNote}</p>}
-              </div>
-              <div className="flex gap-2">
-                {p.status === 'published' && <Link href={`/programs/${p.slug}`} className="text-xs font-bold px-3 py-2 rounded-lg bg-white/10">View</Link>}
-                {(p.status === 'draft' || p.status === 'rejected') && (
-                  <>
-                    <button onClick={() => setEditing({ input: { title: p.title, description: p.description, level: p.level, goal: p.goal, weeks: p.weeks, daysPerWeek: p.daysPerWeek, days: p.days }, slug: p.slug })} className="text-xs font-bold px-3 py-2 rounded-lg bg-white/10">Edit</button>
-                    <button onClick={() => act(() => submitProgram(p.slug), 'Submitted for review.')} className="flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-lg bg-lime-light text-noir-eclipse"><Send className="w-3.5 h-3.5" /> Submit</button>
-                    <button onClick={() => window.confirm(`Delete ${p.title}?`) && act(() => deleteProgram(p.slug), 'Deleted.')} aria-label={`Delete ${p.title}`} className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-red-300"><Trash2 className="w-4 h-4" /></button>
-                  </>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div role="tabpanel" className="space-y-4">
+        {tab === 'Dashboard' && <StudioDashboard />}
+
+        {tab === 'Workouts' && (editingWorkout ? (
+          <CoachWorkoutEditor initial={editingWorkout.input} slug={editingWorkout.slug} onDone={() => { setEditingWorkout(null); refresh(); }} />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-white-70 max-w-3xl">Write your own workouts step by step. Publish one to send it for review: it joins the catalog once the FitGuide team approves it. Drafts stay private, and you can use them in your programs.</p>
+              <button onClick={() => setEditingWorkout({ input: blankWorkout(), slug: null })} className="flex items-center gap-1.5 text-sm font-bold px-4 py-2.5 rounded-xl bg-lime-light text-noir-eclipse"><Plus className="w-4 h-4" /> New workout</button>
+            </div>
+            {!myWorkouts ? <Loader2 className="w-5 h-5 animate-spin" /> : <WorkoutList workouts={myWorkouts} onEdit={(w) => setEditingWorkout({ input: toInput(w), slug: w.slug })} act={act} />}
+          </>
+        ))}
+
+        {tab === 'Programs' && (editing ? (
+          <ProgramEditor initial={editing.input} slug={editing.slug} workouts={workoutOptions} onDone={() => { setEditing(null); refresh(); }} />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-white-70 max-w-3xl">Build a multi-week program from your workouts and the catalog. When it&apos;s ready, publish it: the FitGuide team reviews it (and any of your workouts in it) before it appears in Programs with your name.</p>
+              <button onClick={() => setEditing({ input: blank(), slug: null })} className="flex items-center gap-1.5 text-sm font-bold px-4 py-2.5 rounded-xl bg-lime-light text-noir-eclipse"><Plus className="w-4 h-4" /> New program</button>
+            </div>
+            {!programs ? <Loader2 className="w-5 h-5 animate-spin" /> : programs.length === 0 ? (
+              <p className="text-white-70 text-sm">You haven&apos;t written a program yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {programs.map((p) => (
+                  <li key={p.slug} className={`${card} flex flex-wrap items-start justify-between gap-3`}>
+                    <div className="min-w-0">
+                      <p className="font-bold">{p.title}</p>
+                      <p className="text-xs text-white-70">{STATUS_TEXT[p.status]} · {p.weeks} weeks · {p.days.length} sessions{p.inPerson && ' · in person'}</p>
+                      {p.status === 'rejected' && p.reviewNote && <p className="text-sm text-amber-200 mt-1">Reviewer: {p.reviewNote}</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      {p.status === 'published' && <Link href={`/programs/${p.slug}`} className="text-xs font-bold px-3 py-2 rounded-lg bg-white/10">View</Link>}
+                      {(p.status === 'draft' || p.status === 'rejected') && (
+                        <>
+                          <button onClick={() => setEditing({ input: { title: p.title, description: p.description, level: p.level, goal: p.goal, weeks: p.weeks, daysPerWeek: p.daysPerWeek, inPerson: p.inPerson, days: p.days }, slug: p.slug })} className="text-xs font-bold px-3 py-2 rounded-lg bg-white/10">Edit</button>
+                          <button onClick={() => act(() => submitProgram(p.slug), 'Sent for review.')} className="flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-lg bg-lime-light text-noir-eclipse"><Send className="w-3.5 h-3.5" /> Publish</button>
+                          <button onClick={() => window.confirm(`Delete ${p.title}?`) && act(() => deleteProgram(p.slug), 'Deleted.')} aria-label={`Delete ${p.title}`} className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-red-300"><Trash2 className="w-4 h-4" /></button>
+                        </>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ))}
+
+        {tab === 'Profile' && <CoachProfileTab />}
+      </div>
     </div>
   );
 }

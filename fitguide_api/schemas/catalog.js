@@ -1,6 +1,6 @@
 /**
  * Validation for catalog content edited through the admin CMS and the
- * creator studio: workouts, exercises and programs.
+ * creator studio (workouts, exercises and programs), and coach profiles.
  */
 const { z } = require('zod');
 const { CATALOG } = require('@fitguide/shared');
@@ -76,6 +76,7 @@ const program = z.object({
   goal: text(60).min(2),
   weeks: z.number().int().min(1).max(12),
   daysPerWeek: z.number().int().min(1).max(7),
+  inPerson: z.boolean().default(false),
   days: z.array(programDay).min(1).max(84),
 }).superRefine((p, ctx) => {
   const seen = new Set();
@@ -87,4 +88,15 @@ const program = z.object({
   });
 });
 
-module.exports = { schemas: { workout, exercise, program, programDay } };
+// Empty strings clear an optional contact field.
+const optional = (schema) => z.preprocess((v) => (typeof v === 'string' && !v.trim() ? null : v), schema.nullish());
+
+const coachProfile = z.object({
+  bio: text(1000).min(20, 'tell members about yourself in at least 20 characters'),
+  specialties: list(10, 40),
+  contactEmail: optional(z.string().trim().toLowerCase().email().max(200)),
+  phone: optional(z.string().trim().regex(/^\+?[0-9 ()-]{6,40}$/, 'use digits, spaces, dashes and an optional leading +')),
+  location: optional(text(120).min(2)),
+}).refine((p) => p.contactEmail || p.phone, { message: 'add an email or a phone number members can reach you at', path: ['contactEmail'] });
+
+module.exports = { schemas: { workout, exercise, program, programDay, coachProfile } };

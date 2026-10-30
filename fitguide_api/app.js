@@ -29,6 +29,7 @@ const healthDataRoutes = require('./routes/healthData');
 const socialRoutes = require('./routes/social');
 const adminRoutes = require('./routes/admin');
 const creatorRoutes = require('./routes/creator');
+const coachesRoutes = require('./routes/coaches');
 const billingRoutes = require('./routes/billing');
 const eventsRoutes = require('./routes/events');
 
@@ -125,6 +126,7 @@ function createApp() {
   app.use('/api/social', socialRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/creator', creatorRoutes);
+  app.use('/api/coaches', coachesRoutes);
   app.use('/api/billing', billingRoutes);
   app.use('/api/events', eventsRoutes);
 

@@ -26,7 +26,7 @@ async function ratingsFor(slugs) {
 
 async function toPublic(workouts) {
   const ratings = await ratingsFor(workouts.map((w) => w.slug));
-  return workouts.map(({ id: _uuid, isPublished: _p, ...w }) => ({
+  return workouts.map(({ id: _uuid, isPublished: _p, creatorId: _c, status: _s, reviewNote: _r, ...w }) => ({
     id: w.slug,
     ...w,
     steps: withoutGifs(w.steps),

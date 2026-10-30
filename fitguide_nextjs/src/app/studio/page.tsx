@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { SiteHeader } from '../../components/SiteHeader';
 import { StudioView } from '../../features/admin/StudioView';
 
-export const metadata: Metadata = { title: 'Creator studio', robots: { index: false } };
+export const metadata: Metadata = { title: 'Coach studio', robots: { index: false } };
 
 export default function StudioPage() {
   return (

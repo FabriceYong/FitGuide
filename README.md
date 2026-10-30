@@ -87,7 +87,7 @@ flutter run --dart-define=API_URL=http://localhost:5001/api --dart-define=WEB_UR
 
 Without `API_URL`, debug builds use the local API (`10.0.2.2` from the
 Android emulator, `localhost` elsewhere). On a real phone, use your
-computer's LAN address. `WEB_URL` is where the admin and creator studio
+computer's LAN address. `WEB_URL` is where the admin and coach studio
 links open. The app signs in with bearer tokens (`X-Auth-Transport: bearer`)
 kept in the platform's secure storage, so it needs no cookies.
 
@@ -99,7 +99,7 @@ Useful commands in `fitguide_api/`:
 | Command | What it does |
 |---|---|
 | `npm run db:seed` | Reload workouts, exercises, programs and foods from `seed/` (`-- --demo` adds demo@fitguide.com / demo123) |
-| `npm run make-admin -- you@example.com` | Make an account an admin (`--role creator` for a creator) |
+| `npm run make-admin -- you@example.com` | Make an account an admin (`--role creator` for a coach, though members normally apply from their profile) |
 | `npm run db:migrate -- --name <change>` | Create a migration after editing `prisma/schema.prisma` |
 | `npm run db:deploy` | Apply migrations (production) |
 
@@ -130,7 +130,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | Nutrition: targets, food log, meal plans | `services/nutrition.js`, `routes/nutrition.js` | `/nutrition` |
 | Health data and wearables (Strava, Fitbit, CSV) | `services/integrations.js`, `healthData.js` | `/progress` |
 | Friends, challenges, leaderboards, verified reviews | `services/social.js`, `routes/social.js` | `/community` |
-| Admin CMS and creator marketplace | `routes/admin.js`, `creator.js` | `/admin`, `/studio` |
+| Admin CMS, coach applications and the coach studio (dashboard, workouts, programs, review) | `routes/admin.js`, `creator.js`, `coaches.js` | `/admin`, `/studio`, `/coaches/[id]` |
 | PLUS subscriptions (Stripe) | `services/billing.js`, `routes/billing.js` | `/plus` |
 | Analytics (first-party, cookie-free) | `routes/events.js` | `lib/analytics.ts`, admin Analytics tab |
 | Offline player, install to home screen | | `public/sw.js`, `app/manifest.ts` |
@@ -181,8 +181,8 @@ keys are set, and show as unavailable otherwise:
   dashboard and all newer pages are TypeScript and held to the strict rules.
 - Apple Health has no web API and Google Fit's REST API is being retired,
   so those users import a CSV instead of connecting directly.
-- Mobile app: the admin CMS and creator studio stay on the website (the app
-  links to them). PLUS checkout and wearable sign-in open in the browser;
+- Mobile app: the admin CMS and coach studio stay on the website (the app
+  links to them); members apply to coach and contact coaches in the app. PLUS checkout and wearable sign-in open in the browser;
   App Store and Play rules may require in-app purchases before a store
   release. Release builds are still signed with the debug key and use the
   default launcher icons. Screen-reader labels and touch sizes are checked

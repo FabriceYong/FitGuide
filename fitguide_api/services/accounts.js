@@ -67,6 +67,10 @@ async function deleteData(tx, userId) {
   await tx.enrollment.deleteMany({ where: { userId } });
   await tx.program.deleteMany({ where: { ownerId: userId } });
   await tx.program.deleteMany({ where: { creatorId: userId, status: { not: 'published' }, enrollments: { none: {} } } });
+  // Unpublished coach workouts go too, unless a remaining program uses one.
+  const drafts = await tx.workout.findMany({ where: { creatorId: userId, isPublished: false }, select: { slug: true } });
+  const used = await tx.programDay.findMany({ where: { workoutSlug: { in: drafts.map((w) => w.slug) } }, select: { workoutSlug: true } });
+  await tx.workout.deleteMany({ where: { slug: { in: drafts.map((w) => w.slug).filter((slug) => !used.some((d) => d.workoutSlug === slug)) } } });
   await tx.challenge.deleteMany({ where: { creatorId: userId, members: { every: { userId } } } });
   await tx.user.delete({ where: { id: userId } });
 }

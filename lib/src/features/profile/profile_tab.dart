@@ -16,6 +16,7 @@ import '../../widgets/forms.dart';
 import '../../widgets/image_pick.dart';
 import '../../widgets/modal.dart';
 import '../../widgets/ui.dart';
+import '../coaches/become_coach.dart';
 import '../common/brand.dart';
 import '../common/parq_modal.dart';
 
@@ -88,7 +89,7 @@ class ProfileTab extends StatelessWidget {
               Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
                 if (user?.fitnessLevel != null) Pill(user!.fitnessLevel!),
                 if (user?.isPlus ?? false) const Pill('PLUS', color: AppColors.amber300),
-                if (user != null && user.role != 'user') Pill(user.role, color: AppColors.purple400),
+                if (user != null && user.role != 'user') Pill(user.role == 'creator' ? 'coach' : user.role, color: AppColors.purple400),
               ]),
               const SizedBox(height: 16),
               Wrap(spacing: 12, runSpacing: 12, alignment: WrapAlignment.center, children: [
@@ -156,7 +157,8 @@ class ProfileTab extends StatelessWidget {
                 _NavRow(LucideIcons.crown, user?.isPlus ?? false ? 'Your PLUS subscription' : 'FitGuide PLUS', () => openHref(context, '/plus')),
                 _NavRow(LucideIcons.watch, 'Connected apps and health data', () => dashboard.setTab(DashboardTab.progress)),
                 _NavRow(LucideIcons.heartPulse, 'Health check (PAR-Q)', () => showParqModal(context)),
-                if (user?.isCreator ?? false) _NavRow(LucideIcons.penTool, 'Creator studio', () => openWebPage('/studio')),
+                if (user?.isCreator ?? false) _NavRow(LucideIcons.penTool, 'Coach studio', () => openWebPage('/studio')),
+                if (!auth.isGuest && user?.role == 'user') _NavRow(LucideIcons.megaphone, 'Become a coach', () => showBecomeCoach(context)),
                 if (user?.isAdmin ?? false) _NavRow(LucideIcons.shield, 'Admin', () => openWebPage('/admin')),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

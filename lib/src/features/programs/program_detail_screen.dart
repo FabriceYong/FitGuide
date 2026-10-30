@@ -15,6 +15,7 @@ import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
 import '../../widgets/modal.dart';
 import '../../widgets/ui.dart';
+import '../coaches/coach_widgets.dart';
 import '../common/site_page.dart';
 import 'schedule.dart';
 
@@ -148,7 +149,17 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
           ]),
           const SizedBox(height: 16),
           PageTitle(program.title, size: atLeast(context, Breakpoints.md) ? 36 : 30),
-          if (program.createdBy != null) ...[const SizedBox(height: 8), Text('By ${program.createdBy}, FitGuide creator', style: fg(size: 14, color: AppColors.white70))],
+          if (program.createdBy != null) ...[
+            const SizedBox(height: 8),
+            Wrap(children: [
+              Text('By ', style: fg(size: 14, color: AppColors.white70)),
+              if (program.coachId != null)
+                LinkText(program.createdBy!, color: AppColors.white70, weight: FontWeight.w400, underline: true, onTap: () => openCoach(context, program.coachId!))
+              else
+                Text(program.createdBy!, style: fg(size: 14, color: AppColors.white70)),
+              Text(', FitGuide coach${program.inPerson ? ' · trained in person' : ''}', style: fg(size: 14, color: AppColors.white70)),
+            ]),
+          ],
           const SizedBox(height: 16),
           Text(program.description, style: fg(size: 16, color: AppColors.white70, height: 1.6)),
           const SizedBox(height: 16),
@@ -157,6 +168,7 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
             MetaText('${program.daysPerWeek} sessions a week', icon: LucideIcons.target),
             MetaText('${program.days.length} sessions in total', icon: LucideIcons.check),
           ]),
+          if (program.coachId != null) ProgramCoachCard(coachId: program.coachId!, programTitle: program.title, inPerson: program.inPerson),
           const SizedBox(height: 24),
           FgCard(padding: const EdgeInsets.all(20), child: _enrollment(program, hasAccount, active, mine)),
           const SizedBox(height: 24),

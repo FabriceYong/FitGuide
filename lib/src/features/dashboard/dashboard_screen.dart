@@ -12,6 +12,7 @@ import '../../state/dashboard_controller.dart';
 import '../../state/workouts_controller.dart';
 import '../../widgets/modal.dart';
 import '../../widgets/ui.dart';
+import '../common/admin_button.dart';
 import '../common/brand.dart';
 import '../common/site_page.dart';
 import '../profile/profile_tab.dart';
@@ -298,7 +299,6 @@ class _WideHeader extends StatelessWidget {
     final links = [
       for (final (href, key) in _siteLinks) (href, t(key)),
       if (user?.isCreator ?? false) ('/studio', t('nav.studio')),
-      if (user?.isAdmin ?? false) ('/admin', t('nav.admin')),
     ];
     final signOut = auth.isGuest ? 'Leave guest mode' : 'Sign out';
     return Container(
@@ -345,6 +345,8 @@ class _WideHeader extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           const LanguageSwitcher(),
+          const SizedBox(width: 8),
+          const AdminButton(),
           const SizedBox(width: 8),
           Semantics(
             button: true,
@@ -618,7 +620,6 @@ class _Menu extends StatelessWidget {
     final links = [
       for (final (href, key) in _siteLinks) (href, t(key)),
       if (user?.isCreator ?? false) ('/studio', t('nav.studio')),
-      if (user?.isAdmin ?? false) ('/admin', t('nav.admin')),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -636,6 +637,7 @@ class _Menu extends StatelessWidget {
                 ],
               ),
             ),
+            const AdminButton(),
           ],
         ),
         const SizedBox(height: 16),

@@ -4,7 +4,7 @@ import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   Activity, AlertCircle, AlertTriangle, Camera, CheckCircle2, ChevronRight, Clock, Crosshair, Crown, Dumbbell, Edit3, Globe, HeartPulse, KeyRound, Loader2, LogOut,
-  PenTool, Ruler, Scale, Shield, ShieldAlert, Target, Trash2, TrendingUp, User, Utensils, Watch, type LucideIcon,
+  Megaphone, PenTool, Ruler, Scale, Shield, ShieldAlert, Target, Trash2, TrendingUp, User, Utensils, Watch, type LucideIcon,
 } from 'lucide-react';
 import { EQUIPMENT_KITS, LIMITATIONS, PROFILE, type EquipmentKit, type Limitation } from '@fitguide/shared';
 import { apiRequest, assetUrl } from '../../../lib/api';
@@ -16,6 +16,7 @@ import { ParqModal } from '../../../components/ParqModal';
 import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { useStartSignUp } from '../../auth/AuthWrapper';
 import type { TabId } from '../../dashboard/tabs';
+import { BecomeCoach } from '../../coaches/BecomeCoach';
 
 const bmiOf = (weight?: number, height?: number) => (weight && height ? Math.round((weight / (height / 100) ** 2) * 10) / 10 : null);
 const bmiLabel = (bmi: number | null) => {
@@ -48,6 +49,7 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
   const [changingPassword, setChangingPassword] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   const bmi = bmiOf(user?.weight, user?.height);
   const bmiInfo = bmiLabel(bmi);
@@ -70,7 +72,7 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
         <div className="flex flex-wrap justify-center gap-2 mt-3">
           {user?.fitnessLevel && <Badge>{user.fitnessLevel}</Badge>}
           {user?.plan === 'plus' && <Badge color="#FCD34D">PLUS</Badge>}
-          {user?.role && user.role !== 'user' && <Badge color="#C084FC">{user.role}</Badge>}
+          {user?.role && user.role !== 'user' && <Badge color="#C084FC">{user.role === 'creator' ? 'coach' : user.role}</Badge>}
         </div>
         <div className="flex flex-wrap justify-center gap-3 mt-4">
           <button type="button" onClick={() => setEditing(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-obsidian-wave border border-white-30/20 text-white text-sm font-bold hover:border-lime-light/60">
@@ -111,7 +113,8 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
         <NavRow icon={Crown} title={user?.plan === 'plus' ? 'Your PLUS subscription' : 'FitGuide PLUS'} href="/plus" />
         <NavRow icon={Watch} title="Connected apps and health data" onClick={() => onNavigate('progress')} />
         <NavRow icon={HeartPulse} title="Health check (PAR-Q)" onClick={() => setShowParq(true)} />
-        {(user?.role === 'creator' || user?.role === 'admin') && <NavRow icon={PenTool} title="Creator studio" href="/studio" />}
+        {(user?.role === 'creator' || user?.role === 'admin') && <NavRow icon={PenTool} title="Coach studio" href="/studio" />}
+        {!isGuest && user?.role === 'user' && <NavRow icon={Megaphone} title="Become a coach" onClick={() => setApplying(true)} />}
         {user?.role === 'admin' && <NavRow icon={Shield} title="Admin" href="/admin" />}
         <div className="flex items-center justify-between p-4 bg-obsidian-wave rounded-2xl">
           <span className="flex items-center gap-3 text-sm font-bold text-white"><Globe className="w-4 h-4" aria-hidden="true" /> Language</span>
@@ -135,6 +138,7 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
 
       {editing && user && <EditProfile user={user} onClose={() => setEditing(false)} />}
       {showParq && <ParqModal onClose={() => setShowParq(false)} />}
+      {applying && <BecomeCoach onClose={() => setApplying(false)} />}
       {changingPassword && <ChangePassword onClose={() => setChangingPassword(false)} />}
       {confirmDelete && (
         <ConfirmDialog
@@ -246,6 +250,7 @@ function DeleteAccount({ onClose }: { onClose: () => void }) {
   const { logout, user } = useAuth();
   const [password, setPassword] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const remove = async (e: FormEvent) => {

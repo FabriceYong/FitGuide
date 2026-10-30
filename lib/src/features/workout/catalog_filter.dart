@@ -8,8 +8,11 @@ const catalogDurations = [(0, 'Any length'), (20, 'Up to 20 min'), (30, 'Up to 3
 
 String stripOptional(String e) => e.replaceFirst(RegExp(r'^Optional:\s*', caseSensitive: false), '');
 
-/// Equipment a workout can't be done without.
-List<String> requiredEquipment(Workout w) => w.equipment.where((e) => e != 'None' && !RegExp(r'^Optional:', caseSensitive: false).hasMatch(e)).toList();
+/// Equipment a workout can't be done without (a timer doesn't count: any
+/// phone is one).
+List<String> requiredEquipment(Workout w) => w.equipment
+    .where((e) => e != 'None' && !RegExp(r'^Optional:', caseSensitive: false).hasMatch(e) && !RegExp(r'^(timer|stopwatch)$', caseSensitive: false).hasMatch(e.trim()))
+    .toList();
 
 /// [equipment] is an equipment name, or 'none' for workouts that need nothing.
 bool matchesFilter(Workout w, {String query = '', String category = '', String level = '', String equipment = '', int maxMinutes = 0}) {

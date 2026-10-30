@@ -1,252 +1,256 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Heart, PlayCircle, Clock, TrendingUp, Dumbbell, Target, AlertCircle, CheckCircle } from 'lucide-react';
+import {
+  AlertTriangle, ArrowLeft, Check, ChevronDown, Clock, Dumbbell, Flame, Heart, Package, Play, Target, Timer, TrendingUp,
+} from 'lucide-react';
 import { WorkoutReviews } from '../reviews/components/WorkoutReviews';
 import { fetchWorkoutBySlug } from '../../services/workoutService';
 import { addToFavorites, removeFromFavorites, checkIsFavorite } from '../../services/favoriteService';
-import { useWorkoutImage } from '../../hooks/useWorkoutImage';
 import { useAuth } from '../../contexts/AuthContext';
+import { SiteNav } from '../../components/SiteNav';
+import { getWorkoutSpecificImage } from '../../utils/unsplashImages';
+import { requiredEquipment, stripOptional } from './catalogFilter';
+import { StepDemo } from './StepDemo';
+import { repTarget, stepClock, stepName, stepsFor } from './workoutSteps';
+
+const SHOWN_STEPS = 8;
+
+/** An icon for a piece of equipment, by name. */
+const equipmentIcon = (name) => {
+  const n = name.toLowerCase();
+  if (/dumbbell|barbell|kettlebell|weight|plate/.test(n)) return Dumbbell;
+  if (/timer|watch|clock/.test(n)) return Timer;
+  return Package;
+};
+
+/** One step in "What you'll do": its drawn demo, name and target. */
+function StepRow({ step, index, color }) {
+  const reps = repTarget(step);
+  const target = reps ? `${reps.sets ? `${reps.sets} × ` : ''}${reps.reps} reps` : step.duration ? stepClock(step.duration) : null;
+  return (
+    <li className="flex items-center gap-4 p-3 rounded-2xl bg-obsidian-wave border border-white-30/10">
+      <span className="w-16 h-16 shrink-0"><StepDemo step={step} color={color} size="thumb" animate={false} /></span>
+      <span className="flex-1 min-w-0">
+        <span className="flex items-center gap-2">
+          <span className="text-[11px] font-bold text-white-70 tabular-nums">{String(index + 1).padStart(2, '0')}</span>
+          <span className="font-bold text-white truncate">{stepName(step)}</span>
+        </span>
+        <span className="block text-xs text-white-70 mt-0.5 line-clamp-2">{step.instruction}</span>
+      </span>
+      {target && <span className="shrink-0 px-2.5 py-1 rounded-full text-xs font-bold tabular-nums" style={{ color, backgroundColor: `${color}18` }}>{target}</span>}
+    </li>
+  );
+}
+
+const Section = ({ title, children }) => (
+  <section className="space-y-4">
+    <h2 className="text-lg font-extrabold text-white">{title}</h2>
+    {children}
+  </section>
+);
+
 /**
+ * A workout's page: what it is, every step with its demonstration, what you
+ * need, and reviews, with "Start workout" always in reach (pinned to the
+ * bottom on a phone, in the side card on a wide screen).
  * @param {object} [props.initialWorkout] Workout already fetched (e.g. by the
  *        server-rendered /workouts/[slug] page); skips the client fetch.
  */
-export const WorkoutDetails = ({ workoutSlug, initialWorkout = null, tintColor, onBack, onBegin, }) => {
-    const [workout, setWorkout] = useState(initialWorkout);
-    const [loading, setLoading] = useState(!initialWorkout);
-    const [error, setError] = useState(null);
-    const [isFavorite, setIsFavorite] = useState(false);
-    const [favoriteLoading, setFavoriteLoading] = useState(false);
-    const { hasAccount } = useAuth();
-    // Use dynamic image hook for workout details
-    const { imageUrl, isLoading: imageLoading, photographer, photographerUrl } = useWorkoutImage({
-        workoutId: workout?.id || '',
-        category: workout?.category || '',
-        title: workout?.title || '',
-        size: 'large',
-        useDynamicImages: true,
-    });
-    useEffect(() => {
-        if (initialWorkout) {
-            checkIsFavorite(initialWorkout.slug).then(setIsFavorite).catch(() => {});
-            return;
-        }
-        fetchWorkoutDetails();
-    }, [workoutSlug, initialWorkout]);
-    const fetchWorkoutDetails = async () => {
-        try {
-            setLoading(true);
-            const response = await fetchWorkoutBySlug(workoutSlug);
-            if (response.success) {
-                setWorkout(response.workout);
-                // Check if workout is in favorites
-                if (response.workout.slug) {
-                    const favoriteStatus = await checkIsFavorite(response.workout.slug);
-                    setIsFavorite(favoriteStatus);
-                }
-            }
-            else {
-                setError('Workout not found');
-            }
-        }
-        catch (error) {
-            setError('Failed to load workout');
-            console.error('Error fetching workout:', error);
-        }
-        finally {
-            setLoading(false);
-        }
-    };
-    const handleToggleFavorite = async () => {
-        if (!workout?.slug || favoriteLoading || !hasAccount)
-            return;
-        try {
-            setFavoriteLoading(true);
-            if (isFavorite) {
-                await removeFromFavorites(workout.slug);
-                setIsFavorite(false);
-            }
-            else {
-                await addToFavorites(workout.slug);
-                setIsFavorite(true);
-            }
-        }
-        catch (error) {
-            console.error('Error toggling favorite:', error);
-        }
-        finally {
-            setFavoriteLoading(false);
-        }
-    };
-    if (loading) {
-        return (<div className="min-h-screen bg-noir-eclipse flex items-center justify-center">
-        <div className="text-white text-center">
-          <div className="w-16 h-16 border-4 border-lime-light border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p>Loading workout...</p>
-        </div>
-      </div>);
+export const WorkoutDetails = ({ workoutSlug, initialWorkout = null, tintColor, onBack, onBegin }) => {
+  const [workout, setWorkout] = useState(initialWorkout);
+  const [loading, setLoading] = useState(!initialWorkout);
+  const [error, setError] = useState(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [allSteps, setAllSteps] = useState(false);
+  const { hasAccount } = useAuth();
+
+  useEffect(() => {
+    if (initialWorkout) {
+      checkIsFavorite(initialWorkout.slug).then(setIsFavorite).catch(() => {});
+      return;
     }
-    if (error || !workout) {
-        return (<div className="min-h-screen bg-noir-eclipse flex items-center justify-center p-6">
-        <div className="text-center">
+    let active = true;
+    fetchWorkoutBySlug(workoutSlug)
+      .then(async (response) => {
+        if (!active) return;
+        if (!response.success) { setError('Workout not found'); return; }
+        setWorkout(response.workout);
+        setIsFavorite(await checkIsFavorite(response.workout.slug).catch(() => false));
+      })
+      .catch(() => active && setError('Failed to load workout'))
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [workoutSlug, initialWorkout]);
+
+  const toggleFavorite = async () => {
+    if (!workout?.slug || favoriteLoading || !hasAccount) return;
+    setFavoriteLoading(true);
+    try {
+      if (isFavorite) await removeFromFavorites(workout.slug);
+      else await addToFavorites(workout.slug);
+      setIsFavorite(!isFavorite);
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-noir-eclipse flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-lime-light border-t-transparent rounded-full animate-spin" role="status" aria-label="Loading workout" />
+      </div>
+    );
+  }
+  if (error || !workout) {
+    return (
+      <div className="min-h-screen bg-noir-eclipse flex items-center justify-center p-6 text-center">
+        <div>
           <p className="text-white-70 mb-4">{error || 'Workout not found'}</p>
-          <button onClick={onBack} className="px-6 py-3 bg-lime-light text-noir-eclipse rounded-xl font-bold">
-            Go Back
-          </button>
+          <button type="button" onClick={onBack} className="px-6 py-3 bg-lime-light text-noir-eclipse rounded-xl font-bold">Go back</button>
         </div>
-      </div>);
-    }
-    return (<div className="min-h-screen bg-noir-eclipse text-left pb-12 w-full mx-auto">
-      {/* Hero Image/Video Area */}
-      <div className="relative h-96 w-full flex items-center justify-center overflow-hidden bg-cover bg-center transition-opacity duration-500" style={{
-            backgroundImage: `url(${imageUrl})`,
-            opacity: imageLoading ? 0.7 : 1,
-        }}>
-        <div className="absolute inset-0 bg-black/50"></div>
-        <div className="absolute inset-0" style={{
-            background: `radial-gradient(circle, ${tintColor}55 0%, transparent 80%)`,
-        }}></div>
+      </div>
+    );
+  }
 
-        {/* Loading Indicator for Image */}
-        {imageLoading && (<div className="absolute inset-0 flex items-center justify-center z-5">
-            <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-          </div>)}
+  const color = tintColor;
+  const steps = stepsFor(workout);
+  const shown = allSteps ? steps : steps.slice(0, SHOWN_STEPS);
+  const gear = requiredEquipment(workout).map(stripOptional);
+  const image = getWorkoutSpecificImage(workout.title, workout.category, 'large', workout.thumbnailUrl);
+  const facts = [
+    { icon: Clock, label: `${workout.duration} min` },
+    { icon: TrendingUp, label: workout.difficulty },
+    ...(workout.calories ? [{ icon: Flame, label: `~${workout.calories} kcal` }] : []),
+    { icon: gear.length ? Dumbbell : Check, label: gear.length ? `${gear.length} piece${gear.length > 1 ? 's' : ''} of equipment` : 'No equipment' },
+  ];
+  const startButton = (extra = '') => (
+    <button
+      type="button"
+      onClick={() => onBegin(workout)}
+      className={`flex items-center justify-center gap-2 bg-lime-light text-noir-eclipse font-extrabold rounded-2xl uppercase tracking-wider text-sm hover:bg-lime-light/90 active:scale-[0.99] transition-all ${extra}`}
+    >
+      <Play className="w-4 h-4 fill-current" aria-hidden="true" /> Start workout
+    </button>
+  );
 
-        {/* Photographer Attribution */}
-        {photographer && photographerUrl && (<a href={photographerUrl} target="_blank" rel="noopener noreferrer" className="absolute bottom-2 right-2 z-10 px-2 py-1 bg-black/40 backdrop-blur-sm rounded text-[10px] text-white/80 hover:text-white transition-colors">
-            Photo by {photographer}
-          </a>)}
+  return (
+    <div className="min-h-screen bg-noir-eclipse text-white text-left pb-24 lg:pb-12">
+      <SiteNav active="/workouts" bottomBar={false} />
 
-        {/* Back and Favorite Header */}
-        <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10">
-          <button onClick={onBack} className="w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white transition-colors backdrop-blur-sm">
-            <ArrowLeft className="w-6 h-6"/>
-          </button>
-          <button onClick={handleToggleFavorite} disabled={favoriteLoading || !hasAccount} title={hasAccount ? (isFavorite ? 'Remove from favorites' : 'Add to favorites') : 'Create an account to save favorites'} aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all backdrop-blur-sm ${isFavorite
-            ? 'bg-red-500/90 hover:bg-red-600'
-            : 'bg-black/30 hover:bg-black/50'} ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-            <Heart className={`w-6 h-6 transition-all ${isFavorite ? 'fill-white text-white' : 'text-white'}`}/>
-          </button>
-        </div>
-
-        {/* Play Icon */}
-        <button className="z-10 text-white/50 hover:text-white hover:scale-105 active:scale-95 transition-all">
-          <PlayCircle className="w-20 h-20"/>
-        </button>
-
-        {/* Title and Category */}
-        <div className="absolute bottom-6 left-6 right-6 text-left z-10">
-          <h1 className="text-3xl font-extrabold text-white tracking-tight mb-3 drop-shadow-md">
-            {workout.title}
-          </h1>
-          <div className="flex flex-wrap gap-2">
-            <span className="text-[10px] font-extrabold px-3 py-1.5 rounded-full bg-royal-nebula text-white">
-              {workout.category}
-            </span>
-            <span className="text-[10px] font-extrabold px-3 py-1.5 rounded-full bg-purple-500 text-white">
-              {workout.difficulty}
-            </span>
-            <span className="text-[10px] font-extrabold px-3 py-1.5 rounded-full bg-lime-light text-noir-eclipse">
-              {workout.intensity}
-            </span>
+      {/* Hero */}
+      <div className="relative h-[340px] md:h-[420px] overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${image})` }} aria-hidden="true" />
+        <div className="absolute inset-0 bg-gradient-to-t from-noir-eclipse via-noir-eclipse/70 to-noir-eclipse/20" aria-hidden="true" />
+        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 20% 80%, ${color}40 0%, transparent 60%)` }} aria-hidden="true" />
+        <div className="relative h-full max-w-[1200px] mx-auto px-4 md:px-8 flex flex-col justify-between py-5">
+          <div className="flex items-center justify-between">
+            <button type="button" onClick={onBack} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/40 backdrop-blur-sm text-sm font-bold hover:bg-black/60">
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Back
+            </button>
+            <button
+              type="button"
+              onClick={toggleFavorite}
+              disabled={favoriteLoading || !hasAccount}
+              title={hasAccount ? undefined : 'Create an account to save favorites'}
+              aria-pressed={isFavorite}
+              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${isFavorite ? 'bg-red-500/90' : 'bg-black/40 hover:bg-black/60'} disabled:opacity-60`}
+            >
+              <Heart className={`w-5 h-5 ${isFavorite ? 'fill-white' : ''}`} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="space-y-4 max-w-3xl">
+            <div className="flex flex-wrap gap-2">
+              <span className="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider" style={{ backgroundColor: `${color}E6`, color: '#0A0C10' }}>{workout.category}</span>
+              {workout.intensity && <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-white/15 backdrop-blur-sm">{workout.intensity} intensity</span>}
+              {workout.isPremium && <span className="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-amber-400 text-noir-eclipse">PLUS</span>}
+            </div>
+            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight drop-shadow">{workout.title}</h1>
+            <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/90">
+              {facts.map(({ icon: Icon, label }) => (
+                <li key={label} className="flex items-center gap-1.5"><Icon className="w-4 h-4" style={{ color }} aria-hidden="true" /> {label}</li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
 
-      {/* Content Details */}
-      <div className="px-6 md:px-12 lg:px-20 py-8 space-y-8 max-w-[1800px] mx-auto">
-        {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-4 bg-obsidian-wave p-4 rounded-2xl border border-white-30/5">
-          <DetailStat label="DURATION" value={`${workout.duration} MIN`} icon={Clock}/>
-          <DetailStat label="DIFFICULTY" value={workout.difficulty} icon={TrendingUp}/>
-          <DetailStat label="CALORIES" value={`${workout.calories}`} icon={Target} colorClass="text-lime-light"/>
-        </div>
+      <main id="main" className="max-w-[1200px] mx-auto px-4 md:px-8 py-8 grid lg:grid-cols-[1fr_360px] gap-10 items-start">
+        <div className="space-y-10 min-w-0">
+          <Section title="About this workout">
+            <p className="text-white-70 leading-relaxed">{workout.description}</p>
+          </Section>
 
-        {/* Description */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="w-1 h-10 bg-lime-light rounded-full"></div>
-            <h3 className="text-base font-extrabold tracking-wider text-white">ABOUT THIS WORKOUT</h3>
+          <Section title={`What you'll do · ${steps.length} steps`}>
+            <ol className="space-y-2">
+              {shown.map((step, i) => <StepRow key={`${i}-${step.instruction}`} step={step} index={i} color={color} />)}
+            </ol>
+            {steps.length > SHOWN_STEPS && (
+              <button type="button" onClick={() => setAllSteps(!allSteps)} aria-expanded={allSteps} className="flex items-center gap-1.5 text-sm font-bold text-lime-light">
+                <ChevronDown className={`w-4 h-4 transition-transform ${allSteps ? 'rotate-180' : ''}`} aria-hidden="true" />
+                {allSteps ? 'Show fewer steps' : `Show all ${steps.length} steps`}
+              </button>
+            )}
+          </Section>
+
+          <div className="pt-8 border-t border-white-30/10">
+            <WorkoutReviews workoutId={workout.slug} workoutTitle={workout.title} />
           </div>
-          <p className="text-sm md:text-base text-white-70 leading-relaxed font-medium">
-            {workout.description}
-          </p>
         </div>
 
-        {/* Equipment */}
-        {workout.equipment && workout.equipment.length > 0 && (<div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Dumbbell className="w-5 h-5 text-lime-light"/>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Equipment Needed</h3>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {workout.equipment.map((item, index) => (<span key={index} className="px-3 py-1.5 bg-obsidian-wave border border-white-30/20 rounded-full text-xs text-white-70">
-                  {item}
-                </span>))}
-            </div>
-          </div>)}
+        <aside className="space-y-5 lg:sticky lg:top-24">
+          <div className="hidden lg:block bg-obsidian-wave border border-white-30/10 rounded-3xl p-5 space-y-4">
+            {startButton('w-full py-4')}
+            <p className="text-xs text-white-70 text-center">{steps.length} steps · about {workout.duration} minutes</p>
+          </div>
 
-        {/* Target Muscles */}
-        {workout.targetMuscles && workout.targetMuscles.length > 0 && (<div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-lime-light"/>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Target Muscles</h3>
+          <div className="bg-obsidian-wave border border-white-30/10 rounded-3xl p-5 space-y-5">
+            <div className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-white-70">You&apos;ll need</h2>
+              <ul className="flex flex-wrap gap-2">
+                {gear.length ? gear.map((item) => {
+                  const Icon = equipmentIcon(item);
+                  return <li key={item} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white-30/15 text-xs"><Icon className="w-3.5 h-3.5" style={{ color }} aria-hidden="true" /> {item}</li>;
+                }) : <li className="flex items-center gap-1.5 text-sm text-white-70"><Check className="w-4 h-4 text-lime-light" aria-hidden="true" /> Nothing but some floor space</li>}
+              </ul>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {workout.targetMuscles.map((muscle, index) => (<span key={index} className="px-3 py-1.5 bg-obsidian-wave border border-white-30/20 rounded-full text-xs text-white-70">
-                  {muscle}
-                </span>))}
+            {workout.targetMuscles?.length > 0 && (
+              <div className="space-y-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-white-70">Works</h2>
+                <ul className="flex flex-wrap gap-2">
+                  {workout.targetMuscles.map((m) => <li key={m} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white-30/15 text-xs"><Target className="w-3.5 h-3.5" style={{ color }} aria-hidden="true" /> {m}</li>)}
+                </ul>
+              </div>
+            )}
+            {workout.benefits?.length > 0 && (
+              <div className="space-y-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-white-70">Benefits</h2>
+                <ul className="space-y-1.5">
+                  {workout.benefits.map((b) => <li key={b} className="flex items-start gap-2 text-sm text-white/85"><Check className="w-4 h-4 shrink-0 mt-0.5 text-lime-light" aria-hidden="true" /> {b}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {workout.cautions?.length > 0 && (
+            <div className="bg-orange-500/10 border border-orange-500/30 rounded-3xl p-5 space-y-2">
+              <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-orange-300"><AlertTriangle className="w-4 h-4" aria-hidden="true" /> Before you start</h2>
+              <ul className="space-y-1.5">
+                {workout.cautions.map((c) => <li key={c} className="text-sm text-orange-100">{c}</li>)}
+              </ul>
             </div>
-          </div>)}
+          )}
+        </aside>
+      </main>
 
-        {/* Benefits */}
-        {workout.benefits && workout.benefits.length > 0 && (<div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-lime-light"/>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Benefits</h3>
-            </div>
-            <ul className="space-y-2">
-              {workout.benefits.map((benefit, index) => (<li key={index} className="flex items-start gap-2 text-sm text-white-70">
-                  <span className="text-lime-light mt-0.5">•</span>
-                  <span>{benefit}</span>
-                </li>))}
-            </ul>
-          </div>)}
-
-        {/* Cautions */}
-        {workout.cautions && workout.cautions.length > 0 && (<div className="space-y-3 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-orange-400"/>
-              <h3 className="text-sm font-bold text-orange-400 uppercase tracking-wider">Important Notes</h3>
-            </div>
-            <ul className="space-y-2">
-              {workout.cautions.map((caution, index) => (<li key={index} className="flex items-start gap-2 text-sm text-orange-200">
-                  <span className="text-orange-400 mt-0.5">•</span>
-                  <span>{caution}</span>
-                </li>))}
-            </ul>
-          </div>)}
-
-        {/* Action Button */}
-        <button onClick={() => onBegin(workout)} className="w-full bg-lime-light text-noir-eclipse font-extrabold py-5 rounded-2xl hover:bg-lime-light/90 hover:scale-[1.01] active:scale-[0.99] transition-all uppercase tracking-wider text-sm select-none cursor-pointer border border-lime-light/30">
-          LET'S BEGIN
-        </button>
-
-        {/* Reviews Section */}
-        <div className="pt-8 border-t border-white-30/10">
-          <WorkoutReviews workoutId={workout.slug} workoutTitle={workout.title}/>
-        </div>
+      {/* Always in reach on a phone or tablet. */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 p-3 bg-noir-eclipse/95 backdrop-blur-md border-t border-white-30/10">
+        {startButton('w-full py-4')}
       </div>
-    </div>);
-};
-const DetailStat = ({ label, value, icon: Icon, colorClass = "text-white" }) => {
-    return (<div className="flex flex-col items-center text-center space-y-2">
-      <Icon className={`w-5 h-5 ${colorClass}`}/>
-      <span className="text-[10px] font-bold text-white-30 tracking-widest uppercase">
-        {label}
-      </span>
-      <span className={`text-sm font-bold ${colorClass}`}>
-        {value}
-      </span>
-    </div>);
+    </div>
+  );
 };

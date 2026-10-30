@@ -10,8 +10,8 @@ export const DURATIONS = [
 ];
 
 export const stripOptional = (e: string) => e.replace(/^Optional:\s*/i, '');
-/** Equipment a workout can't be done without. */
-export const requiredEquipment = (w: Workout) => w.equipment.filter((e) => e !== 'None' && !/^Optional:/i.test(e));
+/** Equipment a workout can't be done without (a timer doesn't count: any phone is one). */
+export const requiredEquipment = (w: Pick<Workout, 'equipment'>) => w.equipment.filter((e) => e !== 'None' && !/^Optional:/i.test(e) && !/^(timer|stopwatch)$/i.test(e.trim()));
 
 export interface CatalogFilter {
   query?: string;

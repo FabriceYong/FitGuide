@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const { prisma } = require('../db/prisma');
 const { today, addDays } = require('../utils/dates');
+const { promoteConfiguredAdmins } = require('../services/admins');
 
 const newWorkout = (overrides = {}) => ({
   slug: 'admin-test-burner',
@@ -139,6 +140,25 @@ function defineAdminSuite(ctx) {
       await admin.agent.patch(`/api/admin/users/${admin.user.id}`).send({ role: 'user' }).expect(400);
       const users = await admin.agent.get('/api/admin/users').query({ search: 'Max' }).expect(200);
       assert.equal(users.body.users[0].role, 'creator');
+    });
+
+    it('makes existing ADMIN_EMAILS accounts admins at start', async () => {
+      const boss = await ctx().signUp('Bo Boss');
+      const saved = process.env.ADMIN_EMAILS;
+      // Any case and spacing; an email with no account is reported, not created.
+      process.env.ADMIN_EMAILS = ` ${boss.creds.email.toUpperCase()} , nobody-yet@example.com,${admin.creds.email}`;
+      try {
+        await boss.agent.get('/api/admin/stats').expect(403);
+        const result = await promoteConfiguredAdmins();
+        assert.deepEqual(result, { promoted: [boss.creds.email], missing: ['nobody-yet@example.com'] });
+        await boss.agent.get('/api/admin/stats').expect(200);
+        assert.equal(await prisma.user.count({ where: { email: 'nobody-yet@example.com' } }), 0);
+        // Running again changes nothing.
+        assert.deepEqual((await promoteConfiguredAdmins()).promoted, []);
+      } finally {
+        if (saved === undefined) delete process.env.ADMIN_EMAILS;
+        else process.env.ADMIN_EMAILS = saved;
+      }
     });
 
     it('creates official challenges everyone can see', async () => {

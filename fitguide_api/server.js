@@ -13,6 +13,7 @@ try {
 const { createApp } = require('./app');
 const { prisma } = require('./db/prisma');
 const { seedCatalogIfEmpty } = require('./seed/catalog');
+const { promoteConfiguredAdmins } = require('./services/admins');
 
 const PORT = process.env.PORT || 5001;
 
@@ -21,6 +22,9 @@ async function start() {
     await prisma.$connect();
     const seeded = await seedCatalogIfEmpty();
     if (seeded) console.log(`🌱 Catalog loaded: ${seeded.workouts} workouts, ${seeded.exercises} exercises, ${seeded.programs} programs, ${seeded.foods} foods.`);
+    const admins = await promoteConfiguredAdmins();
+    if (admins.promoted.length) console.log(`🔑 Now admin (ADMIN_EMAILS): ${admins.promoted.join(', ')}`);
+    if (admins.missing.length) console.log(`⚠️  ADMIN_EMAILS: no account yet for ${admins.missing.join(', ')}. Sign up, then restart the API.`);
   } catch (err) {
     console.error('❌ Could not use the database:', err.message);
     console.error('   Start one with `npm run db:dev` (or Docker), then `npm run db:deploy`.');

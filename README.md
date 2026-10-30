@@ -39,6 +39,12 @@ docker compose exec api npm run make-admin -- you@example.com
 docker compose down -v                                   # stop and delete all data
 ```
 
+To make yourself an admin without a command, sign up, add
+`ADMIN_EMAILS=you@example.com` to `fitguide_api/.env` and restart the API
+(`docker compose up -d --force-recreate api`). After that, admins change
+roles in Admin → Users. [COMMANDS.md](COMMANDS.md) lists every command,
+including fallbacks.
+
 Ports and the Unsplash key are set in a `.env` file next to
 `docker-compose.yml` (copy `.env.example`). Optional API keys (AI coach,
 Stripe, wearables) go in `fitguide_api/.env`, which the API container also

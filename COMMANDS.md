@@ -33,6 +33,39 @@ Addresses once it is running:
 | API | http://localhost:5001/api |
 | Database | `postgresql://fitguide:fitguide@localhost:5432/fitguide` |
 
+## Making someone an admin
+
+You only need one of these for the first admin. After that, admins change
+anyone's role in **Admin → Users** on the website, and approve coaches in
+**Admin → Coaches**.
+
+**Easiest: `ADMIN_EMAILS`.** Sign up with your account first. Then add this
+line to `fitguide_api/.env` (comma-separate several emails):
+
+```
+ADMIN_EMAILS=you@example.com
+```
+
+Restart the API so it reads the change. The API's log then says
+`Now admin (ADMIN_EMAILS): you@example.com`.
+
+| Command | What it does |
+|---|---|
+| `docker compose up -d --force-recreate api` | Restart the API container so it picks up the new `fitguide_api/.env` (with Docker). |
+| `npm run dev` (stop it with Ctrl+C first) | Restart the API without Docker, from `fitguide_api/`. |
+
+Only accounts that already exist are made admin, so sign up before
+restarting. Removing an email from the list doesn't take the role away; do
+that in Admin → Users.
+
+**If that doesn't work**, any of these set the same thing:
+
+| Command | What it does |
+|---|---|
+| `docker compose exec api npm run make-admin -- you@example.com` | The admin script (note the space after `--`). |
+| `docker compose exec db psql -U fitguide fitguide -c "UPDATE users SET role = 'admin' WHERE email = 'you@example.com';"` | Set the role straight in the database. `UPDATE 1` means it worked; `UPDATE 0` means no account has that email. |
+| `npx prisma studio` | From `fitguide_api/`: opens the database in your browser. Open the `User` table, set `role` to `admin` on your row, and save. |
+
 ## Accounts and data (with Docker)
 
 | Command | What it does |

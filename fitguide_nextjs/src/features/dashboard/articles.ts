@@ -1,5 +1,5 @@
 /** Short guides written for FitGuide, shown on the home tab. */
-import { coverSrc, type WrittenArticle } from '../../services/articleService';
+import { coverSrc, type ArticleSection, type WrittenArticle } from '../../services/articleService';
 
 export interface Article {
   id: string;
@@ -10,7 +10,7 @@ export interface Article {
   photo: string;
   description: string;
   takeaways: string[];
-  sections: { heading: string; paragraphs: string[]; tip?: string }[];
+  sections: ArticleSection[];
   /** Where to put the advice into practice in FitGuide. */
   action: { label: string; href: string };
 }

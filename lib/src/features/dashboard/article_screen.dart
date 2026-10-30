@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../navigation.dart';
 import '../../services/catalog_service.dart';
 import '../../widgets/ui.dart';
+import 'article_video.dart';
 import 'articles.dart';
 
 /// One article: a built-in guide or one a coach or admin wrote
@@ -156,6 +157,7 @@ class _ArticleBody extends StatelessWidget {
                 child: Semantics(header: true, child: Text(s.heading, style: fg(size: wide ? 24 : 20, weight: FontWeight.w800))),
               ),
               for (final p in s.paragraphs) ...[const SizedBox(height: 12), Text(p, style: fg(size: 16, color: AppColors.white70, height: 1.6))],
+              if (s.video != null) ...[const SizedBox(height: 12), ArticleVideoPlayer(video: s.video!)],
               if (s.tip != null) ...[
                 const SizedBox(height: 12),
                 Container(

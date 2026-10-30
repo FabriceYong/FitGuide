@@ -138,6 +138,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | Friends, challenges, leaderboards, verified reviews | `services/social.js`, `routes/social.js` | `/community` |
 | Admin CMS, coach applications and the coach studio (dashboard, workouts, programs, review) | `routes/admin.js`, `creator.js`, `coaches.js` | `/admin`, `/studio`, `/coaches/[id]` |
 | Articles by coaches and admins (written in the studio and the CMS, reviewed, shown on the home page), built-in guides, health news previews | `services/articles.js`, `routes/articles.js` | `/articles/[slug]`, home tab; app: `features/dashboard/article_screen.dart` |
+| Videos inside articles (uploaded MP4/WebM/MOV up to 100 MB, or a link to a video file; start muted as the reader scrolls to them, with a transcript) | `POST /api/creator/articles/video`, `utils/uploads.js` | `features/articles/ArticleVideo.tsx`; app: `features/dashboard/article_video.dart` |
 | PLUS subscriptions (Stripe) | `services/billing.js`, `routes/billing.js` | `/plus` |
 | Analytics (first-party, cookie-free) | `routes/events.js` | `lib/analytics.ts`, admin Analytics tab |
 | Offline player, install to home screen | | `public/sw.js`, `app/manifest.ts` |

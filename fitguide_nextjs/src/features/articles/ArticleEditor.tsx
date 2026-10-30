@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, type ChangeEvent } from 'react';
-import { ArrowDown, ArrowUp, Eye, ImagePlus, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, Film, ImagePlus, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
 import {
-  ARTICLE_CATEGORIES, coverSrc, uploadArticleCover,
+  ARTICLE_CATEGORIES, coverSrc, uploadArticleCover, uploadArticleVideo,
   type ArticleCategory, type ArticleInput,
 } from '../../services/articleService';
 import { ArticlePage } from '../dashboard/components/ArticlePage';
@@ -13,7 +13,10 @@ const field = 'w-full bg-noir-eclipse border border-white-30/20 rounded-xl px-3 
 const label = 'block text-xs font-bold text-white-70';
 
 // Sections are edited as one text box each; a blank line starts a new paragraph.
-type DraftSection = { heading: string; body: string; tip: string };
+type DraftVideo = { url: string; title: string; description: string; transcript: string };
+type DraftSection = { heading: string; body: string; video: DraftVideo | null; tip: string };
+
+const blankVideo = (): DraftVideo => ({ url: '', title: '', description: '', transcript: '' });
 
 export const blankArticle = (): ArticleInput => ({
   title: '', description: '', category: 'TRAINING', coverImageUrl: null, takeaways: [], sections: [{ heading: '', paragraphs: [''] }],
@@ -22,7 +25,12 @@ export const blankArticle = (): ArticleInput => ({
 const toDraft = (a: ArticleInput) => ({
   ...a,
   takeawaysText: a.takeaways.join('\n'),
-  draftSections: a.sections.map((s) => ({ heading: s.heading, body: s.paragraphs.join('\n\n'), tip: s.tip || '' })),
+  draftSections: a.sections.map((s): DraftSection => ({
+    heading: s.heading,
+    body: s.paragraphs.join('\n\n'),
+    video: s.video ? { url: s.video.url, title: s.video.title, description: s.video.description || '', transcript: s.video.transcript || '' } : null,
+    tip: s.tip || '',
+  })),
 });
 
 function toInput(d: ReturnType<typeof toDraft>): ArticleInput {
@@ -35,6 +43,14 @@ function toInput(d: ReturnType<typeof toDraft>): ArticleInput {
     sections: d.draftSections.map((s) => ({
       heading: s.heading.trim(),
       paragraphs: s.body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean),
+      ...(s.video && {
+        video: {
+          url: s.video.url.trim(),
+          title: s.video.title.trim(),
+          ...(s.video.description.trim() && { description: s.video.description.trim() }),
+          ...(s.video.transcript.trim() && { transcript: s.video.transcript.trim() }),
+        },
+      }),
       ...(s.tip.trim() && { tip: s.tip.trim() }),
     })),
   };
@@ -67,6 +83,8 @@ export function ArticleEditor({ initial, heading, actions, onCancel, authorName 
   const patch = (change: Partial<ReturnType<typeof toDraft>>) => setD((cur) => ({ ...cur, ...change }));
   const setSection = (i: number, change: Partial<DraftSection>) =>
     setD((cur) => ({ ...cur, draftSections: cur.draftSections.map((s, j) => (j === i ? { ...s, ...change } : s)) }));
+  const setVideo = (i: number, change: Partial<DraftVideo>) =>
+    setD((cur) => ({ ...cur, draftSections: cur.draftSections.map((s, j) => (j === i && s.video ? { ...s, video: { ...s.video, ...change } } : s)) }));
   const moveSection = (i: number, by: number) => setD((cur) => {
     const next = [...cur.draftSections];
     [next[i], next[i + by]] = [next[i + by], next[i]];
@@ -81,6 +99,21 @@ export function ArticleEditor({ initial, heading, actions, onCancel, authorName 
     setError(null);
     try {
       patch({ coverImageUrl: await uploadArticleCover(file) });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const uploadVideo = async (i: number, event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setBusy(`video-${i}`);
+    setError(null);
+    try {
+      setVideo(i, { url: await uploadArticleVideo(file) });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -118,7 +151,8 @@ export function ArticleEditor({ initial, heading, actions, onCancel, authorName 
         <div className={card}>
           <ArticlePage article={{
             slug: 'preview', title: input.title || 'Untitled article', category: input.category, readMinutes: minutes, imageUrl: cover,
-            description: input.description, takeaways: input.takeaways, sections: input.sections.filter((s) => s.heading || s.paragraphs.length),
+            description: input.description, takeaways: input.takeaways,
+            sections: input.sections.filter((s) => s.heading || s.paragraphs.length || s.video).map((s) => (s.video?.url ? s : { ...s, video: undefined })),
             author: { name: authorName, href: null }, publishedAt: null, action: null,
           }} preview />
         </div>
@@ -174,10 +208,37 @@ export function ArticleEditor({ initial, heading, actions, onCancel, authorName 
                   <button type="button" disabled={d.draftSections.length === 1} onClick={() => setD((cur) => ({ ...cur, draftSections: cur.draftSections.filter((_, j) => j !== i) }))} aria-label={`Remove section ${i + 1}`} className="w-9 shrink-0 rounded-lg bg-white/10 flex items-center justify-center text-red-300 disabled:opacity-30"><Trash2 className="w-4 h-4" /></button>
                 </div>
                 <textarea placeholder="Text. Leave a blank line between paragraphs." aria-label={`Section ${i + 1} text`} rows={5} value={s.body} onChange={(e) => setSection(i, { body: e.target.value })} className={field} />
+                {s.video ? (
+                  <div className="rounded-xl border border-white-30/15 p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={label}>Video <span className="font-normal">(plays after the text, starting as readers scroll to it)</span></span>
+                      <button type="button" onClick={() => setSection(i, { video: null })} className="text-xs font-bold text-red-300 shrink-0">Remove video</button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-white/10 cursor-pointer">
+                        {busy === `video-${i}` ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</> : <><Upload className="w-3.5 h-3.5" /> {s.video.url.startsWith('/uploads/') ? 'Replace video' : 'Upload video'}</>}
+                        <input type="file" accept="video/mp4,video/webm,video/quicktime" className="sr-only" disabled={busy !== null} onChange={(e) => uploadVideo(i, e)} aria-label={`Upload a video for section ${i + 1}`} />
+                      </label>
+                      <span className="text-xs text-white-70">{s.video.url.startsWith('/uploads/') ? 'Video uploaded.' : 'MP4, WebM or MOV, up to 100 MB. MP4 plays on every device.'}</span>
+                    </div>
+                    <input
+                      placeholder="…or paste an https:// link straight to an .mp4 or .webm file"
+                      aria-label={`Section ${i + 1} video link`}
+                      value={s.video.url.startsWith('/uploads/') ? '' : s.video.url}
+                      onChange={(e) => setVideo(i, { url: e.target.value })}
+                      className={field}
+                    />
+                    <input placeholder="Video title" aria-label={`Section ${i + 1} video title`} maxLength={120} value={s.video.title} onChange={(e) => setVideo(i, { title: e.target.value })} className={field} />
+                    <input placeholder="One line about the video (optional)" aria-label={`Section ${i + 1} video description`} maxLength={300} value={s.video.description} onChange={(e) => setVideo(i, { description: e.target.value })} className={field} />
+                    <textarea placeholder="Transcript (optional, helps readers who can’t play sound)" aria-label={`Section ${i + 1} video transcript`} maxLength={5000} rows={3} value={s.video.transcript} onChange={(e) => setVideo(i, { transcript: e.target.value })} className={field} />
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setSection(i, { video: blankVideo() })} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-white/10"><Film className="w-3.5 h-3.5" /> Add video</button>
+                )}
                 <input placeholder="Tip (optional)" aria-label={`Section ${i + 1} tip`} maxLength={500} value={s.tip} onChange={(e) => setSection(i, { tip: e.target.value })} className={field} />
               </fieldset>
             ))}
-            <button type="button" onClick={() => setD((cur) => ({ ...cur, draftSections: [...cur.draftSections, { heading: '', body: '', tip: '' }] }))} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-white/10"><Plus className="w-3.5 h-3.5" /> Add section</button>
+            <button type="button" onClick={() => setD((cur) => ({ ...cur, draftSections: [...cur.draftSections, { heading: '', body: '', video: null, tip: '' }] }))} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-white/10"><Plus className="w-3.5 h-3.5" /> Add section</button>
           </div>
         </div>
       )}

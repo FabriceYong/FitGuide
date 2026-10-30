@@ -105,6 +105,25 @@ const ARTICLE_CATEGORIES = ['TRAINING', 'NUTRITION', 'RECOVERY'];
 const coverUrl = z.string().trim().max(500)
   .refine((v) => /^https:\/\//.test(v) || /^\/uploads\/[\w./-]+$/.test(v), 'must be an https:// link or an uploaded picture')
   .nullish();
+// A video readers' browsers and phones can play themselves: an uploaded file
+// (/uploads/... on local storage) or an https link straight to a video file.
+// Pages like YouTube's can't be played inside the article this way.
+const VIDEO_FILE = /\.(mp4|webm|mov|m4v)$/i;
+const isVideoLink = (v) => {
+  if (/^\/uploads\/[\w./-]+$/.test(v)) return VIDEO_FILE.test(v);
+  try {
+    const link = new URL(v);
+    return link.protocol === 'https:' && VIDEO_FILE.test(link.pathname);
+  } catch {
+    return false;
+  }
+};
+const sectionVideo = z.object({
+  url: z.string().trim().max(500).refine(isVideoLink, 'upload the video, or link straight to an .mp4 or .webm file (YouTube and Vimeo pages can’t play inside the article)'),
+  title: text(120).min(2, 'give the video a title'),
+  description: text(300).nullish().transform((v) => v || undefined),
+  transcript: text(5000).nullish().transform((v) => v || undefined),
+});
 const article = z.object({
   title: text(160).min(5, 'give the article a title of at least 5 characters'),
   description: text(300).min(10, 'add a one- or two-sentence summary'),
@@ -113,9 +132,12 @@ const article = z.object({
   takeaways: list(6, 200),
   sections: z.array(z.object({
     heading: text(120).min(2, 'each section needs a heading'),
-    paragraphs: z.array(text(3000).min(1)).min(1, 'each section needs at least one paragraph').max(20),
+    paragraphs: z.array(text(3000).min(1)).max(20).default([]),
+    // Plays after the section's text, before its tip.
+    video: sectionVideo.nullish().transform((v) => v || undefined),
     tip: text(500).nullish().transform((v) => v || undefined),
-  })).min(1, 'add at least one section').max(20),
+  }).refine((s) => s.paragraphs.length || s.video, { message: 'each section needs at least one paragraph or a video', path: ['paragraphs'] }))
+    .min(1, 'add at least one section').max(20),
 });
 
 module.exports = { schemas: { workout, exercise, program, programDay, coachProfile, article }, ARTICLE_CATEGORIES };

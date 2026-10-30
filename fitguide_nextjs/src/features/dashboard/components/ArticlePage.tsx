@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock, Lightbulb, Loader2 } from 'lucide-react';
 import { ARTICLES, CATEGORY_COLORS, builtInView, writtenView, type ArticleView } from '../articles';
 import { fetchPublishedArticle } from '../../../services/articleService';
+import { ArticleVideo } from '../../articles/ArticleVideo';
 
 /** One article: a built-in guide or one a coach or admin wrote. `preview` is the editor's view of a draft. */
 export function ArticlePage({ article, preview = false }: { article: ArticleView; preview?: boolean }) {
@@ -57,6 +58,7 @@ export function ArticlePage({ article, preview = false }: { article: ArticleView
         <section key={`${i}-${s.heading}`} className="space-y-3">
           <h2 className="text-xl md:text-2xl font-extrabold text-white pt-3 border-t border-white/10">{s.heading}</h2>
           {s.paragraphs.map((p, j) => <p key={j} className="text-white-70 leading-relaxed whitespace-pre-line">{p}</p>)}
+          {s.video && <ArticleVideo video={s.video} />}
           {s.tip && (
             <p className="bg-obsidian-wave border-l-4 p-4 rounded-r-xl text-sm text-white flex gap-2" style={{ borderColor: color }}>
               <Lightbulb className="w-4 h-4 shrink-0 mt-0.5" style={{ color }} aria-hidden="true" /> {s.tip}

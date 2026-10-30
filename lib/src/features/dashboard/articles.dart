@@ -7,17 +7,37 @@ import '../../models/json.dart';
 /// Short guides written for FitGuide, and articles written by coaches and
 /// admins, shown on the home tab (features/dashboard/articles.ts and
 /// services/articleService.ts).
+/// A video after a section's text; it starts playing, muted, as the reader
+/// scrolls to it (features/articles/ArticleVideo.tsx).
+class ArticleVideo {
+  const ArticleVideo({required this.url, required this.title, this.description, this.transcript});
+
+  ArticleVideo.fromJson(Json j)
+      : url = asString(j['url']) ?? '',
+        title = asString(j['title']) ?? '',
+        description = asString(j['description']),
+        transcript = asString(j['transcript']);
+
+  /// An uploaded file (`/uploads/...`) or an https link to a video file.
+  final String url;
+  final String title;
+  final String? description;
+  final String? transcript;
+}
+
 class ArticleSection {
-  const ArticleSection(this.heading, this.paragraphs, [this.tip]);
+  const ArticleSection(this.heading, this.paragraphs, [this.tip, this.video]);
 
   ArticleSection.fromJson(Json j)
       : heading = asString(j['heading']) ?? '',
         paragraphs = asStrings(j['paragraphs']),
-        tip = asString(j['tip']);
+        tip = asString(j['tip']),
+        video = j['video'] is Map && asString(asJson(j['video'])['url']) != null ? ArticleVideo.fromJson(asJson(j['video'])) : null;
 
   final String heading;
   final List<String> paragraphs;
   final String? tip;
+  final ArticleVideo? video;
 }
 
 class Article {

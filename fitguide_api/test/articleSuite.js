@@ -1,6 +1,6 @@
 /**
  * Articles written by coaches and admins: drafts, review, publishing to the
- * home page, cover uploads and who can see what. Runs inside defineApiSuite
+ * home page, cover and video uploads and who can see what. Runs inside defineApiSuite
  * against the test Postgres.
  */
 const { describe, it, before } = require('node:test');
@@ -9,6 +9,8 @@ const request = require('supertest');
 const { prisma } = require('../db/prisma');
 const { readMinutes } = require('../services/articles');
 
+// The start of an MP4 file: a 24-byte "ftyp" box.
+const MP4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypisom', 'latin1'), Buffer.from([0, 0, 2, 0]), Buffer.from('isomiso2', 'latin1'), Buffer.alloc(64)]);
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 
 const draft = (overrides = {}) => ({
@@ -133,6 +135,40 @@ function defineArticleSuite(ctx) {
     await kim.agent.post('/api/creator/articles/cover').attach('cover', Buffer.from('not an image'), { filename: 'c.png', contentType: 'image/png' }).expect(400);
     await member.agent.post('/api/creator/articles/cover').attach('cover', PNG, { filename: 'c.png', contentType: 'image/png' }).expect(403);
     await kim.agent.delete(`/api/creator/articles/${article.slug}`).expect(200);
+  });
+
+  it('uploads a section video and shows it to readers', async () => {
+    const res = await kim.agent.post('/api/creator/articles/video').attach('video', MP4, { filename: 'core.mp4', contentType: 'video/mp4' }).expect(201);
+    assert.match(res.body.url, /\/uploads\/articles\/video-video-.*\.mp4$/);
+    const url = res.body.url.replace(/^https?:\/\/[^/]+/, '');
+    // A picture or a fake file isn't a video; members can't upload.
+    await kim.agent.post('/api/creator/articles/video').attach('video', PNG, { filename: 'c.png', contentType: 'image/png' }).expect(400);
+    const fake = await kim.agent.post('/api/creator/articles/video').attach('video', Buffer.from('not a video at all'), { filename: 'v.mp4', contentType: 'video/mp4' }).expect(400);
+    assert.equal(fake.body.message, 'That file is not a valid video.');
+    await member.agent.post('/api/creator/articles/video').attach('video', MP4, { filename: 'v.mp4', contentType: 'video/mp4' }).expect(403);
+
+    const video = { url, title: 'Core exercises for any level', description: 'Five moves, no equipment.', transcript: 'Start on your back with your knees bent.' };
+    const sections = [
+      { heading: 'Watch first', paragraphs: [], video },
+      { heading: 'Then read', paragraphs: ['Keep your lower back pressed down.'], video: { url: 'https://cdn.example.com/clips/plank.webm?v=2', title: 'Plank', description: '', transcript: null } },
+    ];
+    // A YouTube page can't play inside the article; a section needs text or a video.
+    const youtube = await kim.agent.post('/api/creator/articles').send(draft({ sections: [{ heading: 'Watch', paragraphs: [], video: { ...video, url: 'https://www.youtube.com/watch?v=abc' } }] })).expect(400);
+    assert.match(youtube.body.message, /YouTube/);
+    await kim.agent.post('/api/creator/articles').send(draft({ sections: [{ heading: 'Empty', paragraphs: [] }] })).expect(400);
+    await kim.agent.post('/api/creator/articles').send(draft({ sections: [{ heading: 'Script', paragraphs: [], video: { ...video, url: 'javascript:alert(1)//.mp4' } }] })).expect(400);
+
+    const article = (await kim.agent.post('/api/creator/articles').send(draft({ title: 'Core basics on video', sections })).expect(201)).body.article;
+    assert.deepEqual(article.sections[0].video, video);
+    assert.deepEqual(article.sections[1].video, { url: 'https://cdn.example.com/clips/plank.webm?v=2', title: 'Plank' });
+    await kim.agent.post(`/api/creator/articles/${article.slug}/submit`).expect(200);
+    await admin.agent.patch(`/api/admin/articles/${article.slug}`).send({ status: 'published' }).expect(200);
+    const read = (await visitor.get(`/api/articles/posts/${article.slug}`).expect(200)).body.article;
+    assert.deepEqual(read.sections[0], { heading: 'Watch first', paragraphs: [], video });
+    // The uploaded file is served with its video type, and supports seeking.
+    const file = await visitor.get(url).set('Range', 'bytes=0-15').expect(206);
+    assert.match(file.headers['content-type'], /^video\/mp4/);
+    await admin.agent.delete(`/api/admin/articles/${article.slug}`).expect(200);
   });
 
   it('keeps published articles when the author deletes their account, and drops their drafts', async () => {

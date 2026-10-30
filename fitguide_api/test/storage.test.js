@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { s3Storage, getStorage, removeUrls, UPLOADS_ROOT } = require('../utils/storage');
-const { hasImageSignature } = require('../utils/uploads');
+const { hasImageSignature, hasVideoSignature } = require('../utils/uploads');
 
 describe('S3 storage', () => {
   it('needs a bucket and a public URL', () => {
@@ -66,5 +66,20 @@ describe('image signatures', () => {
     assert.ok(hasImageSignature(webp, 'image/webp'));
     assert.ok(!hasImageSignature(png, 'image/jpeg'));
     assert.ok(!hasImageSignature(Buffer.from('<svg/>'), 'image/png'));
+  });
+});
+
+describe('video signatures', () => {
+  it('accepts MP4, MOV and WebM headers and rejects others', () => {
+    const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypisom', 'latin1')]);
+    const mov = Buffer.concat([Buffer.from([0, 0, 0, 0x14]), Buffer.from('ftypqt  ', 'latin1')]);
+    const webm = Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x9f]);
+    assert.ok(hasVideoSignature(mp4, 'video/mp4'));
+    assert.ok(hasVideoSignature(mov, 'video/quicktime'));
+    assert.ok(hasVideoSignature(webm, 'video/webm'));
+    assert.ok(!hasVideoSignature(webm, 'video/mp4'));
+    assert.ok(!hasVideoSignature(mp4, 'video/webm'));
+    assert.ok(!hasVideoSignature(Buffer.from('<html>'), 'video/mp4'));
+    assert.ok(!hasVideoSignature(mp4, 'image/png'));
   });
 });

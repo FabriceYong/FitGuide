@@ -11,7 +11,7 @@ const { schemas } = require('../schemas/catalog');
 const { validate } = require('../schemas/records');
 const catalogAdmin = require('../services/catalogAdmin');
 const articles = require('../services/articles');
-const { imageUpload, uploadErrorHandler } = require('../utils/uploads');
+const { imageUpload, videoUpload, uploadErrorHandler } = require('../utils/uploads');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/requireRole');
 const { tzOffsetFrom, today, daysBetween } = require('../utils/dates');
@@ -206,6 +206,15 @@ const coverUpload = imageUpload('articles', 'cover');
 // for an article; returns its URL to put in coverImageUrl. Admins use it too.
 router.post('/articles/cover', coverUpload.single('cover'), (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: 'Choose a picture to upload.' });
+  res.status(201).json({ success: true, url: req.file.publicUrl });
+});
+
+const videoFile = videoUpload('articles', 'video');
+
+// POST /api/creator/articles/video (multipart, field "video") — a video for a
+// section of an article; returns its URL to put in the section's video.url.
+router.post('/articles/video', videoFile.single('video'), (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: 'Choose a video to upload.' });
   res.status(201).json({ success: true, url: req.file.publicUrl });
 });
 

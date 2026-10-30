@@ -7,9 +7,19 @@ import type { ReviewStatus } from './adminService';
 export const ARTICLE_CATEGORIES = ['TRAINING', 'NUTRITION', 'RECOVERY'] as const;
 export type ArticleCategory = (typeof ARTICLE_CATEGORIES)[number];
 
+/** A video shown after a section's text; it starts playing, muted, as the reader scrolls to it. */
+export interface ArticleVideo {
+  /** An uploaded file (/uploads/...) or an https link straight to an .mp4 or .webm file. */
+  url: string;
+  title: string;
+  description?: string;
+  transcript?: string;
+}
+
 export interface ArticleSection {
   heading: string;
   paragraphs: string[];
+  video?: ArticleVideo;
   tip?: string;
 }
 
@@ -41,6 +51,8 @@ export interface EditorArticle extends WrittenArticle {
 
 /** The cover as a loadable URL (uploads are served by the API). */
 export const coverSrc = (url: string | null) => (url ? assetUrl(url) : null);
+/** A section video as a loadable URL. */
+export const videoSrc = (url: string): string => assetUrl(url);
 
 export const toArticleInput = (a: EditorArticle): ArticleInput => ({
   title: a.title, description: a.description, category: a.category, coverImageUrl: a.coverImageUrl, takeaways: a.takeaways, sections: a.sections,
@@ -64,6 +76,13 @@ export async function uploadArticleCover(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('cover', file);
   return (await apiRequest('/creator/articles/cover', { method: 'POST', formData, auth: true })).url;
+}
+
+/** Upload a section video (MP4, WebM or MOV, up to 100 MB); returns the URL to save in the section's video. */
+export async function uploadArticleVideo(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('video', file);
+  return (await apiRequest('/creator/articles/video', { method: 'POST', formData, auth: true })).url;
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────────

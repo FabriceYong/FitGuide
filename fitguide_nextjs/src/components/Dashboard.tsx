@@ -1,16 +1,12 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import Link from 'next/link';
 import {
-  AlertTriangle, BarChart3, BookOpen, Calculator, Compass, Dumbbell, Heart, Home, LogOut, Menu, RefreshCw, Star, User,
+  AlertTriangle, BarChart3, BookOpen, Calculator, Compass, Heart, Home, LogOut, RefreshCw, Star, User,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkouts } from '../context/WorkoutContext';
-import { useT } from '../i18n/client';
-import type { MessageKey } from '../i18n/messages';
-import { assetUrl } from '../lib/api';
 import { HomeTab } from '../features/dashboard/components/HomeTab';
 import { ExploreTab } from '../features/dashboard/components/ExploreTab';
 import { FavoritesTab } from '../features/dashboard/components/FavoritesTab';
@@ -23,12 +19,7 @@ import { ProfileTab } from '../features/profile/components/ProfileTab';
 import { isTab, type TabId } from '../features/dashboard/tabs';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ImageAttribution } from './ImageAttribution';
-import { LanguageSwitcher } from './LanguageSwitcher';
-import { Modal } from './Modal';
-import { RoleLinks } from './RoleLinks';
-import { AdminButton } from './AdminButton';
-import { ProfileMenu } from './ProfileMenu';
-import { navLinkClass } from './navLinkClass';
+import { SiteNav } from './SiteNav';
 
 const TAB_ITEMS: { id: TabId; label: string; icon: LucideIcon; mobileBar?: boolean }[] = [
   { id: 'home', label: 'Home', icon: Home, mobileBar: true },
@@ -41,14 +32,6 @@ const TAB_ITEMS: { id: TabId; label: string; icon: LucideIcon; mobileBar?: boole
   { id: 'profile', label: 'Profile', icon: User, mobileBar: true },
 ];
 
-// Pages outside the dashboard (the dashboard's own tabs cover workouts, programs and progress).
-const SITE_LINKS: { href: string; key: MessageKey }[] = [
-  { href: '/plan', key: 'nav.plan' },
-  { href: '/nutrition', key: 'nav.nutrition' },
-  { href: '/community', key: 'nav.community' },
-  { href: '/plus', key: 'nav.plus' },
-];
-
 // The dashboard renders only in the browser (behind AuthWrapper), so it can
 // read the tab from the URL on first render.
 const tabFromUrl = (): TabId => {
@@ -58,17 +41,14 @@ const tabFromUrl = (): TabId => {
 
 /** The signed-in home page: a tabbed dashboard, linked to the rest of the site. */
 export default function Dashboard() {
-  const { user, isGuest, logout } = useAuth();
+  const { isGuest, logout } = useAuth();
   const { error, savedAt, reload, workouts } = useWorkouts();
-  const t = useT();
   const [tab, setTabState] = useState<TabId>(tabFromUrl);
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   // Keep the tab in the URL (?tab=) so Back from a workout page returns to it.
   const setTab = useCallback((next: TabId) => {
     setTabState(next);
-    setMenuOpen(false);
     window.history.replaceState(null, '', next === 'home' ? '/' : `/?tab=${next}`);
     window.scrollTo({ top: 0 });
   }, []);
@@ -84,56 +64,33 @@ export default function Dashboard() {
     profile: <ProfileTab onLogout={() => setConfirmLogout(true)} onNavigate={setTab} />,
   }[tab];
 
-  const avatar = (
-    <span className="w-10 h-10 rounded-full bg-gradient-to-br from-lime-light/20 to-royal-nebula/30 border-2 border-white-30/40 flex items-center justify-center overflow-hidden">
-      {user?.avatarUrl
-        // eslint-disable-next-line @next/next/no-img-element
-        ? <img src={assetUrl(user.avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
-        : <User className="w-5 h-5 text-white" aria-hidden="true" />}
-    </span>
-  );
-
   return (
     <div className="min-h-screen bg-noir-eclipse text-white flex flex-col font-poppins">
-      <header className="sticky top-0 z-30 bg-noir-eclipse/90 backdrop-blur-md border-b border-white-30/10">
-        <div className="px-4 md:px-8 h-16 flex items-center justify-between gap-4">
-          <button type="button" onClick={() => setTab('home')} className="flex items-center gap-2 shrink-0" aria-label="FitGuide home">
-            <span className="w-9 h-9 rounded-xl bg-lime-light flex items-center justify-center" aria-hidden="true">
-              <Dumbbell className="w-5 h-5 text-noir-eclipse" />
-            </span>
-            <span className="font-extrabold text-lg tracking-tight text-white">FitGuide</span>
-            {user?.plan === 'plus' && <span className="text-[10px] font-bold text-amber-300 tracking-widest px-1.5 py-0.5 rounded bg-amber-400/15">PLUS</span>}
-          </button>
-
-          <div className="hidden md:flex items-center gap-3 min-w-0">
-            <nav aria-label={t('nav.label')} className="flex items-center gap-1">
-              {SITE_LINKS.map((link) => <Link key={link.href} href={link.href} className={navLinkClass('/', link.href)}>{t(link.key)}</Link>)}
-              <RoleLinks active="/" />
-            </nav>
-            <LanguageSwitcher />
-            <AdminButton />
-            <ProfileMenu
-              name={user?.name || 'Profile'}
-              detail={isGuest ? 'Guest' : user?.email || ''}
-              avatar={avatar}
-              isGuest={isGuest}
-              onProfile={() => setTab('profile')}
-              onSignOut={() => setConfirmLogout(true)}
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            className="md:hidden w-10 h-10 rounded-xl border border-white-30/30 flex items-center justify-center"
-            aria-label="Open menu"
-            aria-haspopup="dialog"
-          >
-            <Menu className="w-5 h-5" aria-hidden="true" />
-          </button>
-        </div>
-
-        <nav aria-label="Dashboard" className="hidden md:block px-8 pb-3">
+      <SiteNav
+        active="/"
+        onHome={() => setTab('home')}
+        onProfile={() => setTab('profile')}
+        bottomBar={false}
+        menuExtra={(close) => (
+          <nav aria-label="Dashboard sections">
+            <ul className="grid grid-cols-2 gap-2">
+              {TAB_ITEMS.map(({ id, label, icon: Icon }) => (
+                <li key={id}>
+                  <button
+                    type="button"
+                    onClick={() => { close(); setTab(id); }}
+                    aria-current={tab === id ? 'page' : undefined}
+                    className={`w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-bold ${tab === id ? 'bg-lime-light text-noir-eclipse' : 'bg-white/5 text-white'}`}
+                  >
+                    <Icon className="w-4 h-4" aria-hidden="true" /> {label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+      >
+        <nav aria-label="Dashboard" className="hidden md:block max-w-[1600px] mx-auto px-8 pb-3">
           <ul className="flex items-center gap-1 overflow-x-auto">
             {TAB_ITEMS.map(({ id, label, icon: Icon }) => (
               <li key={id}>
@@ -149,7 +106,7 @@ export default function Dashboard() {
             ))}
           </ul>
         </nav>
-      </header>
+      </SiteNav>
 
       {(error || savedAt) && (
         <div role="status" className="px-4 md:px-8 py-3 bg-amber-500/10 border-b border-amber-500/30 flex flex-wrap items-center gap-3 text-sm text-amber-200">
@@ -190,47 +147,6 @@ export default function Dashboard() {
           ))}
         </ul>
       </nav>
-
-      {menuOpen && (
-        <Modal title="Menu" onClose={() => setMenuOpen(false)} placement="sheet">
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              {avatar}
-              <span className="flex-1 min-w-0">
-                <span className="block font-bold">{user?.name}</span>
-                <span className="block text-xs text-white-70">{isGuest ? 'Guest' : user?.email}</span>
-              </span>
-              <AdminButton />
-            </div>
-            <nav aria-label="Dashboard sections">
-              <ul className="grid grid-cols-2 gap-2">
-                {TAB_ITEMS.map(({ id, label, icon: Icon }) => (
-                  <li key={id}>
-                    <button
-                      type="button"
-                      onClick={() => setTab(id)}
-                      aria-current={tab === id ? 'page' : undefined}
-                      className={`w-full flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-bold ${tab === id ? 'bg-lime-light text-noir-eclipse' : 'bg-white/5 text-white'}`}
-                    >
-                      <Icon className="w-4 h-4" aria-hidden="true" /> {label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-            <nav aria-label={t('nav.label')} className="flex flex-wrap gap-2">
-              {SITE_LINKS.map((link) => <Link key={link.href} href={link.href} className={navLinkClass('/', link.href)}>{t(link.key)}</Link>)}
-              <RoleLinks active="/" />
-            </nav>
-            <div className="flex items-center justify-between">
-              <LanguageSwitcher />
-              <button type="button" onClick={() => { setMenuOpen(false); setConfirmLogout(true); }} className="flex items-center gap-2 text-sm font-bold text-red-300">
-                <LogOut className="w-4 h-4" aria-hidden="true" /> {isGuest ? 'Leave guest mode' : 'Sign out'}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
 
       {confirmLogout && (
         <ConfirmDialog

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, BookOpen, Layers, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useWorkouts } from '../../../context/WorkoutContext';
-import type { Workout } from '../../../types/catalog';
+import { categoryCounts, DURATIONS, equipmentNames, LEVELS, matchesFilter } from '../../workout/catalogFilter';
 import { useFavorites } from '../useFavorites';
 import { worksRegions, type Region } from '../muscles';
 import { BodyMap } from './BodyMap';
@@ -12,17 +12,6 @@ import { ExerciseLibrary } from './ExerciseLibrary';
 import { WorkoutCard } from './WorkoutCard';
 
 const PAGE = 9;
-const LEVELS = ['Beginner', 'Intermediate', 'Advanced'] as const;
-const DURATIONS = [
-  { label: 'Any length', max: 0 },
-  { label: 'Up to 20 min', max: 20 },
-  { label: 'Up to 30 min', max: 30 },
-  { label: 'Up to 45 min', max: 45 },
-];
-
-const stripOptional = (e: string) => e.replace(/^Optional:\s*/i, '');
-/** Equipment a workout can't be done without. */
-const requiredEquipment = (w: Workout) => w.equipment.filter((e) => e !== 'None' && !/^Optional:/i.test(e));
 
 /** Browse and filter the workout catalog, or the exercise library. */
 export function ExploreTab() {
@@ -38,29 +27,13 @@ export function ExploreTab() {
   const [showFilters, setShowFilters] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const w of workouts) counts.set(w.category, (counts.get(w.category) || 0) + 1);
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  }, [workouts]);
-  const equipmentOptions = useMemo(
-    () => [...new Set(workouts.flatMap((w) => w.equipment.map(stripOptional)))].filter((e) => e !== 'None').sort(),
-    [workouts],
-  );
+  const categories = useMemo(() => categoryCounts(workouts), [workouts]);
+  const equipmentOptions = useMemo(() => equipmentNames(workouts), [workouts]);
 
-  const results = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    return workouts.filter((w) => {
-      if (category && w.category !== category) return false;
-      // "All Levels" workouts suit every level.
-      if (level && w.difficulty !== level && w.difficulty !== 'All Levels') return false;
-      if (equipment === 'none' ? requiredEquipment(w).length > 0 : equipment && !w.equipment.map(stripOptional).includes(equipment)) return false;
-      if (maxMinutes && w.duration > maxMinutes) return false;
-      if (!worksRegions(w.targetMuscles, regions)) return false;
-      if (!term) return true;
-      return [w.title, w.description, w.shortDescription || '', w.category, ...w.tags].some((s) => s.toLowerCase().includes(term));
-    });
-  }, [workouts, query, category, level, equipment, maxMinutes, regions]);
+  const results = useMemo(
+    () => workouts.filter((w) => matchesFilter(w, { query, category, level, equipment, maxMinutes }) && worksRegions(w.targetMuscles, regions)),
+    [workouts, query, category, level, equipment, maxMinutes, regions],
+  );
 
   const advancedCount = [level, equipment, maxMinutes, regions.length].filter(Boolean).length;
   const anyFilter = Boolean(query || category || advancedCount);

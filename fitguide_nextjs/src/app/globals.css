@@ -321,3 +321,10 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Room for the phone tab bar (components/SiteNav.tsx) below the page. */
+@media (max-width: 767px) {
+  body:has(.site-bottom-nav) {
+    padding-bottom: 4rem;
+  }
+}

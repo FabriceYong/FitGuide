@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../../models/catalog.dart';
 import '../../navigation.dart';
 import '../../state/dashboard_controller.dart';
 import '../../state/favorites_controller.dart';
@@ -13,16 +12,10 @@ import '../../widgets/body_map.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/ui.dart';
 import '../../widgets/workout_card.dart';
+import '../workout/catalog_filter.dart';
 import 'exercise_library.dart';
 
 const _page = 9;
-const _levels = ['Beginner', 'Intermediate', 'Advanced'];
-const _durations = [(0, 'Any length'), (20, 'Up to 20 min'), (30, 'Up to 30 min'), (45, 'Up to 45 min')];
-
-String _stripOptional(String e) => e.replaceFirst(RegExp(r'^Optional:\s*', caseSensitive: false), '');
-
-/// Equipment a workout can't be done without.
-List<String> _requiredEquipment(Workout w) => w.equipment.where((e) => e != 'None' && !RegExp(r'^Optional:', caseSensitive: false).hasMatch(e)).toList();
 
 /// Browse and filter the workout catalog, or the exercise library
 /// (dashboard/components/ExploreTab.tsx).
@@ -80,24 +73,13 @@ class _ExploreTabState extends State<ExploreTab> {
     final favorites = context.watch<FavoritesController>();
     final workouts = catalog.workouts;
 
-    final counts = <String, int>{};
-    for (final w in workouts) {
-      counts[w.category] = (counts[w.category] ?? 0) + 1;
-    }
-    final categories = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    final equipmentOptions = ({for (final w in workouts) ...w.equipment.map(_stripOptional)}..remove('None')).toList()..sort();
+    final categories = categoryCounts(workouts);
+    final equipmentOptions = equipmentNames(workouts);
 
     final term = _query.text.trim().toLowerCase();
-    final results = workouts.where((w) {
-      if (_category.isNotEmpty && w.category != _category) return false;
-      // "All Levels" workouts suit every level.
-      if (_level.isNotEmpty && w.difficulty != _level && w.difficulty != 'All Levels') return false;
-      if (_equipment == 'none' ? _requiredEquipment(w).isNotEmpty : _equipment.isNotEmpty && !w.equipment.map(_stripOptional).contains(_equipment)) return false;
-      if (_maxMinutes > 0 && w.duration > _maxMinutes) return false;
-      if (!worksRegions(w.targetMuscles, _regions)) return false;
-      if (term.isEmpty) return true;
-      return [w.title, w.description, w.shortDescription ?? '', w.category, ...w.tags].any((s) => s.toLowerCase().contains(term));
-    }).toList();
+    final results = workouts
+        .where((w) => matchesFilter(w, query: term, category: _category, level: _level, equipment: _equipment, maxMinutes: _maxMinutes) && worksRegions(w.targetMuscles, _regions))
+        .toList();
 
     final advancedCount = [_level.isNotEmpty, _equipment.isNotEmpty, _maxMinutes > 0, _regions.isNotEmpty].where((b) => b).length;
     final anyFilter = term.isNotEmpty || _category.isNotEmpty || advancedCount > 0;
@@ -212,7 +194,7 @@ class _ExploreTabState extends State<ExploreTab> {
               _FilterSelect(
                 label: 'Level',
                 value: _level,
-                options: [('', 'Any level'), for (final l in _levels) (l, l)],
+                options: [('', 'Any level'), for (final l in catalogLevels) (l, l)],
                 onChanged: (v) => setState(() => _level = v),
               ),
               _FilterSelect(
@@ -224,7 +206,7 @@ class _ExploreTabState extends State<ExploreTab> {
               _FilterSelect(
                 label: 'Length',
                 value: '$_maxMinutes',
-                options: [for (final (m, label) in _durations) ('$m', label)],
+                options: [for (final (m, label) in catalogDurations) ('$m', label)],
                 onChanged: (v) => setState(() => _maxMinutes = int.parse(v)),
               ),
             ]),

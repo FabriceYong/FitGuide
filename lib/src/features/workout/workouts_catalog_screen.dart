@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/catalog.dart';
-import '../../navigation.dart';
 import '../../services/catalog_service.dart';
+import '../../state/favorites_controller.dart';
+import '../../widgets/forms.dart';
 import '../../widgets/ui.dart';
+import '../../widgets/workout_card.dart';
 import '../common/site_page.dart';
+import '../dashboard/explore_tab.dart' show SearchField;
+import 'catalog_filter.dart';
 
-/// The full catalog by category (app/workouts/page.js).
+/// The full catalog (app/workouts/page.js and WorkoutCatalog.tsx): a search
+/// box and filter chips over picture cards, grouped by category until a
+/// filter is on.
 class WorkoutsCatalogScreen extends StatefulWidget {
   const WorkoutsCatalogScreen({super.key});
 
@@ -18,8 +25,13 @@ class WorkoutsCatalogScreen extends StatefulWidget {
 }
 
 class _WorkoutsCatalogScreenState extends State<WorkoutsCatalogScreen> {
+  final _query = TextEditingController();
   List<Workout>? _workouts;
   bool _failed = false;
+  String _category = '';
+  String _level = '';
+  int _maxMinutes = 0;
+  bool _noGear = false;
 
   @override
   void initState() {
@@ -32,12 +44,44 @@ class _WorkoutsCatalogScreenState extends State<WorkoutsCatalogScreen> {
   }
 
   @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  void _clear() {
+    _query.clear();
+    setState(() {
+      _category = '';
+      _level = '';
+      _maxMinutes = 0;
+      _noGear = false;
+    });
+  }
+
+  Widget _chip(String label, bool on, VoidCallback onTap) => FgChip(
+        label: label,
+        selected: on,
+        onTap: onTap,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        unselectedBackground: AppColors.obsidianWave,
+        unselectedText: AppColors.white70,
+      );
+
+  @override
   Widget build(BuildContext context) {
     final workouts = _workouts ?? const <Workout>[];
-    final byCategory = <String, List<Workout>>{};
-    for (final w in workouts) {
-      byCategory.putIfAbsent(w.category, () => []).add(w);
-    }
+    final favorites = context.watch<FavoritesController>();
+    final categories = categoryCounts(workouts);
+    final results = workouts.where((w) => matchesFilter(w, query: _query.text, category: _category, level: _level, maxMinutes: _maxMinutes, equipment: _noGear ? 'none' : '')).toList();
+    final filtering = _query.text.trim().isNotEmpty || _category.isNotEmpty || _level.isNotEmpty || _maxMinutes > 0 || _noGear;
+
+    Widget grid(List<Workout> items) => FgGrid(columns: 1, sm: 2, lg: 3, children: [
+          for (final w in items)
+            WorkoutCard(workout: w, favorite: favorites.isFavorite(w.slug), onToggleFavorite: favorites.canSave ? favorites.toggle : null),
+        ]);
+
     return SitePage(
       active: '/workouts',
       child: Column(
@@ -45,49 +89,57 @@ class _WorkoutsCatalogScreenState extends State<WorkoutsCatalogScreen> {
         children: [
           PageTitle('Workouts', size: atLeast(context, Breakpoints.md) ? 36 : 30),
           const SizedBox(height: 8),
-          Text('${workouts.length} guided workouts across ${byCategory.length} categories.', style: fg(size: 16, color: AppColors.white70)),
-          const SizedBox(height: 32),
+          Text('${workouts.length} guided workouts across ${categories.length} categories.', style: fg(size: 16, color: AppColors.white70)),
+          const SizedBox(height: 20),
           if (_failed)
             FgCard(
               padding: const EdgeInsets.all(20),
               child: Text('The workout catalog can’t be loaded right now. Please try again in a moment.', style: fg(size: 16, color: AppColors.white70)),
             )
           else if (_workouts == null)
-            const LoadingRow('Loading workouts…'),
-          for (final entry in byCategory.entries) ...[
-            Semantics(header: true, child: Text(entry.key, style: fg(size: 18, weight: FontWeight.w700))),
-            const SizedBox(height: 16),
-            FgGrid(columns: 1, sm: 2, lg: 3, children: [
-              for (final w in entry.value)
-                FgCard(
-                  onTap: () => openWorkout(context, w.slug),
-                  // The details line up along the bottom of a row of cards.
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(w.title, style: fg(size: 16, weight: FontWeight.w700)),
-                        const SizedBox(height: 4),
-                        Text(w.shortDescription ?? w.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: fg(size: 14, color: AppColors.white70)),
-                        const SizedBox(height: 16),
-                      ]),
-                      Wrap(
-                        spacing: 16,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          _Meta(LucideIcons.clock, '${w.duration} min'),
-                          _Meta(LucideIcons.trendingUp, w.difficulty),
-                          if (w.isPremium) Text('PLUS', style: fg(size: 12, weight: FontWeight.w800, color: AppColors.amber300)),
-                          if (w.calories != null && w.calories! > 0) _Meta(LucideIcons.flame, '${w.calories} kcal'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+            const LoadingRow('Loading workouts…')
+          else ...[
+            SearchField(controller: _query, hint: 'Search by name, muscle or goal', onChanged: (_) => setState(() {})),
+            const SizedBox(height: 12),
+            // Categories scroll sideways on a phone and wrap where there's room.
+            _ChipRow(children: [
+              _chip('All · ${workouts.length}', _category.isEmpty, () => setState(() => _category = '')),
+              for (final c in categories) _chip('${c.key} · ${c.value}', _category == c.key, () => setState(() => _category = _category == c.key ? '' : c.key)),
             ]),
-            const SizedBox(height: 32),
+            const SizedBox(height: 8),
+            _ChipRow(children: [
+              for (final (m, label) in catalogDurations.skip(1)) _chip(label, _maxMinutes == m, () => setState(() => _maxMinutes = _maxMinutes == m ? 0 : m)),
+              _chip('No equipment', _noGear, () => setState(() => _noGear = !_noGear)),
+              for (final l in catalogLevels) _chip(l, _level == l, () => setState(() => _level = _level == l ? '' : l)),
+            ]),
+            if (filtering) ...[
+              const SizedBox(height: 4),
+              Align(alignment: Alignment.centerLeft, child: LinkText('Clear filters', size: 12, onTap: _clear)),
+            ],
+            const SizedBox(height: 20),
+            if (filtering) ...[
+              Semantics(liveRegion: true, child: Text(results.length == 1 ? '1 workout' : '${results.length} workouts', style: fg(size: 14, weight: FontWeight.w700, color: AppColors.white70))),
+              const SizedBox(height: 12),
+              if (results.isEmpty)
+                FgCard(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(children: [
+                    const Icon(LucideIcons.searchX, size: 24, color: AppColors.white70),
+                    const SizedBox(height: 8),
+                    Text('No workouts match', style: fg(size: 16, weight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text('Try fewer filters or another word.', textAlign: TextAlign.center, style: fg(size: 14, color: AppColors.white70)),
+                  ]),
+                )
+              else
+                grid(results),
+            ] else
+              for (final c in categories) ...[
+                Semantics(header: true, child: Text(c.key, style: fg(size: 20, weight: FontWeight.w800))),
+                const SizedBox(height: 12),
+                grid([for (final w in workouts) if (w.category == c.key) w]),
+                const SizedBox(height: 32),
+              ],
           ],
         ],
       ),
@@ -95,16 +147,17 @@ class _WorkoutsCatalogScreenState extends State<WorkoutsCatalogScreen> {
   }
 }
 
-class _Meta extends StatelessWidget {
-  const _Meta(this.icon, this.text);
-  final IconData icon;
-  final String text;
+/// Chips in one sideways-scrolling line on a phone, wrapped on wider screens.
+class _ChipRow extends StatelessWidget {
+  const _ChipRow({required this.children});
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [Icon(icon, size: 14, color: AppColors.white70), const SizedBox(width: 4), Text(text, style: fg(size: 12, color: AppColors.white70))],
+    if (atLeast(context, Breakpoints.md)) return Wrap(spacing: 8, runSpacing: 8, children: children);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [for (final (i, c) in children.indexed) Padding(padding: EdgeInsets.only(left: i == 0 ? 0 : 8), child: c)]),
     );
   }
 }

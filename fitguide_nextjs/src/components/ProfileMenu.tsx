@@ -8,8 +8,10 @@ import { ChevronDown, LogOut, User } from 'lucide-react';
  * profile and sign-out, so sign-out isn't one stray click away in the header.
  * Closes on Escape, on a click elsewhere, and after choosing an item.
  */
-export function ProfileMenu({ name, detail, avatar, isGuest, onProfile, onSignOut }: {
+export function ProfileMenu({ name, fullName = name, detail, avatar, isGuest, onProfile, onSignOut }: {
+  /** Shown on the button (a first name); the full name and [detail] head the menu. */
   name: string;
+  fullName?: string;
   detail: string;
   avatar: ReactNode;
   isGuest: boolean;
@@ -59,10 +61,7 @@ export function ProfileMenu({ name, detail, avatar, isGuest, onProfile, onSignOu
         className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-xl hover:bg-white/5"
       >
         <span className="sr-only lg:hidden">Your account</span>
-        <span className="text-right hidden lg:block">
-          <span className="block text-sm font-bold text-white">{name}</span>
-          <span className="block text-[11px] text-white-70">{detail}</span>
-        </span>
+        <span className="hidden lg:block text-sm font-bold text-white max-w-[9rem] truncate">{name}</span>
         {avatar}
         <ChevronDown className={`w-4 h-4 text-white-70 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
@@ -71,8 +70,12 @@ export function ProfileMenu({ name, detail, avatar, isGuest, onProfile, onSignOu
           id={menuId}
           role="menu"
           aria-label="Your account"
-          className="absolute right-0 top-full mt-2 w-56 py-1.5 rounded-xl bg-obsidian-wave border border-white-30/15 shadow-xl z-40"
+          className="absolute right-0 top-full mt-2 w-64 py-1.5 rounded-xl bg-obsidian-wave border border-white-30/15 shadow-xl z-40"
         >
+          <div className="px-4 pt-2 pb-2.5 border-b border-white-30/10 mb-1">
+            <p className="text-sm font-bold text-white truncate">{fullName}</p>
+            {detail && <p className="text-xs text-white-70 truncate">{detail}</p>}
+          </div>
           <button type="button" role="menuitem" onClick={choose(onProfile)} className={`${item} text-white`}>
             <User className="w-4 h-4" aria-hidden="true" /> Your profile
           </button>

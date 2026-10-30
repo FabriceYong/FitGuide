@@ -54,12 +54,32 @@ function matchedTo(user: AuthUser | null) {
 
 const TIPS = [
   'Adults benefit from at least 150 minutes of moderate activity a week, plus muscle-strengthening work on two days (WHO).',
+  'Some activity is better than none. Even short walks count toward your weekly minutes (WHO).',
   'Warm up for 5–10 minutes before hard efforts: easy cardio and the movements you are about to load.',
+  'Long static stretches of a minute or more right before lifting can briefly lower strength. Warm up with movement and stretch afterwards.',
   'Progress gradually: change one thing at a time, such as a little more weight or one more rep.',
+  'Light weights build muscle too, as long as you take your sets close to failure.',
+  'Resting 2–3 minutes between heavy sets lets you lift more than resting one minute does.',
   'Give a muscle group a day or two to recover after a hard session before training it hard again.',
+  'Soreness that peaks a day or two after a new workout is normal. Sharp pain or joint pain is not: stop and get it checked.',
   'Most adults need 7–9 hours of sleep. It is when much of your recovery happens.',
+  'Caffeine can boost performance, but it stays in your body for hours. Skip it within about 6 hours of bedtime.',
+  'For people who lift, about 1.6 g of protein per kg of body weight a day covers what muscles can use for growth.',
+  'Spread your protein over the day: 20–40 g per meal supports muscle repair better than one big serving.',
+  'Most adults should aim for about 30 g of fibre a day. It keeps you full and helps digestion (NHS).',
+  'Pale yellow urine is a simple sign that you are drinking enough.',
   'Thirsty during long or hot sessions? Drink regularly; you don’t need sports drinks for workouts under an hour.',
+  'Breathe out as you push or lift, and breathe in as you lower, instead of holding your breath on every rep.',
   'Good form beats heavy weight. If your form breaks down, lower the load.',
+  'You can’t burn fat from one spot. Crunches strengthen your abs, but fat loss happens across the whole body.',
+  'Muscle doesn’t turn into fat when you stop training. They are different tissues: you lose one and may gain the other.',
+  'Muscles you trained before grow back faster than they first grew. Muscle memory is real.',
+  'A week or two off won’t erase your strength. Endurance fades sooner than strength does.',
+  'Lifting weights helps keep your bones strong as you age.',
+  'Balance exercises, such as standing on one leg, lower the risk of falls in older adults.',
+  'Regular aerobic exercise strengthens your heart and can lower your resting heart rate.',
+  'The 10,000-step goal began as a marketing slogan. Studies find big health benefits from around 7,000 steps a day.',
+  'Sitting for hours? Getting up for a few minutes every half hour helps your body control blood sugar.',
   'Short sessions count. Ten minutes of movement is better than skipping a day.',
 ];
 
@@ -329,11 +349,33 @@ function Feature({ icon: Icon, color, title, text, href, onClick }: {
   );
 }
 
-/** One tip a day, with a button for the next one. */
+// How long each tip stays before the next one.
+const TIP_MS = 7000;
+
+/**
+ * Starts on the day's tip and moves to the next every few seconds. It pauses
+ * while the pointer or keyboard focus is on it, so it can be read in full.
+ */
 function TipOfTheDay() {
   const [index, setIndex] = useState(() => dayNumber() % TIPS.length);
+  const [paused, setPaused] = useState(false);
+
+  // Restarts after every change, so "Next tip" gives the new tip its full time.
+  useEffect(() => {
+    if (paused) return undefined;
+    const timer = setTimeout(() => setIndex((i) => (i + 1) % TIPS.length), TIP_MS);
+    return () => clearTimeout(timer);
+  }, [index, paused]);
+
   return (
-    <section aria-label="Tip of the day" className="rounded-2xl bg-gradient-to-r from-lime-light/10 to-transparent border border-lime-light/20 px-6 py-4 flex flex-wrap items-center gap-4">
+    <section
+      aria-label="Tip of the day"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+      className="rounded-2xl bg-gradient-to-r from-lime-light/10 to-transparent border border-lime-light/20 px-6 py-4 flex flex-wrap items-center gap-4"
+    >
       <span className="flex items-center gap-1.5 px-3 py-1 bg-lime-light text-noir-eclipse text-[10px] font-black uppercase tracking-widest rounded-full">
         <Lightbulb className="w-3.5 h-3.5" aria-hidden="true" /> Tip
       </span>

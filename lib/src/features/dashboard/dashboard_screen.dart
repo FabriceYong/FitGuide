@@ -284,7 +284,10 @@ class _MenuButton extends StatelessWidget {
   }
 }
 
-/// The tablet header: logo, the site's links, language, profile and sign out.
+enum _AccountAction { profile, signOut }
+
+/// The tablet header: logo, the site's links, language, admin and the profile
+/// menu (profile, sign out).
 class _WideHeader extends StatelessWidget {
   const _WideHeader({required this.onLogout});
   final VoidCallback onLogout;
@@ -348,71 +351,59 @@ class _WideHeader extends StatelessWidget {
           const SizedBox(width: 8),
           const AdminButton(),
           const SizedBox(width: 8),
-          Semantics(
-            button: true,
-            label: full ? null : 'Your profile',
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => dashboard.setTab(DashboardTab.profile),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Name and email beside the photo on wide screens.
-                    if (full) ...[
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 180),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(user?.name.isNotEmpty ?? false ? user!.name : 'Profile', maxLines: 1, overflow: TextOverflow.ellipsis, style: fg(size: 14, weight: FontWeight.w700)),
-                            Text(auth.isGuest ? 'Guest' : (user?.email ?? ''), maxLines: 1, overflow: TextOverflow.ellipsis, style: fg(size: 11, color: AppColors.white70)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    Avatar(url: user?.avatarUrl, size: 40, borderColor: AppColors.white30A(0.4)),
-                  ],
-                ),
+          // Profile and sign-out live in this menu (components/ProfileMenu.tsx).
+          PopupMenuButton<_AccountAction>(
+            tooltip: 'Your account',
+            color: AppColors.obsidianWave,
+            position: PopupMenuPosition.under,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AppColors.white30A(0.15))),
+            onSelected: (action) => switch (action) {
+              _AccountAction.profile => dashboard.setTab(DashboardTab.profile),
+              _AccountAction.signOut => onLogout(),
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: _AccountAction.profile,
+                child: Row(children: [
+                  const Icon(LucideIcons.user, size: 16, color: AppColors.white),
+                  const SizedBox(width: 10),
+                  Text('Your profile', style: fg(size: 14, weight: FontWeight.w600)),
+                ]),
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Semantics(
-            button: true,
-            label: signOut,
-            excludeSemantics: true,
-            child: Tooltip(
-              message: signOut,
-              // The label says it on wide screens.
-              triggerMode: full ? TooltipTriggerMode.manual : null,
-              child: Material(
-                color: Colors.transparent,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AppColors.red500.withValues(alpha: 0.3))),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: onLogout,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: _AccountAction.signOut,
+                child: Row(children: [
+                  const Icon(LucideIcons.logOut, size: 16, color: AppColors.red300),
+                  const SizedBox(width: 10),
+                  Text(signOut, style: fg(size: 14, weight: FontWeight.w600, color: AppColors.red300)),
+                ]),
+              ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Name and email beside the photo on wide screens.
+                  if (full) ...[
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 180),
+                      child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          const Icon(LucideIcons.logOut, size: 16, color: AppColors.red300),
-                          if (full) ...[
-                            const SizedBox(width: 8),
-                            Text(auth.isGuest ? 'LEAVE' : 'SIGN OUT', style: fg(size: 12, weight: FontWeight.w600, color: AppColors.red300, letterSpacing: 0.6)),
-                          ],
+                          Text(user?.name.isNotEmpty ?? false ? user!.name : 'Profile', maxLines: 1, overflow: TextOverflow.ellipsis, style: fg(size: 14, weight: FontWeight.w700)),
+                          Text(auth.isGuest ? 'Guest' : (user?.email ?? ''), maxLines: 1, overflow: TextOverflow.ellipsis, style: fg(size: 11, color: AppColors.white70)),
                         ],
                       ),
                     ),
-                  ),
-                ),
+                    const SizedBox(width: 12),
+                  ],
+                  Avatar(url: user?.avatarUrl, size: 40, borderColor: AppColors.white30A(0.4)),
+                  const SizedBox(width: 4),
+                  const Icon(LucideIcons.chevronDown, size: 16, color: AppColors.white70),
+                ],
               ),
             ),
           ),

@@ -27,6 +27,7 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { Modal } from './Modal';
 import { RoleLinks } from './RoleLinks';
 import { AdminButton } from './AdminButton';
+import { ProfileMenu } from './ProfileMenu';
 import { navLinkClass } from './navLinkClass';
 
 const TAB_ITEMS: { id: TabId; label: string; icon: LucideIcon; mobileBar?: boolean }[] = [
@@ -111,22 +112,14 @@ export default function Dashboard() {
             </nav>
             <LanguageSwitcher />
             <AdminButton />
-            <button type="button" onClick={() => setTab('profile')} className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-xl hover:bg-white/5">
-              <span className="sr-only lg:hidden">Your profile</span>
-              <span className="text-right hidden lg:block">
-                <span className="block text-sm font-bold text-white">{user?.name || 'Profile'}</span>
-                <span className="block text-[11px] text-white-70">{isGuest ? 'Guest' : user?.email}</span>
-              </span>
-              {avatar}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmLogout(true)}
-              aria-label={isGuest ? 'Leave guest mode' : 'Sign out'}
-              className="flex items-center gap-2 px-3 py-2 border border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-300 rounded-xl font-semibold text-xs uppercase tracking-wider"
-            >
-              <LogOut className="w-4 h-4" aria-hidden="true" /> <span className="hidden lg:inline" aria-hidden="true">{isGuest ? 'Leave' : 'Sign out'}</span>
-            </button>
+            <ProfileMenu
+              name={user?.name || 'Profile'}
+              detail={isGuest ? 'Guest' : user?.email || ''}
+              avatar={avatar}
+              isGuest={isGuest}
+              onProfile={() => setTab('profile')}
+              onSignOut={() => setConfirmLogout(true)}
+            />
           </div>
 
           <button

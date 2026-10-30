@@ -9,7 +9,9 @@ const sessionCount = async (page: Page) => (await (await page.request.get(`${API
 
 async function signOut(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Sign out' }).first().click();
+  // Sign-out is in the profile menu at the right of the header.
+  await page.locator('header button[aria-haspopup="menu"]').click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByLabel('Email')).toBeVisible();
 }

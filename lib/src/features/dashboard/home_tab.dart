@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -45,12 +47,32 @@ String? _matchedTo(AppUser? user) {
 
 const _tips = [
   'Adults benefit from at least 150 minutes of moderate activity a week, plus muscle-strengthening work on two days (WHO).',
+  'Some activity is better than none. Even short walks count toward your weekly minutes (WHO).',
   'Warm up for 5–10 minutes before hard efforts: easy cardio and the movements you are about to load.',
+  'Long static stretches of a minute or more right before lifting can briefly lower strength. Warm up with movement and stretch afterwards.',
   'Progress gradually: change one thing at a time, such as a little more weight or one more rep.',
+  'Light weights build muscle too, as long as you take your sets close to failure.',
+  'Resting 2–3 minutes between heavy sets lets you lift more than resting one minute does.',
   'Give a muscle group a day or two to recover after a hard session before training it hard again.',
+  'Soreness that peaks a day or two after a new workout is normal. Sharp pain or joint pain is not: stop and get it checked.',
   'Most adults need 7–9 hours of sleep. It is when much of your recovery happens.',
+  'Caffeine can boost performance, but it stays in your body for hours. Skip it within about 6 hours of bedtime.',
+  'For people who lift, about 1.6 g of protein per kg of body weight a day covers what muscles can use for growth.',
+  'Spread your protein over the day: 20–40 g per meal supports muscle repair better than one big serving.',
+  'Most adults should aim for about 30 g of fibre a day. It keeps you full and helps digestion (NHS).',
+  'Pale yellow urine is a simple sign that you are drinking enough.',
   'Thirsty during long or hot sessions? Drink regularly; you don’t need sports drinks for workouts under an hour.',
+  'Breathe out as you push or lift, and breathe in as you lower, instead of holding your breath on every rep.',
   'Good form beats heavy weight. If your form breaks down, lower the load.',
+  'You can’t burn fat from one spot. Crunches strengthen your abs, but fat loss happens across the whole body.',
+  'Muscle doesn’t turn into fat when you stop training. They are different tissues: you lose one and may gain the other.',
+  'Muscles you trained before grow back faster than they first grew. Muscle memory is real.',
+  'A week or two off won’t erase your strength. Endurance fades sooner than strength does.',
+  'Lifting weights helps keep your bones strong as you age.',
+  'Balance exercises, such as standing on one leg, lower the risk of falls in older adults.',
+  'Regular aerobic exercise strengthens your heart and can lower your resting heart rate.',
+  'The 10,000-step goal began as a marketing slogan. Studies find big health benefits from around 7,000 steps a day.',
+  'Sitting for hours? Getting up for a few minutes every half hour helps your body control blood sugar.',
   'Short sessions count. Ten minutes of movement is better than skipping a day.',
 ];
 
@@ -535,7 +557,11 @@ class _ArticleCard extends StatelessWidget {
   }
 }
 
-/// One tip a day, with a button for the next one.
+// How long each tip stays before the next one.
+const _tipDuration = Duration(seconds: 7);
+
+/// Starts on the day's tip and moves to the next every few seconds. It pauses
+/// while the pointer or keyboard focus is on it, so it can be read in full.
 class _TipOfTheDay extends StatefulWidget {
   const _TipOfTheDay();
 
@@ -545,9 +571,55 @@ class _TipOfTheDay extends StatefulWidget {
 
 class _TipOfTheDayState extends State<_TipOfTheDay> {
   int _index = _dayNumber() % _tips.length;
+  Timer? _timer;
+  bool _hovered = false;
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _schedule();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  /// Restarts after every change, so "Next tip" gives the new tip its full time.
+  void _schedule() {
+    _timer?.cancel();
+    _timer = _hovered || _focused ? null : Timer(_tipDuration, _next);
+  }
+
+  void _next() {
+    if (!mounted) return;
+    setState(() => _index = (_index + 1) % _tips.length);
+    _schedule();
+  }
+
+  void _pause({bool? hovered, bool? focused}) {
+    _hovered = hovered ?? _hovered;
+    _focused = focused ?? _focused;
+    _schedule();
+  }
 
   @override
   Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => _pause(hovered: true),
+      onExit: (_) => _pause(hovered: false),
+      child: Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        onFocusChange: (focused) => _pause(focused: focused),
+        child: _banner(context),
+      ),
+    );
+  }
+
+  Widget _banner(BuildContext context) {
     return Semantics(
       label: 'Tip of the day',
       container: true,
@@ -576,7 +648,7 @@ class _TipOfTheDayState extends State<_TipOfTheDay> {
               ),
             ),
             Text(_tips[_index], style: fg(size: 14, weight: FontWeight.w500)),
-            LinkText('Next tip', size: 12, weight: FontWeight.w700, onTap: () => setState(() => _index = (_index + 1) % _tips.length)),
+            LinkText('Next tip', size: 12, weight: FontWeight.w700, onTap: _next),
           ],
         ),
       ),

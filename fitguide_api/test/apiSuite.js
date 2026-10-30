@@ -13,6 +13,7 @@ const { defineHealthSuite } = require('./healthSuite');
 const { defineSocialSuite } = require('./socialSuite');
 const { defineAdminSuite } = require('./adminSuite');
 const { defineCoachSuite } = require('./coachSuite');
+const { defineArticleSuite } = require('./articleSuite');
 const { defineBillingSuite } = require('./billingSuite');
 const { defineAnalyticsSuite } = require('./analyticsSuite');
 const { defineAccountSuite } = require('./accountSuite');
@@ -516,6 +517,7 @@ function defineApiSuite() {
 
     describe('admin and creators', () => defineAdminSuite(() => ({ app, signUp })));
     describe('coaches', () => defineCoachSuite(() => ({ app, signUp })));
+    describe('articles', () => defineArticleSuite(() => ({ app, signUp })));
 
     describe('billing', () => defineBillingSuite(() => ({ app, signUp })));
 

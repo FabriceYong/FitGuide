@@ -137,6 +137,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | Health data: steps, active calories, sleep, resting heart rate, blood pressure; Apple Health / Health Connect (synced by the mobile app), Strava, Fitbit, CSV | `services/integrations.js`, `healthData.js` | `/progress`; app: `services/phone_health.dart`, `state/phone_health_controller.dart` |
 | Friends, challenges, leaderboards, verified reviews | `services/social.js`, `routes/social.js` | `/community` |
 | Admin CMS, coach applications and the coach studio (dashboard, workouts, programs, review) | `routes/admin.js`, `creator.js`, `coaches.js` | `/admin`, `/studio`, `/coaches/[id]` |
+| Articles by coaches and admins (written in the studio and the CMS, reviewed, shown on the home page), built-in guides, health news previews | `services/articles.js`, `routes/articles.js` | `/articles/[slug]`, home tab; app: `features/dashboard/article_screen.dart` |
 | PLUS subscriptions (Stripe) | `services/billing.js`, `routes/billing.js` | `/plus` |
 | Analytics (first-party, cookie-free) | `routes/events.js` | `lib/analytics.ts`, admin Analytics tab |
 | Offline player, install to home screen | | `public/sw.js`, `app/manifest.ts` |

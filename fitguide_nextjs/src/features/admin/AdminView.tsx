@@ -11,8 +11,9 @@ import {
   reviewCoach, reviewProgram, saveWorkout, setUserRole, setWorkoutFlags,
   type AdminCoach, type AdminReview, type AdminUser, type AdminWorkout, type CatalogProgram, type Stats,
 } from '../../services/adminService';
+import { AdminArticles } from '../articles/ArticleTabs';
 
-const TABS = ['Overview', 'Analytics', 'Coaches', 'Programs', 'Workouts', 'Users', 'Challenges', 'Reviews'] as const;
+const TABS = ['Overview', 'Analytics', 'Coaches', 'Programs', 'Workouts', 'Articles', 'Users', 'Challenges', 'Reviews'] as const;
 type Tab = (typeof TABS)[number];
 
 const card = 'bg-obsidian-wave border border-white-30/10 rounded-2xl p-5';
@@ -39,6 +40,7 @@ function Overview() {
     ['Members', stats.users], ['New this week', stats.newUsers], ['Active this week', stats.activeUsers], ['Workouts this week', stats.sessionsWeek],
     ['PLUS members', stats.plusMembers], ['Programs to review', stats.pendingPrograms], ['Catalog workouts', stats.workouts], ['Reviews', stats.reviews],
     ['Coach applications', stats.pendingCoaches], ['Coach workouts to review', stats.pendingWorkouts], ['Coaches', stats.coaches],
+    ['Articles to review', stats.pendingArticles], ['Published articles', stats.publishedArticles],
   ];
   return (
     <div className="space-y-6">
@@ -499,6 +501,7 @@ export function AdminView() {
         {tab === 'Coaches' && <Coaches />}
         {tab === 'Programs' && <Programs />}
         {tab === 'Workouts' && <Workouts />}
+        {tab === 'Articles' && <AdminArticles />}
         {tab === 'Users' && <Users />}
         {tab === 'Challenges' && <Challenges />}
         {tab === 'Reviews' && <Reviews />}

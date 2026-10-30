@@ -1,7 +1,7 @@
 /**
  * Creator studio for coaches (the creator role): their dashboard, coach
- * profile, and the workouts and programs they write. Workouts and programs
- * are submitted for review, and an admin publishes or rejects them (see
+ * profile, and the workouts, programs and articles they write. These are
+ * submitted for review, and an admin publishes or rejects them (see
  * routes/admin.js).
  */
 const express = require('express');
@@ -10,6 +10,8 @@ const { prisma } = require('../db/prisma');
 const { schemas } = require('../schemas/catalog');
 const { validate } = require('../schemas/records');
 const catalogAdmin = require('../services/catalogAdmin');
+const articles = require('../services/articles');
+const { imageUpload, uploadErrorHandler } = require('../utils/uploads');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/requireRole');
 const { tzOffsetFrom, today, daysBetween } = require('../utils/dates');
@@ -24,7 +26,7 @@ const handle = (fn) => async (req, res, next) => {
   try {
     await fn(req, res);
   } catch (err) {
-    if (err instanceof catalogAdmin.CatalogError) return res.status(err.status).json({ success: false, message: err.message });
+    if (err instanceof catalogAdmin.CatalogError || err instanceof articles.ArticleError) return res.status(err.status).json({ success: false, message: err.message });
     return next(err);
   }
 };
@@ -195,5 +197,42 @@ router.delete('/programs/:slug', handle(async (req, res) => {
   await prisma.program.delete({ where: { id: existing.id } });
   res.json({ success: true });
 }));
+
+// ─── Articles ─────────────────────────────────────────────────────────────────
+
+const coverUpload = imageUpload('articles', 'cover');
+
+// POST /api/creator/articles/cover (multipart, field "cover") — a cover picture
+// for an article; returns its URL to put in coverImageUrl. Admins use it too.
+router.post('/articles/cover', coverUpload.single('cover'), (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: 'Choose a picture to upload.' });
+  res.status(201).json({ success: true, url: req.file.publicUrl });
+});
+
+router.get('/articles', handle(async (req, res) => {
+  res.json({ success: true, articles: await articles.listMine(req.user.id) });
+}));
+
+router.post('/articles', handle(async (req, res) => {
+  res.status(201).json({ success: true, article: await articles.create(req.body, { authorId: req.user.id }) });
+}));
+
+// Edit a draft (or an article sent back for changes, which goes back to draft).
+router.put('/articles/:slug', handle(async (req, res) => {
+  res.json({ success: true, article: await articles.updateMine(req.user.id, req.params.slug, req.body) });
+}));
+
+// Ask for the article to be published on the home page.
+router.post('/articles/:slug/submit', handle(async (req, res) => {
+  await articles.submitMine(req.user.id, req.params.slug);
+  res.json({ success: true });
+}));
+
+router.delete('/articles/:slug', handle(async (req, res) => {
+  await articles.deleteMine(req.user.id, req.params.slug);
+  res.json({ success: true });
+}));
+
+router.use(uploadErrorHandler);
 
 module.exports = router;

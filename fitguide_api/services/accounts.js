@@ -71,6 +71,8 @@ async function deleteData(tx, userId) {
   const drafts = await tx.workout.findMany({ where: { creatorId: userId, isPublished: false }, select: { slug: true } });
   const used = await tx.programDay.findMany({ where: { workoutSlug: { in: drafts.map((w) => w.slug) } }, select: { workoutSlug: true } });
   await tx.workout.deleteMany({ where: { slug: { in: drafts.map((w) => w.slug).filter((slug) => !used.some((d) => d.workoutSlug === slug)) } } });
+  // Unpublished articles go; published ones stay on the home page, credited to FitGuide.
+  await tx.article.deleteMany({ where: { authorId: userId, status: { not: 'published' } } });
   await tx.challenge.deleteMany({ where: { creatorId: userId, members: { every: { userId } } } });
   await tx.user.delete({ where: { id: userId } });
 }

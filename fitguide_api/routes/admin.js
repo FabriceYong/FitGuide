@@ -1,5 +1,6 @@
 /**
- * Admin CMS: catalog editing, review of coach programs and workouts, coach
+ * Admin CMS: catalog editing, articles, review of coach programs, workouts
+ * and articles, coach
  * applications, user roles, official challenges, review moderation and usage
  * stats. Admins only.
  */
@@ -10,6 +11,7 @@ const { prisma, isUniqueViolation } = require('../db/prisma');
 const { schemas } = require('../schemas/catalog');
 const { validate } = require('../schemas/records');
 const catalogAdmin = require('../services/catalogAdmin');
+const articles = require('../services/articles');
 const social = require('../services/social');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/requireRole');
@@ -25,7 +27,7 @@ const handle = (fn) => async (req, res, next) => {
   try {
     await fn(req, res);
   } catch (err) {
-    if (err instanceof catalogAdmin.CatalogError) return res.status(err.status).json({ success: false, message: err.message });
+    if (err instanceof catalogAdmin.CatalogError || err instanceof articles.ArticleError) return res.status(err.status).json({ success: false, message: err.message });
     if (isUniqueViolation(err)) return res.status(409).json({ success: false, message: 'That slug is already used.' });
     return next(err);
   }
@@ -35,7 +37,7 @@ const handle = (fn) => async (req, res, next) => {
 
 router.get('/stats', handle(async (_req, res) => {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [users, newUsers, sessionsWeek, activeUsers, reviews, pendingPrograms, workouts, plus, pendingWorkouts, pendingCoaches, coaches] = await Promise.all([
+  const [users, newUsers, sessionsWeek, activeUsers, reviews, pendingPrograms, workouts, plus, pendingWorkouts, pendingCoaches, coaches, pendingArticles, publishedArticles] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { createdAt: { gte: weekAgo } } }),
     prisma.workoutSession.count({ where: { completedAt: { gte: weekAgo } } }),
@@ -47,11 +49,42 @@ router.get('/stats', handle(async (_req, res) => {
     prisma.workout.count({ where: { status: 'pending' } }),
     prisma.coachProfile.count({ where: { status: 'pending' } }),
     prisma.user.count({ where: { role: 'creator' } }),
+    prisma.article.count({ where: { status: 'pending' } }),
+    prisma.article.count({ where: { status: 'published' } }),
   ]);
   res.json({
     success: true,
-    stats: { users, newUsers, sessionsWeek, activeUsers, reviews, pendingPrograms, workouts, plusMembers: plus, pendingWorkouts, pendingCoaches, coaches },
+    stats: { users, newUsers, sessionsWeek, activeUsers, reviews, pendingPrograms, workouts, plusMembers: plus, pendingWorkouts, pendingCoaches, coaches, pendingArticles, publishedArticles },
   });
+}));
+
+// ─── Articles ─────────────────────────────────────────────────────────────────
+
+// GET /api/admin/articles?status=pending — other people's drafts stay private.
+router.get('/articles', [query('status').optional().isIn(['draft', 'pending', 'published', 'rejected'])], rejectInvalid, handle(async (req, res) => {
+  res.json({ success: true, articles: await articles.listForAdmin({ status: req.query.status, adminId: req.user.id }) });
+}));
+
+// POST /api/admin/articles { ...article, publish? } — an admin's own article,
+// published straight away unless publish is false.
+router.post('/articles', handle(async (req, res) => {
+  const { publish = true, ...input } = req.body || {};
+  res.status(201).json({ success: true, article: await articles.create(input, { authorId: req.user.id, publish: publish !== false }) });
+}));
+
+// Fix any article's text (a typo in a coach's piece, say) without changing its status.
+router.put('/articles/:slug', handle(async (req, res) => {
+  res.json({ success: true, article: await articles.update({ slug: String(req.params.slug) }, req.body) });
+}));
+
+// PATCH /api/admin/articles/:slug { status: published | rejected | draft, reviewNote? }
+router.patch('/articles/:slug', [body('status').isIn(['published', 'rejected', 'draft'])], rejectInvalid, handle(async (req, res) => {
+  res.json({ success: true, article: await articles.setStatus(req.params.slug, req.body) });
+}));
+
+router.delete('/articles/:slug', handle(async (req, res) => {
+  await articles.remove(req.params.slug);
+  res.json({ success: true });
 }));
 
 // ─── Workouts ─────────────────────────────────────────────────────────────────

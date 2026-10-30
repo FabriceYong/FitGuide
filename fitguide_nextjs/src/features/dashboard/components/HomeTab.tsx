@@ -16,9 +16,10 @@ import { ParqModal, hasParqResult } from '../../../components/ParqModal';
 import { playHref } from '../../programs/ProgramDetail';
 import { formatDay, scheduleHref } from '../../progress/format';
 import { useStartSignUp } from '../../auth/AuthWrapper';
-import { ARTICLES, AUTHOR, CATEGORY_COLORS, type Article } from '../articles';
+import { ARTICLES, CATEGORY_COLORS, builtInView, unsplashUrl, writtenView, type ArticleView } from '../articles';
+import { fetchPublishedArticles } from '../../../services/articleService';
+import { Modal } from '../../../components/Modal';
 import type { TabId } from '../tabs';
-import { ArticlePage } from './ArticlePage';
 import { HeroCarousel, type HeroSlide } from './HeroCarousel';
 import { StatCard } from './StatCard';
 import { WorkoutCard } from './WorkoutCard';
@@ -96,7 +97,7 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
   const [progress, setProgress] = useState<{ summary: ProgressSummary; recentSessions: SessionRecord[] } | null>(null);
   const [progressError, setProgressError] = useState<string | null>(null);
   const [programCount, setProgramCount] = useState<number | null>(null);
-  const [article, setArticle] = useState<Article | null>(null);
+  const [written, setWritten] = useState<ArticleView[]>([]);
   const [showParq, setShowParq] = useState(false);
   const [parqDone, setParqDone] = useState(hasParqResult);
 
@@ -106,6 +107,8 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
   }, [hasAccount]);
   useEffect(() => {
     fetchPrograms().then((d) => setProgramCount(d.programs.length)).catch(() => setProgramCount(null));
+    // Coaches' and admins' articles, newest first; the built-in guides show without them.
+    fetchPublishedArticles().then((list) => setWritten(list.map(writtenView))).catch(() => setWritten([]));
   }, []);
 
   const summary = progress?.summary;
@@ -160,8 +163,6 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
       },
     ];
   }, [recommended, nextDay, enrollment, workouts.length, onNavigate]);
-
-  if (article) return <ArticlePage article={article} onBack={() => setArticle(null)} />;
 
   const lastWeek = summary?.days.slice(-7) || [];
   const weeklySessions = summary
@@ -303,22 +304,28 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
       {/* Reading */}
       <section aria-labelledby="home-articles" className="space-y-6">
         <div>
-          <h2 id="home-articles" className="text-2xl font-extrabold text-white">Guides</h2>
-          <p className="text-sm text-white-70 mt-1">Short reads by the {AUTHOR}.</p>
+          <h2 id="home-articles" className="text-2xl font-extrabold text-white">Articles &amp; guides</h2>
+          <p className="text-sm text-white-70 mt-1">Short reads by FitGuide coaches and the editorial team.</p>
         </div>
         <ul className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {ARTICLES.map((a) => {
+          {[...written, ...ARTICLES.map(builtInView)].map((a) => {
             const color = CATEGORY_COLORS[a.category];
+            // Built-in guides use a smaller picture on the card than on the page.
+            const builtIn = ARTICLES.find((g) => g.id === a.slug);
+            const image = builtIn ? unsplashUrl(builtIn.photo, 600) : a.imageUrl;
             return (
-              <li key={a.id}>
-                <button type="button" onClick={() => setArticle(a)} className="w-full h-full text-left bg-obsidian-wave border border-white/10 hover:border-lime-light/40 rounded-2xl overflow-hidden group">
-                  <span className="block h-40 bg-cover bg-center" style={{ backgroundImage: `url(https://images.unsplash.com/photo-${a.photo}?w=600&q=70&fit=crop)` }} aria-hidden="true" />
+              <li key={a.slug}>
+                <Link href={`/articles/${a.slug}`} className="block w-full h-full text-left bg-obsidian-wave border border-white/10 hover:border-lime-light/40 rounded-2xl overflow-hidden group">
+                  {image
+                    ? <span className="block h-40 bg-cover bg-center" style={{ backgroundImage: `url(${image})` }} aria-hidden="true" />
+                    : <span className="block h-40" style={{ background: `linear-gradient(135deg, ${color}40, transparent)` }} aria-hidden="true" />}
                   <span className="block p-4 space-y-2">
                     <span className="text-[10px] font-black uppercase tracking-wider" style={{ color }}>{a.category} · {a.readMinutes} min</span>
                     <span className="block font-extrabold text-white leading-snug group-hover:text-lime-light">{a.title}</span>
                     <span className="block text-xs text-white-70 line-clamp-2">{a.description}</span>
+                    <span className="block text-[11px] text-white-70">By {a.author.name}</span>
                   </span>
-                </button>
+                </Link>
               </li>
             );
           })}
@@ -385,10 +392,15 @@ function TipOfTheDay() {
   );
 }
 
-/** Latest health news from two RSS feeds (fetched through the API). Opens on the publisher's site. */
+/**
+ * Latest health news from two RSS feeds (fetched through the API). A story
+ * opens as a preview here (the feed's summary); the full text stays on the
+ * publisher's site, which the preview links to.
+ */
 function LiveFeed() {
   const [feed, setFeed] = useState<FeedId>('healthline');
   const [articles, setArticles] = useState<FeedArticle[] | null>(null);
+  const [preview, setPreview] = useState<FeedArticle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
 
@@ -399,6 +411,8 @@ function LiveFeed() {
       .catch((err: Error) => { if (current) setError(err.message); });
     return () => { current = false; };
   }, [feed, attempt]);
+
+  const source = FEEDS.find((f) => f.id === feed)?.label || '';
 
   const choose = (id: FeedId) => {
     setFeed(id);
@@ -439,17 +453,36 @@ function LiveFeed() {
         <ul className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {articles.map((a) => (
             <li key={a.link}>
-              <a href={a.link} target="_blank" rel="noopener noreferrer" className="block h-full bg-obsidian-wave border border-white/10 hover:border-lime-light/40 rounded-2xl p-4 group">
+              <button type="button" onClick={() => setPreview(a)} aria-haspopup="dialog" className="block w-full h-full text-left bg-obsidian-wave border border-white/10 hover:border-lime-light/40 rounded-2xl p-4 group">
                 <span className="block font-bold text-white text-sm leading-snug group-hover:text-lime-light line-clamp-3">{a.title}</span>
                 <span className="flex items-center justify-between mt-3 text-xs text-white-70">
                   {a.pubDate ? new Date(a.pubDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : ''}
-                  <span className="flex items-center gap-1">{FEEDS.find((f) => f.id === feed)?.label} <ExternalLink className="w-3 h-3" aria-hidden="true" /></span>
+                  <span>{source}</span>
                 </span>
-                <span className="sr-only">(opens in a new tab)</span>
-              </a>
+              </button>
             </li>
           ))}
         </ul>
+      )}
+      {preview && (
+        <Modal title={source} onClose={() => setPreview(null)} size="md">
+          <div className="space-y-4">
+            {preview.thumbnail && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={preview.thumbnail} alt="" className="w-full h-48 object-cover rounded-xl border border-white/10" />
+            )}
+            <h3 className="text-xl font-extrabold text-white leading-snug">{preview.title}</h3>
+            <p className="text-xs text-white-70">
+              {[preview.author, preview.pubDate && new Date(preview.pubDate).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })].filter(Boolean).join(' · ')}
+            </p>
+            {preview.description && <p className="text-sm text-white-70 leading-relaxed">{preview.description}</p>}
+            <a href={preview.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl bg-lime-light text-noir-eclipse font-extrabold text-sm">
+              Read the full story on {source} <ExternalLink className="w-4 h-4" aria-hidden="true" />
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
+            <p className="text-[11px] text-white-70">The full article is published by {source}. FitGuide shows its headline and summary from their news feed.</p>
+          </div>
+        </Modal>
       )}
     </div>
   );

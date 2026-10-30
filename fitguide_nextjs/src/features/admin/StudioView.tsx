@@ -11,12 +11,13 @@ import {
 } from '../../services/adminService';
 import { CoachProfileForm, emptyCoachProfile } from '../coaches/CoachProfileForm';
 import { StudioDashboard } from './StudioDashboard';
+import { StudioArticles } from '../articles/ArticleTabs';
 import { CoachWorkoutEditor, STATUS_TEXT, WorkoutList, blankWorkout, toInput } from './StudioWorkouts';
 
 const card = 'bg-obsidian-wave border border-white-30/10 rounded-2xl p-5';
 const field = 'w-full bg-noir-eclipse border border-white-30/20 rounded-xl px-3 py-2 text-sm text-white';
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const TABS = ['Dashboard', 'Workouts', 'Programs', 'Profile'] as const;
+const TABS = ['Dashboard', 'Workouts', 'Programs', 'Articles', 'Profile'] as const;
 type Tab = (typeof TABS)[number];
 
 type WorkoutOption = { slug: string; title: string; category: string; duration: number; mine?: boolean };
@@ -263,6 +264,8 @@ export function StudioView() {
             )}
           </>
         ))}
+
+        {tab === 'Articles' && <StudioArticles />}
 
         {tab === 'Profile' && <CoachProfileTab />}
       </div>

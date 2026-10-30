@@ -1,4 +1,6 @@
 /** Short guides written for FitGuide, shown on the home tab. */
+import { coverSrc, type WrittenArticle } from '../../services/articleService';
+
 export interface Article {
   id: string;
   title: string;
@@ -14,6 +16,37 @@ export interface Article {
 }
 
 export const AUTHOR = 'FitGuide editorial team';
+
+/**
+ * What the article page shows, for a built-in guide or an article a coach or
+ * admin wrote (services/articleService.ts).
+ */
+export interface ArticleView {
+  slug: string;
+  title: string;
+  category: Article['category'];
+  readMinutes: number;
+  imageUrl: string | null;
+  description: string;
+  takeaways: string[];
+  sections: Article['sections'];
+  author: { name: string; href: string | null };
+  publishedAt: string | null;
+  action: Article['action'] | null;
+}
+
+export const unsplashUrl = (photo: string, width: number) => `https://images.unsplash.com/photo-${photo}?w=${width}&q=75&fit=crop`;
+
+export const builtInView = (a: Article): ArticleView => ({
+  slug: a.id, title: a.title, category: a.category, readMinutes: a.readMinutes, imageUrl: unsplashUrl(a.photo, 1200),
+  description: a.description, takeaways: a.takeaways, sections: a.sections, author: { name: AUTHOR, href: null }, publishedAt: null, action: a.action,
+});
+
+export const writtenView = (a: WrittenArticle): ArticleView => ({
+  slug: a.slug, title: a.title, category: a.category, readMinutes: a.readMinutes, imageUrl: coverSrc(a.coverImageUrl),
+  description: a.description, takeaways: a.takeaways, sections: a.sections,
+  author: { name: a.author.name, href: a.author.coachId ? `/coaches/${a.author.coachId}` : null }, publishedAt: a.publishedAt, action: null,
+});
 
 export const CATEGORY_COLORS: Record<Article['category'], string> = {
   TRAINING: '#00C4B4',

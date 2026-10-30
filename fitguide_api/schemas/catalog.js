@@ -99,4 +99,23 @@ const coachProfile = z.object({
   location: optional(text(120).min(2)),
 }).refine((p) => p.contactEmail || p.phone, { message: 'add an email or a phone number members can reach you at', path: ['contactEmail'] });
 
-module.exports = { schemas: { workout, exercise, program, programDay, coachProfile } };
+// Articles: key points, then sections of paragraphs with an optional tip.
+const ARTICLE_CATEGORIES = ['TRAINING', 'NUTRITION', 'RECOVERY'];
+// An uploaded cover (/uploads/... on local storage) or an https picture.
+const coverUrl = z.string().trim().max(500)
+  .refine((v) => /^https:\/\//.test(v) || /^\/uploads\/[\w./-]+$/.test(v), 'must be an https:// link or an uploaded picture')
+  .nullish();
+const article = z.object({
+  title: text(160).min(5, 'give the article a title of at least 5 characters'),
+  description: text(300).min(10, 'add a one- or two-sentence summary'),
+  category: z.enum(ARTICLE_CATEGORIES),
+  coverImageUrl: coverUrl.transform((v) => v || null),
+  takeaways: list(6, 200),
+  sections: z.array(z.object({
+    heading: text(120).min(2, 'each section needs a heading'),
+    paragraphs: z.array(text(3000).min(1)).min(1, 'each section needs at least one paragraph').max(20),
+    tip: text(500).nullish().transform((v) => v || undefined),
+  })).min(1, 'add at least one section').max(20),
+});
+
+module.exports = { schemas: { workout, exercise, program, programDay, coachProfile, article }, ARTICLE_CATEGORIES };

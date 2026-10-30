@@ -5,7 +5,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/format.dart';
-import '../../core/images.dart';
 import '../../core/shared/tailoring.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -88,6 +87,9 @@ class HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<HomeTab> {
+  // Coaches' and admins' articles, newest first; the built-in guides show without them.
+  List<Article> _written = const [];
+
   ProgressData? _progress;
   String? _progressError;
   int? _programCount;
@@ -97,6 +99,9 @@ class _HomeTabState extends State<HomeTab> {
   @override
   void initState() {
     super.initState();
+    fetchPublishedArticles().then((list) {
+      if (mounted) setState(() => _written = list);
+    }).catchError((Object _) {});
     fetchPrograms().then((p) {
       if (mounted) setState(() => _programCount = p.length);
     }).catchError((_) {});
@@ -445,9 +450,9 @@ class _HomeTabState extends State<HomeTab> {
                   ],
                 ),
                 _section(
-                  header: SectionHeader('Guides', subtitle: Text('Short reads by the $articleAuthor.', style: fg(size: 14, color: AppColors.white70))),
+                  header: SectionHeader('Articles & guides', subtitle: Text('Short reads by FitGuide coaches and the editorial team.', style: fg(size: 14, color: AppColors.white70))),
                   children: [
-                    FgGrid(columns: 1, md: 3, gap: wide ? 20 : 12, children: [for (final a in articles) _ArticleCard(article: a)]),
+                    FgGrid(columns: 1, md: 3, gap: wide ? 20 : 12, children: [for (final a in [..._written, ...articles]) _ArticleCard(article: a)]),
                     SizedBox(height: wide ? 32 : 16),
                     const _LiveFeed(),
                   ],
@@ -529,7 +534,8 @@ class _ArticleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = articleCategoryColors[article.category]!;
+    final color = articleColor(article.category);
+    final image = article.image(600);
     return FgCard(
       padding: EdgeInsets.zero,
       borderColor: AppColors.whiteA(0.1),
@@ -537,7 +543,12 @@ class _ArticleCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(height: 160, child: NetImage(unsplash(article.photo, query: 'w=600&q=70&fit=crop'))),
+          SizedBox(
+            height: 160,
+            child: image != null
+                ? NetImage(image)
+                : DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(colors: [color.withAlpha(0x40), Colors.transparent], begin: Alignment.topLeft, end: Alignment.bottomRight))),
+          ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -548,6 +559,8 @@ class _ArticleCard extends StatelessWidget {
                 Text(article.title, style: fg(size: 16, weight: FontWeight.w800, height: 1.35)),
                 const SizedBox(height: 8),
                 Text(article.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: fg(size: 12, color: AppColors.white70)),
+                const SizedBox(height: 6),
+                Text('By ${article.author}', maxLines: 1, overflow: TextOverflow.ellipsis, style: fg(size: 11, color: AppColors.white70)),
               ],
             ),
           ),
@@ -767,7 +780,7 @@ class _LiveFeedState extends State<_LiveFeed> {
               FgCard(
                 padding: const EdgeInsets.all(16),
                 borderColor: AppColors.whiteA(0.1),
-                onTap: () => openExternal(a.link),
+                onTap: () => _preview(context, a, label),
                 // Dates line up along the bottom of a row of cards.
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -780,8 +793,6 @@ class _LiveFeedState extends State<_LiveFeed> {
                         children: [
                           Expanded(child: Text(a.pubDate.isEmpty ? '' : _shortDate(a.pubDate), style: fg(size: 12, color: AppColors.white70))),
                           Text(label, style: fg(size: 12, color: AppColors.white70)),
-                          const SizedBox(width: 4),
-                          const Icon(LucideIcons.externalLink, size: 12, color: AppColors.white70),
                         ],
                       ),
                     ),
@@ -790,6 +801,62 @@ class _LiveFeedState extends State<_LiveFeed> {
               ),
           ]),
       ],
+    );
+  }
+
+  /// The story's headline and summary from the feed, with a button that opens
+  /// the full article in a browser sheet inside the app.
+  void _preview(BuildContext context, FeedArticle a, String source) {
+    final date = DateTime.tryParse(a.pubDate.replaceFirst(' ', 'T'));
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.obsidianWave,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheet) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * 0.85),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.whiteA(0.3), borderRadius: BorderRadius.circular(2)))),
+                const SizedBox(height: 16),
+                Text(source.toUpperCase(), style: fg(size: 11, weight: FontWeight.w900, color: AppColors.limeLight, letterSpacing: 1)),
+                const SizedBox(height: 12),
+                if (a.thumbnail.isNotEmpty) ...[
+                  ClipRRect(borderRadius: BorderRadius.circular(12), child: SizedBox(height: 180, child: NetImage(a.thumbnail))),
+                  const SizedBox(height: 16),
+                ],
+                Semantics(header: true, child: Text(a.title, style: fg(size: 20, weight: FontWeight.w800, height: 1.3))),
+                const SizedBox(height: 8),
+                Text([if (a.author.isNotEmpty) a.author, if (date != null) formatDate(date.toIso8601String())].join(' · '), style: fg(size: 12, color: AppColors.white70)),
+                if (a.description.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(a.description, style: fg(size: 14, color: AppColors.white70, height: 1.5)),
+                ],
+                const SizedBox(height: 20),
+                FgButton(
+                  label: 'Read the full story',
+                  icon: LucideIcons.bookOpen,
+                  height: 48,
+                  radius: 12,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  onPressed: () {
+                    Navigator.of(sheet).pop();
+                    openInApp(a.link);
+                  },
+                ),
+                const SizedBox(height: 12),
+                Text('The full article is published by $source and opens here in the app. FitGuide shows its headline and summary from their news feed.', style: fg(size: 11, color: AppColors.white70)),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

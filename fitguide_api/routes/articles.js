@@ -2,14 +2,37 @@
  * articles.js
  * Route: /api/articles
  *
- * Server-side proxy for rss2json (live fitness articles on the home tab). The
+ * Published coach and admin articles (/posts), and a server-side proxy for
+ * rss2json (live health news on the home tab). The
  * API key stays in fitguide_api/.env (RSS2JSON_API_KEY) instead of being
  * shipped to browsers. Only the feeds listed below can be fetched, so the
  * endpoint can't be used as an open proxy on our key.
  */
 const express = require('express');
+const writtenArticles = require('../services/articles');
 
 const router = express.Router();
+
+// ─── Articles written by coaches and admins (published only) ──────────────────
+// GET /api/articles/posts — newest first.
+router.get('/posts', async (_req, res, next) => {
+  try {
+    res.json({ success: true, articles: await writtenArticles.listPublished() });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/articles/posts/:slug
+router.get('/posts/:slug', async (req, res, next) => {
+  try {
+    const article = await writtenArticles.getPublished(req.params.slug);
+    if (!article) return res.status(404).json({ success: false, message: 'Article not found.' });
+    res.json({ success: true, article });
+  } catch (err) {
+    next(err);
+  }
+});
 
 const FEEDS = {
   healthline: 'https://www.healthline.com/rss/health-news',

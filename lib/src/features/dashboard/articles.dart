@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
 
-/// Short guides written for FitGuide, shown on the home tab
-/// (features/dashboard/articles.ts).
+import '../../core/api/api_client.dart';
+import '../../core/images.dart';
+import '../../models/json.dart';
+
+/// Short guides written for FitGuide, and articles written by coaches and
+/// admins, shown on the home tab (features/dashboard/articles.ts and
+/// services/articleService.ts).
 class ArticleSection {
   const ArticleSection(this.heading, this.paragraphs, [this.tip]);
+
+  ArticleSection.fromJson(Json j)
+      : heading = asString(j['heading']) ?? '',
+        paragraphs = asStrings(j['paragraphs']),
+        tip = asString(j['tip']);
+
   final String heading;
   final List<String> paragraphs;
   final String? tip;
@@ -15,27 +26,67 @@ class Article {
     required this.title,
     required this.category,
     required this.readMinutes,
-    required this.photo,
+    this.photo,
+    this.coverImageUrl,
     required this.description,
     required this.takeaways,
     required this.sections,
-    required this.actionLabel,
-    required this.actionHref,
+    this.actionLabel,
+    this.actionHref,
+    this.author = articleAuthor,
+    this.authorCoachId,
+    this.publishedAt,
   });
 
+  /// A published article from /api/articles/posts.
+  Article.fromJson(Json j)
+      : id = asString(j['slug']) ?? '',
+        title = asString(j['title']) ?? '',
+        category = asString(j['category']) ?? 'TRAINING',
+        readMinutes = asInt(j['readMinutes']) ?? 1,
+        photo = null,
+        coverImageUrl = asString(j['coverImageUrl']),
+        description = asString(j['description']) ?? '',
+        takeaways = asStrings(j['takeaways']),
+        sections = asJsonList(j['sections']).map(ArticleSection.fromJson).toList(),
+        actionLabel = null,
+        actionHref = null,
+        author = asString(asJson(j['author'])['name']) ?? 'FitGuide',
+        authorCoachId = asString(asJson(j['author'])['coachId']),
+        publishedAt = asString(j['publishedAt']);
+
+  /// The slug: the article's address on the website is `/articles/<id>`.
   final String id;
   final String title;
   final String category;
   final int readMinutes;
-  final String photo;
+
+  /// Unsplash photo id (built-in guides).
+  final String? photo;
+
+  /// An uploaded or linked cover (written articles).
+  final String? coverImageUrl;
   final String description;
   final List<String> takeaways;
   final List<ArticleSection> sections;
-  final String actionLabel;
-  final String actionHref;
+
+  /// Where to put the advice into practice (built-in guides).
+  final String? actionLabel;
+  final String? actionHref;
+  final String author;
+
+  /// Set when the author is an approved coach, for a link to their profile.
+  final String? authorCoachId;
+  final String? publishedAt;
+
+  /// The picture at [width] pixels wide, or null when there isn't one.
+  String? image(int width) => photo != null ? unsplash(photo!, query: 'w=$width&q=75&fit=crop') : assetUrl(coverImageUrl);
 }
 
 const articleAuthor = 'FitGuide editorial team';
+
+/// Colour for a category, teal when it's one this build doesn't know.
+Color articleColor(String category) => articleCategoryColors[category] ?? const Color(0xFF00C4B4);
 
 const articleCategoryColors = {
   'TRAINING': Color(0xFF00C4B4),

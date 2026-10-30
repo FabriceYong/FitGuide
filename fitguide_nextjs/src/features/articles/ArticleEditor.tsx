@@ -1,0 +1,196 @@
+'use client';
+
+import { useState, type ChangeEvent } from 'react';
+import { ArrowDown, ArrowUp, Eye, ImagePlus, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import {
+  ARTICLE_CATEGORIES, coverSrc, uploadArticleCover,
+  type ArticleCategory, type ArticleInput,
+} from '../../services/articleService';
+import { ArticlePage } from '../dashboard/components/ArticlePage';
+
+const card = 'bg-obsidian-wave border border-white-30/10 rounded-2xl p-5';
+const field = 'w-full bg-noir-eclipse border border-white-30/20 rounded-xl px-3 py-2 text-sm text-white';
+const label = 'block text-xs font-bold text-white-70';
+
+// Sections are edited as one text box each; a blank line starts a new paragraph.
+type DraftSection = { heading: string; body: string; tip: string };
+
+export const blankArticle = (): ArticleInput => ({
+  title: '', description: '', category: 'TRAINING', coverImageUrl: null, takeaways: [], sections: [{ heading: '', paragraphs: [''] }],
+});
+
+const toDraft = (a: ArticleInput) => ({
+  ...a,
+  takeawaysText: a.takeaways.join('\n'),
+  draftSections: a.sections.map((s) => ({ heading: s.heading, body: s.paragraphs.join('\n\n'), tip: s.tip || '' })),
+});
+
+function toInput(d: ReturnType<typeof toDraft>): ArticleInput {
+  return {
+    title: d.title.trim(),
+    description: d.description.trim(),
+    category: d.category,
+    coverImageUrl: d.coverImageUrl || null,
+    takeaways: d.takeawaysText.split('\n').map((t) => t.trim()).filter(Boolean),
+    sections: d.draftSections.map((s) => ({
+      heading: s.heading.trim(),
+      paragraphs: s.body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean),
+      ...(s.tip.trim() && { tip: s.tip.trim() }),
+    })),
+  };
+}
+
+const words = (input: ArticleInput) =>
+  [input.description, ...input.takeaways, ...input.sections.flatMap((s) => [s.heading, ...s.paragraphs, s.tip || ''])].join(' ').split(/\s+/).filter(Boolean).length;
+
+export type EditorAction = { label: string; primary?: boolean; run: (input: ArticleInput) => Promise<unknown> };
+
+/**
+ * Write or edit an article: title, summary, category, cover, key points and
+ * sections, with a preview of how readers will see it. Used by the coach
+ * studio and the admin CMS, which pass their own save buttons.
+ */
+export function ArticleEditor({ initial, heading, actions, onCancel, authorName }: {
+  initial: ArticleInput;
+  heading: string;
+  actions: EditorAction[];
+  onCancel: () => void;
+  authorName: string;
+}) {
+  const [d, setD] = useState(() => toDraft(initial));
+  const [preview, setPreview] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const input = toInput(d);
+
+  // Each change applies to the latest draft, so quick successive edits don't undo each other.
+  const patch = (change: Partial<ReturnType<typeof toDraft>>) => setD((cur) => ({ ...cur, ...change }));
+  const setSection = (i: number, change: Partial<DraftSection>) =>
+    setD((cur) => ({ ...cur, draftSections: cur.draftSections.map((s, j) => (j === i ? { ...s, ...change } : s)) }));
+  const moveSection = (i: number, by: number) => setD((cur) => {
+    const next = [...cur.draftSections];
+    [next[i], next[i + by]] = [next[i + by], next[i]];
+    return { ...cur, draftSections: next };
+  });
+
+  const upload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setBusy('cover');
+    setError(null);
+    try {
+      patch({ coverImageUrl: await uploadArticleCover(file) });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const run = async (action: EditorAction) => {
+    setBusy(action.label);
+    setError(null);
+    try {
+      await action.run(input);
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(null);
+    }
+  };
+
+  const minutes = Math.max(1, Math.round(words(input) / 220));
+  const cover = coverSrc(d.coverImageUrl);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-extrabold text-lg">{heading}</h2>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => setPreview(!preview)} aria-pressed={preview} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-white/10">
+            {preview ? <><Pencil className="w-3.5 h-3.5" /> Edit</> : <><Eye className="w-3.5 h-3.5" /> Preview</>}
+          </button>
+          <button type="button" onClick={onCancel} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-white/10"><X className="w-3.5 h-3.5" /> Cancel</button>
+        </div>
+      </div>
+
+      {preview ? (
+        <div className={card}>
+          <ArticlePage article={{
+            slug: 'preview', title: input.title || 'Untitled article', category: input.category, readMinutes: minutes, imageUrl: cover,
+            description: input.description, takeaways: input.takeaways, sections: input.sections.filter((s) => s.heading || s.paragraphs.length),
+            author: { name: authorName, href: null }, publishedAt: null, action: null,
+          }} preview />
+        </div>
+      ) : (
+        <div className={`${card} space-y-5`}>
+          <div className="grid md:grid-cols-[1fr_200px] gap-3">
+            <label className={label}>Title<input required maxLength={160} value={d.title} onChange={(e) => patch({ title: e.target.value })} className={`${field} mt-1`} /></label>
+            <label className={label}>Category
+              <select value={d.category} onChange={(e) => patch({ category: e.target.value as ArticleCategory })} className={`${field} mt-1`}>
+                {ARTICLE_CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</option>)}
+              </select>
+            </label>
+          </div>
+          <label className={label}>Summary <span className="font-normal">(one or two sentences, shown on the home page)</span>
+            <textarea maxLength={300} rows={2} value={d.description} onChange={(e) => patch({ description: e.target.value })} className={`${field} mt-1`} />
+          </label>
+
+          <div className="space-y-2">
+            <span className={label}>Cover picture</span>
+            <div className="flex flex-wrap items-center gap-3">
+              {cover
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={cover} alt="" className="w-40 h-24 object-cover rounded-xl border border-white-30/10" />
+                : <span className="w-40 h-24 rounded-xl border border-dashed border-white-30/30 flex items-center justify-center text-xs text-white-70">No picture</span>}
+              <label className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-white/10 cursor-pointer">
+                {busy === 'cover' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />} Upload
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={upload} />
+              </label>
+              {d.coverImageUrl && <button type="button" onClick={() => patch({ coverImageUrl: null })} className="text-xs font-bold text-red-300">Remove</button>}
+            </div>
+            <input
+              placeholder="…or paste an https:// link to a picture you may use"
+              aria-label="Cover picture link"
+              value={d.coverImageUrl?.startsWith('https://') ? d.coverImageUrl : ''}
+              onChange={(e) => patch({ coverImageUrl: e.target.value || null })}
+              className={field}
+            />
+          </div>
+
+          <label className={label}>Key points <span className="font-normal">(one per line, up to 6)</span>
+            <textarea rows={3} value={d.takeawaysText} onChange={(e) => patch({ takeawaysText: e.target.value })} className={`${field} mt-1`} />
+          </label>
+
+          <div className="space-y-3">
+            <span className={label}>Sections</span>
+            {d.draftSections.map((s, i) => (
+              <fieldset key={i} className="border border-white-30/15 rounded-xl p-4 space-y-3">
+                <legend className="px-1 text-xs font-bold text-white-70">Section {i + 1}</legend>
+                <div className="flex gap-2">
+                  <input placeholder="Heading" aria-label={`Section ${i + 1} heading`} maxLength={120} value={s.heading} onChange={(e) => setSection(i, { heading: e.target.value })} className={field} />
+                  <button type="button" disabled={i === 0} onClick={() => moveSection(i, -1)} aria-label={`Move section ${i + 1} up`} className="w-9 shrink-0 rounded-lg bg-white/10 flex items-center justify-center disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+                  <button type="button" disabled={i === d.draftSections.length - 1} onClick={() => moveSection(i, 1)} aria-label={`Move section ${i + 1} down`} className="w-9 shrink-0 rounded-lg bg-white/10 flex items-center justify-center disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+                  <button type="button" disabled={d.draftSections.length === 1} onClick={() => setD((cur) => ({ ...cur, draftSections: cur.draftSections.filter((_, j) => j !== i) }))} aria-label={`Remove section ${i + 1}`} className="w-9 shrink-0 rounded-lg bg-white/10 flex items-center justify-center text-red-300 disabled:opacity-30"><Trash2 className="w-4 h-4" /></button>
+                </div>
+                <textarea placeholder="Text. Leave a blank line between paragraphs." aria-label={`Section ${i + 1} text`} rows={5} value={s.body} onChange={(e) => setSection(i, { body: e.target.value })} className={field} />
+                <input placeholder="Tip (optional)" aria-label={`Section ${i + 1} tip`} maxLength={500} value={s.tip} onChange={(e) => setSection(i, { tip: e.target.value })} className={field} />
+              </fieldset>
+            ))}
+            <button type="button" onClick={() => setD((cur) => ({ ...cur, draftSections: [...cur.draftSections, { heading: '', body: '', tip: '' }] }))} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-white/10"><Plus className="w-3.5 h-3.5" /> Add section</button>
+          </div>
+        </div>
+      )}
+
+      {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+      <div className="flex flex-wrap items-center gap-2">
+        {actions.map((a) => (
+          <button key={a.label} type="button" onClick={() => run(a)} disabled={busy !== null} className={`flex items-center gap-1.5 text-sm font-bold px-4 py-2.5 rounded-xl disabled:opacity-50 ${a.primary ? 'bg-lime-light text-noir-eclipse' : 'bg-white/10'}`}>
+            {busy === a.label && <Loader2 className="w-4 h-4 animate-spin" />} {a.label}
+          </button>
+        ))}
+        <span className="text-xs text-white-70">About {minutes} min read</span>
+      </div>
+    </div>
+  );
+}

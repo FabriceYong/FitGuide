@@ -15,6 +15,8 @@ export interface Stats {
   pendingWorkouts: number;
   pendingCoaches: number;
   coaches: number;
+  pendingArticles: number;
+  publishedArticles: number;
 }
 
 export type ReviewStatus = 'draft' | 'pending' | 'published' | 'rejected';

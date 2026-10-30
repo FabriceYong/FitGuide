@@ -77,6 +77,7 @@ model User {
   createdPrograms        Program[]            @relation("ProgramCreator")
   createdWorkouts        Workout[]            @relation("WorkoutCreator")
   coachProfile           CoachProfile?
+  articles               Article[]            @relation("ArticleAuthor")
 
   @@map("users")
 }
@@ -669,4 +670,33 @@ model AnalyticsEvent {
   @@index([createdAt])
   @@index([name, createdAt])
   @@map("analytics_events")
+}
+
+// An article written by a coach or an admin, shown on the home page next to
+// the built-in guides. Coaches' articles are reviewed before they're
+// published. The body is structured (key points, then sections of
+// paragraphs with an optional tip) so the website and the app lay it out
+// the same way.
+model Article {
+  id            String    @id @default(uuid())
+  slug          String    @unique
+  title         String    @db.VarChar(160)
+  description   String    @db.VarChar(300)
+  category      String // TRAINING | NUTRITION | RECOVERY
+  coverImageUrl String?   @db.VarChar(500)
+  takeaways     String[]
+  sections      Json // [{ heading, paragraphs: string[], tip? }]
+  readMinutes   Int
+  authorId      String?
+  status        String    @default("draft") // draft | pending | published | rejected
+  reviewNote    String?   @db.VarChar(500)
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  author User? @relation("ArticleAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([authorId])
+  @@map("articles")
 }

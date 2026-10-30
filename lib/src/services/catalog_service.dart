@@ -2,6 +2,7 @@ import '../core/api/api_client.dart';
 import '../core/storage.dart';
 import '../models/catalog.dart';
 import '../models/json.dart';
+import '../features/dashboard/articles.dart';
 
 /// The workout catalog, reviews, the exercise library and article feeds
 /// (services/workoutService.ts and contentService.ts on the website).
@@ -99,6 +100,12 @@ Future<List<Exercise>> fetchExercises() async => asJsonList((await _api.request(
 // ── Articles (RSS feeds proxied by the API) ───────────────────────────────────
 Future<List<FeedArticle>> fetchFeedArticles(String feed, {int count = 3}) async =>
     asJsonList((await _api.request('/articles', query: {'feed': feed, 'count': count}))['articles']).map(FeedArticle.new).toList();
+
+/// Articles written by coaches and admins, newest first.
+Future<List<Article>> fetchPublishedArticles() async => asJsonList((await _api.request('/articles/posts'))['articles']).map(Article.fromJson).toList();
+
+Future<Article> fetchPublishedArticle(String slug) async =>
+    Article.fromJson(asJson((await _api.request('/articles/posts/${Uri.encodeComponent(slug)}'))['article']));
 
 // ── Favorites (signed-in accounts only) ───────────────────────────────────────
 Future<List<Workout>> getFavorites() async {

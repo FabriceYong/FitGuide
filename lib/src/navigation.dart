@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'core/config.dart';
 import 'features/coaches/coach_screen.dart';
+import 'features/dashboard/article_screen.dart';
 import 'features/community/community_screen.dart';
 import 'features/nutrition/nutrition_screen.dart';
 import 'features/plan/plan_screen.dart';
@@ -55,6 +56,19 @@ Future<void> openWebPage(String path) => launchUrl(Uri.parse('${AppConfig.webBas
 
 Future<void> openExternal(String url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 
+/// Another site's page in a browser sheet inside the app (Safari View
+/// Controller / Chrome Custom Tabs), closed with Done to come back. Falls
+/// back to the browser where there's no in-app browser (desktop).
+Future<void> openInApp(String url) async {
+  final uri = Uri.parse(url);
+  try {
+    if (await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) return;
+  } catch (_) {}
+  await openExternal(url);
+}
+
+void openArticle(BuildContext context, String slug) => Navigator.of(context).push(pageRoute(ArticleScreen.bySlug(slug)));
+
 /// Follow one of the website's links inside the app.
 void openHref(BuildContext context, String href) {
   final uri = Uri.parse(href);
@@ -94,6 +108,7 @@ void openHref(BuildContext context, String href) {
   if (path == '/programs') return toDashboard(context, DashboardTab.programs);
   if (path.startsWith('/programs/')) return openProgram(context, path.split('/')[2]);
   if (path.startsWith('/coaches/')) return openCoach(context, path.split('/')[2]);
+  if (path.startsWith('/articles/')) return openArticle(context, path.split('/')[2]);
   if (path == '/progress') return toDashboard(context, DashboardTab.progress);
   switch (path) {
     case '/plan':

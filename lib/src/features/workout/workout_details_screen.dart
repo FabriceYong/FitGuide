@@ -13,10 +13,15 @@ import '../../services/catalog_service.dart';
 import '../../state/favorites_controller.dart';
 import '../../widgets/ui.dart';
 import '../plus/plus_gate.dart';
+import 'catalog_filter.dart';
+import 'exercise_demo_view.dart';
+import 'exercise_demos.dart';
 import 'workout_reviews.dart';
+import 'workout_steps.dart';
 
-/// A workout's page: overview, details and reviews, with "Let's begin"
-/// opening the player (features/workout/WorkoutDetails.js on /workouts/[slug]).
+/// A workout's page: overview, every step with its demonstration, what you
+/// need, and reviews, with "Start workout" pinned to the bottom
+/// (features/workout/WorkoutDetails.js on /workouts/[slug]).
 class WorkoutDetailsScreen extends StatefulWidget {
   const WorkoutDetailsScreen({super.key, required this.slug});
   final String slug;
@@ -30,6 +35,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
   bool _loading = true;
   String? _error;
   bool _favoriteBusy = false;
+  bool _allSteps = false;
 
   @override
   void initState() {
@@ -84,6 +90,30 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
               ),
           ],
         ),
+      ],
+    );
+  }
+
+  /// "What you'll do": every step with its drawn demo and target, the first
+  /// eight until "Show all".
+  Widget _steps(Workout workout, Color tint) {
+    final steps = stepsFor(workout);
+    final shown = _allSteps ? steps : steps.take(8).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(header: true, child: Text("What you'll do · ${steps.length} steps", style: fg(size: 16, weight: FontWeight.w800))),
+        const SizedBox(height: 12),
+        ...spaced([
+          for (final (i, s) in shown.indexed) _StepRow(index: i, step: s, tint: tint),
+        ], 8),
+        if (steps.length > 8) ...[
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: LinkText(_allSteps ? 'Show fewer steps' : 'Show all ${steps.length} steps', size: 14, weight: FontWeight.w700, onTap: () => setState(() => _allSteps = !_allSteps)),
+          ),
+        ],
       ],
     );
   }
@@ -150,10 +180,35 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
     final heroHeight = math.min(384.0, math.max(260.0, MediaQuery.sizeOf(context).height * 0.6));
     // The site's wider margins on a tablet (`md:px-12 lg:px-20`).
     final margin = responsive(context, 16.0, md: 48.0, lg: 80.0);
+    final gear = requiredEquipment(workout).map(stripOptional).toList();
 
     return Scaffold(
+      // "Start workout" stays in reach while reading.
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(color: AppColors.noirEclipse.withValues(alpha: 0.95), border: Border(top: BorderSide(color: AppColors.white30A(0.1)))),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: MaxWidth(
+              560,
+              child: FgButton(
+                label: 'Start workout',
+                icon: LucideIcons.play,
+                expand: true,
+                height: 52,
+                radius: 16,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                uppercase: true,
+                onPressed: begin,
+              ),
+            ),
+          ),
+        ),
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 48),
+        padding: const EdgeInsets.only(bottom: 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -210,10 +265,9 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            Pill(workout.category, background: AppColors.royalNebula, textColor: AppColors.white, uppercase: false, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
-                            Pill(workout.difficulty, background: AppColors.purple500, textColor: AppColors.white, uppercase: false, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
+                            Pill(workout.category, background: tint.withValues(alpha: 0.9), textColor: AppColors.noirEclipse, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
                             if (workout.intensity.isNotEmpty)
-                              Pill(workout.intensity, background: AppColors.limeLight, textColor: AppColors.noirEclipse, uppercase: false, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
+                              Pill('${workout.intensity} intensity', background: AppColors.whiteA(0.15), textColor: AppColors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
                           ],
                         ),
                       ],
@@ -254,7 +308,15 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                         Text(workout.description, style: fg(size: 14, weight: FontWeight.w500, color: AppColors.white70, height: 1.6)),
                       ],
                     ),
-                    if (workout.equipment.isNotEmpty) _chips(LucideIcons.dumbbell, 'Equipment Needed', workout.equipment),
+                    _steps(workout, tint),
+                    if (gear.isNotEmpty)
+                      _chips(LucideIcons.dumbbell, "You'll need", gear)
+                    else
+                      Row(children: [
+                        const Icon(LucideIcons.check, size: 20, color: AppColors.limeLight),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text('No equipment: just some floor space', style: fg(size: 14, color: AppColors.white70))),
+                      ]),
                     if (workout.targetMuscles.isNotEmpty) _chips(LucideIcons.target, 'Target Muscles', workout.targetMuscles),
                     if (workout.benefits.isNotEmpty)
                       Column(
@@ -290,16 +352,6 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                           ],
                         ),
                       ),
-                    FgButton(
-                      label: "LET'S BEGIN",
-                      expand: true,
-                      height: 52,
-                      radius: 16,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      uppercase: true,
-                      onPressed: begin,
-                    ),
                     Container(
                       padding: const EdgeInsets.only(top: 32),
                       decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.white30A(0.1)))),
@@ -311,6 +363,54 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// One step in "What you'll do": its drawn demo, name and target.
+class _StepRow extends StatelessWidget {
+  const _StepRow({required this.index, required this.step, required this.tint});
+  final int index;
+  final WorkoutStep step;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    final demo = demoForStep(step);
+    final target = targetLabel(step);
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: AppColors.obsidianWave, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.white30A(0.1))),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(color: tint.withAlpha(0x12), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.whiteA(0.1))),
+            clipBehavior: Clip.antiAlias,
+            child: demo == null ? Icon(LucideIcons.target, size: 20, color: tint.withAlpha(0x99)) : ExcludeSemantics(child: ExerciseDemoView(demo, color: tint, animate: false)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${(index + 1).toString().padLeft(2, '0')}  ${stepName(step)}', maxLines: 2, overflow: TextOverflow.ellipsis, style: fg(size: 14, weight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(step.instruction, maxLines: 2, overflow: TextOverflow.ellipsis, style: fg(size: 12, color: AppColors.white70)),
+              ],
+            ),
+          ),
+          if (target.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: tint.withAlpha(0x22), borderRadius: BorderRadius.circular(999)),
+              child: Text(target, style: fg(size: 12, weight: FontWeight.w700, color: tint)),
+            ),
+          ],
+        ],
       ),
     );
   }

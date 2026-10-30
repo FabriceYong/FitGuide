@@ -22,14 +22,17 @@ import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/ui.dart';
+import '../../services/speech.dart';
 import '../plus/plus_gate.dart';
-import 'default_steps.dart';
 import 'exercise_demo_view.dart';
 import 'exercise_demos.dart';
 import 'session_summary.dart';
+import 'workout_steps.dart';
 
 /// The guided player (app/workouts/[slug]/play → EnhancedWorkoutExecution.js).
-/// Loads the workout, then times each step and saves the session at the end.
+/// Loads the workout, then takes it one step at a time: a countdown, or a rep
+/// target for steps counted in reps, what comes next, rests between steps and
+/// spoken cues. Saves the session at the end.
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key, required this.slug, this.program});
   final String slug;
@@ -79,7 +82,8 @@ class _Player extends StatefulWidget {
 }
 
 class _PlayerState extends State<_Player> {
-  late final List<WorkoutStep> _steps = widget.workout.steps.isNotEmpty ? widget.workout.steps : generateDefaultSteps(widget.workout);
+  late final List<WorkoutStep> _steps = stepsFor(widget.workout);
+  late final bool _weights = usesWeights(widget.workout);
   late final Color _tint = categoryColor(widget.workout.category);
   late final double _caloriesPerMinute;
   final String _startedAt = DateTime.now().toIso8601String();
@@ -95,8 +99,12 @@ class _PlayerState extends State<_Player> {
   int _remaining = 0;
   int _stepTotal = 0;
   int _elapsed = 0;
+  // Seconds on a step counted in reps (it counts up instead of down).
+  int _stepElapsed = 0;
   bool _resting = false;
   bool _sound = true;
+  // The step last announced, so each is said once.
+  int _announced = -1;
   ({String status, String completedAt})? _summary;
   Timer? _timer;
 
@@ -122,12 +130,17 @@ class _PlayerState extends State<_Player> {
     _reps.dispose();
     _weight.dispose();
     _scroll.dispose();
+    Speech.stop();
     WakelockPlus.disable().catchError((_) {});
     super.dispose();
   }
 
   WorkoutStep get _step => _steps[_current];
+  WorkoutStep? get _next => _current + 1 < _total ? _steps[_current + 1] : null;
   int get _total => _steps.length;
+
+  /// The current step's rep target, while it's being done (not resting).
+  RepTarget? get _repTarget => _resting ? null : repTarget(_step);
 
   void _beep() {
     if (!_sound) return;
@@ -135,9 +148,22 @@ class _PlayerState extends State<_Player> {
     HapticFeedback.mediumImpact();
   }
 
-  /// Show a step: reset its timer (paused) and its logged reps/weight.
-  void _goTo(int index, {bool initial = false}) {
+  void _say(String text) {
+    if (_sound) Speech.say(text);
+  }
+
+  /// Say a step's name and target the first time it plays.
+  void _announce() {
+    if (!_playing || _resting || _announced == _current) return;
+    _announced = _current;
+    _say('${stepName(_step)}. ${spokenTarget(_step)}');
+  }
+
+  /// Show a step: reset its timer and its logged reps/weight. Paused, unless
+  /// [keepPlaying] (moving on by itself or after a rest).
+  void _goTo(int index, {bool initial = false, bool keepPlaying = false}) {
     _saveInputs();
+    final resume = keepPlaying && _playing;
     _setPlaying(false, notify: !initial);
     final duration = _steps[index].duration ?? 60;
     void apply() {
@@ -145,6 +171,7 @@ class _PlayerState extends State<_Player> {
       _resting = false;
       _remaining = duration;
       _stepTotal = duration;
+      _stepElapsed = 0;
       final inputs = _setInputs[index];
       _reps.text = inputs?.reps ?? '';
       _weight.text = inputs?.weight ?? '';
@@ -155,6 +182,7 @@ class _PlayerState extends State<_Player> {
     } else {
       setState(apply);
     }
+    if (resume) _setPlaying(true);
   }
 
   void _saveInputs() {
@@ -171,25 +199,52 @@ class _PlayerState extends State<_Player> {
     } else {
       _playing = playing;
     }
+    _announce();
   }
 
   void _tick() {
-    if (!_playing || _remaining <= 0) return;
+    if (!_playing) return;
+    // A step in reps counts up until Done.
+    if (_repTarget != null) {
+      setState(() {
+        _elapsed++;
+        _stepElapsed++;
+        _stepSeconds[_current] = (_stepSeconds[_current] ?? 0) + 1;
+      });
+      return;
+    }
+    if (_remaining <= 0) return;
     final prev = _remaining;
-    if (prev == 10 || prev == 5 || prev == 3) _beep();
+    // 3, 2, 1 out loud (with a buzz).
+    if (prev <= 4 && prev > 1) {
+      _say('${prev - 1}');
+      if (_sound) HapticFeedback.selectionClick();
+    }
     setState(() {
       _elapsed++;
       if (!_resting) _stepSeconds[_current] = (_stepSeconds[_current] ?? 0) + 1;
       _remaining = prev <= 1 ? 0 : prev - 1;
     });
     if (prev > 1) return;
-    final rest = widget.workout.restPeriod ?? 0;
-    if (rest > 0 && !_resting && _current < _total - 1) {
-      _startRest(rest);
-    } else if (_current < _total - 1) {
-      _stepComplete();
+    if (_resting) {
+      _goTo(_current + 1, keepPlaying: true);
     } else {
+      _finishStep();
+    }
+  }
+
+  /// The current step is done: rest first if the workout has rests, else on to the next.
+  void _finishStep() {
+    _completed.add(_current);
+    if (_current >= _total - 1) {
       _workoutComplete();
+      return;
+    }
+    final rest = widget.workout.restPeriod ?? 0;
+    if (rest > 0) {
+      _startRest(rest);
+    } else {
+      _goTo(_current + 1, keepPlaying: true);
     }
   }
 
@@ -199,9 +254,12 @@ class _PlayerState extends State<_Player> {
       _remaining = seconds;
       _stepTotal = seconds;
     });
+    if (!_playing) _setPlaying(true);
     _beep();
+    _say('Rest. Next up: ${stepName(_next)}');
   }
 
+  /// Skip ahead without the rest (the next-step button).
   void _stepComplete() {
     _completed.add(_current);
     if (_current == _total - 1) {
@@ -219,6 +277,7 @@ class _PlayerState extends State<_Player> {
       _summary = (status: 'completed', completedAt: DateTime.now().toIso8601String());
     });
     _beep();
+    _say('Workout complete. Great job!');
   }
 
   void _saveAndExit() {
@@ -408,7 +467,10 @@ class _PlayerState extends State<_Player> {
             ),
           ),
           const SizedBox(width: 16),
-          _circleButton(_sound ? LucideIcons.volume2 : LucideIcons.volumeX, _sound ? 'Mute beeps' : 'Turn beeps on', () => setState(() => _sound = !_sound),
+          _circleButton(_sound ? LucideIcons.volume2 : LucideIcons.volumeX, _sound ? 'Turn off spoken cues' : 'Turn on spoken cues', () {
+            setState(() => _sound = !_sound);
+            if (!_sound) Speech.stop();
+          },
               iconColor: _sound ? AppColors.white : AppColors.whiteA(0.4)),
         ],
       ),
@@ -445,10 +507,17 @@ class _PlayerState extends State<_Player> {
     final pictures = demo == null ? null : _pictures[demo.name];
     Widget? demoView([EdgeInsets padding = const EdgeInsets.only(top: 36, bottom: 48)]) =>
         demo == null ? null : ExerciseDemoView(demo, key: ValueKey(demo.name), color: _tint, padding: padding);
+    final name = stepName(step);
+    final reps = _repTarget;
+    final next = _next;
     return [
       Text('STEP ${_current + 1} OF $_total', textAlign: TextAlign.center, style: fgLabel(color: AppColors.muted)),
       const SizedBox(height: 4),
-      Semantics(liveRegion: true, child: Text(step.instruction, textAlign: TextAlign.center, style: fg(size: 20, weight: FontWeight.w800, height: 1.35))),
+      Semantics(liveRegion: true, header: true, child: Text(name, textAlign: TextAlign.center, style: fg(size: 22, weight: FontWeight.w800, height: 1.3))),
+      if (name != step.instruction) ...[
+        const SizedBox(height: 4),
+        Text(step.instruction, textAlign: TextAlign.center, style: fg(size: 13, color: AppColors.whiteA(0.6), height: 1.4)),
+      ],
       const SizedBox(height: 16),
       // Not taller than half the screen, so a phone on its side still shows the timer.
       ConstrainedBox(
@@ -560,7 +629,8 @@ class _PlayerState extends State<_Player> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            CircularTimer(remaining: _remaining, total: _stepTotal, color: _tint, playing: _playing),
+            // A full ring while counting reps.
+            CircularTimer(remaining: reps != null ? 1 : _remaining, total: reps != null ? 1 : _stepTotal, color: _tint, playing: _playing && reps == null, calm: reps != null),
             // Inside the 130px ring, shrunk to fit with large system text.
             SizedBox.square(
               dimension: 130,
@@ -568,12 +638,22 @@ class _PlayerState extends State<_Player> {
                 padding: const EdgeInsets.all(22),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(clock(_remaining), style: fg(size: 24, weight: FontWeight.w900, color: _timeColor, features: tabularFigures)),
-                      Text('REMAINING', style: fg(size: 10, color: AppColors.muted, letterSpacing: 1)),
-                    ],
+                  child: Semantics(
+                    label: reps != null ? '${reps.reps} reps${reps.sets != null ? ', ${reps.sets} sets' : ''}' : '${clock(_remaining)} left',
+                    excludeSemantics: true,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: reps != null
+                          ? [
+                              Text(reps.reps, style: fg(size: 30, weight: FontWeight.w900, color: _tint, features: tabularFigures)),
+                              Text(reps.sets != null ? 'REPS × ${reps.sets} SETS' : 'REPS', style: fg(size: 10, color: AppColors.muted, letterSpacing: 1)),
+                              Text(clock(_stepElapsed), style: fg(size: 10, color: AppColors.whiteA(0.4), features: tabularFigures)),
+                            ]
+                          : [
+                              Text(clock(_remaining), style: fg(size: 24, weight: FontWeight.w900, color: _timeColor, features: tabularFigures)),
+                              Text('LEFT', style: fg(size: 10, color: AppColors.muted, letterSpacing: 1)),
+                            ],
+                    ),
                   ),
                 ),
               ),
@@ -606,9 +686,29 @@ class _PlayerState extends State<_Player> {
             ),
           ),
           const SizedBox(width: 16),
-          _circleButton(LucideIcons.chevronRight, 'Next step', _current == _total - 1 ? null : _stepComplete, size: 48, iconSize: 24),
+          _circleButton(LucideIcons.chevronRight, 'Skip to next step', _current == _total - 1 ? null : _stepComplete, size: 48, iconSize: 24),
         ],
       ),
+      if (reps != null) ...[
+        const SizedBox(height: 12),
+        Center(
+          child: FgButton(
+            label: 'Done',
+            icon: LucideIcons.check,
+            height: 48,
+            radius: 12,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            uppercase: true,
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            color: _tint.withValues(alpha: 0.15),
+            textColor: _tint,
+            onPressed: _finishStep,
+          ),
+        ),
+      ],
+      const SizedBox(height: 16),
+      if (next != null) _nextUp(next) else Text('Last step. Finish strong!', textAlign: TextAlign.center, style: fg(size: 14, color: AppColors.whiteA(0.6))),
       const SizedBox(height: 16),
       Container(
         padding: const EdgeInsets.all(12),
@@ -616,57 +716,63 @@ class _PlayerState extends State<_Player> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('LOG THIS SET (OPTIONAL)', style: fg(size: 10, weight: FontWeight.w700, color: AppColors.muted, letterSpacing: 0.5)),
+            Text('LOG THIS STEP (OPTIONAL)', style: fg(size: 10, weight: FontWeight.w700, color: AppColors.muted, letterSpacing: 0.5)),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
-                  child: NumberField(controller: _reps, decimal: false, hint: '0', suffixText: 'reps', radius: 8, fill: AppColors.whiteA(0.05), border: Colors.transparent, semanticLabel: 'Reps', onChanged: (_) => _saveInputs()),
+                  child: NumberField(controller: _reps, decimal: false, hint: reps?.reps.split(RegExp('[–-]')).first ?? '0', suffixText: 'reps', radius: 8, fill: AppColors.whiteA(0.05), border: Colors.transparent, semanticLabel: 'Reps done', onChanged: (_) => _saveInputs()),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: NumberField(controller: _weight, hint: '0', suffixText: 'kg', radius: 8, fill: AppColors.whiteA(0.05), border: Colors.transparent, semanticLabel: 'Weight in kilograms', onChanged: (_) => _saveInputs()),
-                ),
+                // A weight only makes sense when the workout uses equipment.
+                if (_weights) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: NumberField(controller: _weight, hint: '0', suffixText: 'kg', radius: 8, fill: AppColors.whiteA(0.05), border: Colors.transparent, semanticLabel: 'Weight in kilograms', onChanged: (_) => _saveInputs()),
+                  ),
+                ],
               ],
             ),
           ],
         ),
       ),
       const SizedBox(height: 16),
-      FgButton(label: 'Mark Complete', icon: LucideIcons.check, expand: true, height: 54, radius: 12, fontSize: 14, fontWeight: FontWeight.w800, uppercase: true, color: _tint, onPressed: _workoutComplete),
-      const SizedBox(height: 16),
-      Row(
-        children: [
-          Expanded(child: _miniStat(LucideIcons.clock, _tint, 'Step Duration', step.duration != null ? '${step.duration! ~/ 60}:${(step.duration! % 60).toString().padLeft(2, '0')}' : '–')),
-          const SizedBox(width: 12),
-          Expanded(child: _miniStat(LucideIcons.flame, AppColors.orange400, 'Intensity', w.intensity.isNotEmpty ? w.intensity : 'Moderate')),
-        ],
-      ),
+      FgButton(label: 'Finish workout', icon: LucideIcons.check, expand: true, height: 54, radius: 12, fontSize: 14, fontWeight: FontWeight.w800, uppercase: true, color: _tint, onPressed: _workoutComplete),
     ];
   }
 
-  Widget _miniStat(IconData icon, Color color, String label, String value) {
-    final badge = Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(color: color.withAlpha(0x15), borderRadius: BorderRadius.circular(8)),
-      child: Icon(icon, size: 16, color: color),
+  /// The drawn demo of a step, small (step list, next up, rest screen).
+  Widget _thumb(WorkoutStep s, {double size = 56}) {
+    final demo = demoForStep(s);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: _tint.withAlpha(0x12), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.whiteA(0.1))),
+      clipBehavior: Clip.antiAlias,
+      child: demo == null ? Icon(LucideIcons.target, size: 20, color: _tint.withAlpha(0x99)) : ExcludeSemantics(child: ExerciseDemoView(demo, color: _tint, animate: false)),
     );
-    final large = largeText(context);
-    final text = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: fg(size: 10, color: AppColors.muted)),
-        Text(value, overflow: large ? null : TextOverflow.ellipsis, style: fg(size: 14, weight: FontWeight.w700)),
-      ],
-    );
+  }
+
+  Widget _nextUp(WorkoutStep next) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.obsidianWave, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.whiteA(0.1))),
-      // Icon beside the text, or above it with large system text so words aren't split.
-      child: large
-          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [badge, const SizedBox(height: 8), text])
-          : Row(children: [badge, const SizedBox(width: 12), Expanded(child: text)]),
+      decoration: BoxDecoration(color: AppColors.whiteA(0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.whiteA(0.1))),
+      child: Row(
+        children: [
+          _thumb(next),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('NEXT UP', style: fg(size: 10, weight: FontWeight.w700, color: AppColors.muted, letterSpacing: 0.8)),
+                Text(stepName(next), maxLines: 2, overflow: TextOverflow.ellipsis, style: fg(size: 15, weight: FontWeight.w700)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(targetLabel(next), style: fg(size: 12, color: AppColors.whiteA(0.6), features: tabularFigures)),
+        ],
+      ),
     );
   }
 
@@ -689,19 +795,6 @@ class _PlayerState extends State<_Player> {
     );
   }
 
-  Widget _tagWrap(List<String> items, Color color) => Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final item in items)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: color.withValues(alpha: 0.3))),
-              child: Text(item, style: fg(size: 12, weight: FontWeight.w600, color: color)),
-            ),
-        ],
-      );
-
   List<Widget> _details(Workout w) {
     final step = _step;
     final hasGuidance = step.formCues.isNotEmpty || step.breathingPattern != null || step.commonMistakes.isNotEmpty;
@@ -720,15 +813,7 @@ class _PlayerState extends State<_Player> {
             ],
           ),
           const SizedBox(height: 12),
-          Semantics(header: true, child: Text(w.title, style: fg(size: 30, weight: FontWeight.w800, height: 1.25))),
-          if (w.description.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.only(top: 12),
-              decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.whiteA(0.1)))),
-              child: Text(w.description, style: fg(size: 14, color: AppColors.whiteA(0.7), height: 1.6)),
-            ),
-          ],
+          Text(w.title, style: fg(size: 24, weight: FontWeight.w800, height: 1.25)),
         ],
       ),
       Row(
@@ -810,73 +895,7 @@ class _PlayerState extends State<_Player> {
             ], 16),
           ),
         ),
-      if (w.equipment.isNotEmpty) _panel(icon: LucideIcons.target, iconColor: AppColors.indigo400, title: 'Equipment', child: _tagWrap(w.equipment, AppColors.indigo300)),
-      if (w.targetMuscles.isNotEmpty) _panel(icon: LucideIcons.flame, iconColor: AppColors.orange400, title: 'Target Muscles', child: _tagWrap(w.targetMuscles, AppColors.orange300)),
-      if (w.benefits.isNotEmpty)
-        _panel(
-          icon: LucideIcons.check,
-          iconColor: AppColors.green400,
-          title: 'Benefits',
-          child: Column(
-            children: spaced([
-              for (final b in w.benefits)
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Padding(padding: EdgeInsets.only(top: 2), child: Icon(LucideIcons.check, size: 16, color: AppColors.green400)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(b, style: fg(size: 14, color: AppColors.whiteA(0.7)))),
-                ]),
-            ], 8),
-          ),
-        ),
-      if (w.prerequisites.isNotEmpty)
-        _panel(
-          icon: LucideIcons.info,
-          iconColor: AppColors.blue400,
-          title: 'Prerequisites',
-          child: Column(children: [for (final p in w.prerequisites) _bullet('•', AppColors.blue400, p, AppColors.whiteA(0.7), size: 12)]),
-        ),
-      if (w.cautions.isNotEmpty)
-        _panel(
-          icon: LucideIcons.triangleAlert,
-          iconColor: AppColors.orange400,
-          title: 'Safety & Cautions',
-          child: Column(
-            children: spaced([
-              for (final c in w.cautions)
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Padding(padding: EdgeInsets.only(top: 2), child: Icon(LucideIcons.triangleAlert, size: 14, color: AppColors.orange400)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(c, style: fg(size: 12, color: AppColors.orange200))),
-                ]),
-            ], 6),
-          ),
-        ),
-      _panel(
-        icon: LucideIcons.activity,
-        iconColor: _tint,
-        title: 'Workout Specifications',
-        child: FgGrid(
-          columns: 2,
-          gap: 16,
-          children: [
-            for (final (label, value) in [
-              ('Duration', '${w.duration > 0 ? w.duration : 30} min'),
-              ('Difficulty', w.difficulty.isNotEmpty ? w.difficulty : 'All Levels'),
-              ('Intensity', w.intensity.isNotEmpty ? w.intensity : 'Moderate'),
-              ('Est. Burn', '${w.calories ?? 200} kcal'),
-            ])
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppColors.whiteA(0.05), borderRadius: BorderRadius.circular(12)),
-                child: Column(children: [
-                  Text(label, style: fg(size: 12, color: AppColors.muted)),
-                  const SizedBox(height: 4),
-                  Text(value, textAlign: TextAlign.center, style: fg(size: 16, weight: FontWeight.w700)),
-                ]),
-              ),
-          ],
-        ),
-      ),
+      // Equipment, benefits and cautions are on the workout's page.
     ], 16);
   }
 
@@ -942,13 +961,13 @@ class _PlayerState extends State<_Player> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        Text('Step ${s.stepNumber}', style: fg(size: 14, weight: FontWeight.w700, color: isCurrent ? _tint : isDone ? AppColors.green400 : AppColors.white)),
-                        if (s.duration != null) ...[
+                        Flexible(child: Text(stepName(s), maxLines: 1, overflow: TextOverflow.ellipsis, style: fg(size: 14, weight: FontWeight.w700, color: isCurrent ? _tint : isDone ? AppColors.green400 : AppColors.white))),
+                        if (targetLabel(s).isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(color: AppColors.whiteA(0.1), borderRadius: BorderRadius.circular(999)),
-                            child: Text('${s.duration! ~/ 60}:${(s.duration! % 60).toString().padLeft(2, '0')}', style: fg(size: 12, color: AppColors.whiteA(0.6))),
+                            child: Text(targetLabel(s), style: fg(size: 12, color: AppColors.whiteA(0.6))),
                           ),
                         ],
                       ]),
@@ -989,21 +1008,55 @@ class _PlayerState extends State<_Player> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('REST PERIOD', style: fg(size: 12, weight: FontWeight.w700, color: _tint, letterSpacing: 1.5)),
+                Text('REST', style: fg(size: 12, weight: FontWeight.w700, color: _tint, letterSpacing: 1.5)),
                 const SizedBox(height: 16),
                 Stack(
                   alignment: Alignment.center,
                   children: [
-                    CircularTimer(remaining: _remaining, total: widget.workout.restPeriod ?? 30, color: _tint, playing: true),
+                    CircularTimer(remaining: _remaining, total: _stepTotal, color: _tint, playing: true, calm: true),
                     Text('$_remaining', style: fg(size: 36, weight: FontWeight.w900, color: _tint)),
                   ],
                 ),
                 const SizedBox(height: 24),
-                Text('Take a Breather', style: fg(size: 30, weight: FontWeight.w800)),
-                const SizedBox(height: 8),
-                Text("You're doing fantastic! Grab some water 💧", textAlign: TextAlign.center, style: fg(size: 16, color: AppColors.whiteA(0.6))),
+                // What's coming, so the rest isn't spent wondering.
+                if (_next != null) ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: _nextUp(_next!)),
                 const SizedBox(height: 24),
-                FgButton(label: 'Skip Rest', uppercase: true, radius: 12, fontSize: 14, fontWeight: FontWeight.w700, height: 52, padding: const EdgeInsets.symmetric(horizontal: 40), color: _tint, onPressed: _stepComplete),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: FgButton(
+                          label: '15 s',
+                          icon: LucideIcons.plus,
+                          style: FgButtonStyle.secondary,
+                          radius: 12,
+                          height: 52,
+                          fontWeight: FontWeight.w700,
+                          onPressed: () => setState(() {
+                            _remaining += 15;
+                            _stepTotal += 15;
+                          }),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: FgButton(
+                          label: 'Skip rest',
+                          icon: LucideIcons.skipForward,
+                          uppercase: true,
+                          radius: 12,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          height: 52,
+                          color: _tint,
+                          onPressed: () => _goTo(_current + 1, keepPlaying: true),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -1015,16 +1068,19 @@ class _PlayerState extends State<_Player> {
 
 /// The ring around the step countdown (CircularTimer in the website's player).
 class CircularTimer extends StatelessWidget {
-  const CircularTimer({super.key, required this.remaining, required this.total, required this.color, required this.playing});
+  const CircularTimer({super.key, required this.remaining, required this.total, required this.color, required this.playing, this.calm = false});
   final int remaining;
   final int total;
   final Color color;
   final bool playing;
 
+  /// Stay in [color] near the end (a rep target, not a countdown).
+  final bool calm;
+
   @override
   Widget build(BuildContext context) {
     final fraction = total > 0 ? remaining / total : 1.0;
-    final ringColor = remaining <= 5 ? AppColors.red400 : remaining <= 10 ? AppColors.orange400 : color;
+    final ringColor = calm ? color : remaining <= 5 ? AppColors.red400 : remaining <= 10 ? AppColors.orange400 : color;
     return ExcludeSemantics(
       child: TweenAnimationBuilder<double>(
         tween: Tween(end: fraction),

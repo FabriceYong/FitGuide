@@ -2,7 +2,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  PROFILE, EQUIPMENT_KITS, calorieFactor, personalCalories, suggestedFocusAreas, rankWorkouts, workoutFit, requiredEquipment, limitationConflicts,
+  PROFILE, EQUIPMENT_KITS, calorieFactor, personalCalories, heartRateCalories, suggestedFocusAreas, rankWorkouts, workoutFit, requiredEquipment, limitationConflicts,
 } = require('@fitguide/shared');
 const { targets } = require('../services/nutrition');
 const catalog = require('../seed/workoutSeeder');
@@ -27,6 +27,18 @@ describe('calorie estimates', () => {
   it('matches the BMR used for nutrition targets', () => {
     const profile = { ...base, gender: 'Female', activityStatus: 'Active', goal: 'Vitality', diet: 'Mediterranean Diet' };
     assert.equal(Math.round(calorieFactor(profile, 2026) * 1680), targets(profile, 2026).bmr);
+  });
+
+  it('uses heart rate when there is an exercise-level reading (Keytel 2005)', () => {
+    const effort = { avgHr: 150, durationSec: 30 * 60 };
+    // 30-year-old, 70 kg, 150 bpm for 30 minutes.
+    assert.equal(heartRateCalories(effort, { ...base, gender: 'Male' }, 2026), 427);
+    assert.equal(heartRateCalories(effort, { ...base, gender: 'Female' }, 2026), 287);
+    assert.equal(heartRateCalories(effort, { ...base, gender: 'Non-binary' }, 2026), 357);
+    // No usable reading: the caller falls back to the catalog estimate.
+    assert.equal(heartRateCalories({ avgHr: 75, durationSec: 1800 }, base, 2026), null);
+    assert.equal(heartRateCalories({ avgHr: null, durationSec: 1800 }, base, 2026), null);
+    assert.equal(heartRateCalories(effort, null, 2026), null);
   });
 
   it('leaves estimates alone without body measurements', () => {

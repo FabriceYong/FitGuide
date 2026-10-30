@@ -204,6 +204,29 @@ function defineTrainingSuite(ctx) {
       await post(session('no-such-workout')).expect(404);
     });
 
+    it('works out calories from heart rate when the watch sends it', async () => {
+      const runner = await ctx().signUp('Heart Runner');
+      // Default profile (70 kg, assumed 30, no sex given): the mean of Keytel's
+      // two equations at 140 bpm is 10.61 kcal/min → 212 kcal for 20 minutes.
+      const withHr = await runner.agent.post('/api/sessions').send(session('core-power-blast', { avgHr: 140, maxHr: 171 })).expect(201);
+      assert.deepEqual([withHr.body.session.calories, withHr.body.session.calorieSource, withHr.body.session.maxHr], [212, 'heart_rate', 171]);
+
+      // Readings that arrive after saving recalculate it; a resting-level
+      // average falls back to the workout's estimate.
+      const plain = (await runner.agent.post('/api/sessions').send(session('core-power-blast')).expect(201)).body.session;
+      assert.deepEqual([plain.calories, plain.calorieSource, plain.avgHr], [137, 'estimate', null]);
+      const put = (body, agent = runner.agent) => agent.put(`/api/sessions/${plain.id}/heart-rate`).send(body);
+      const updated = (await put({ avgHr: 140 }).expect(200)).body.session;
+      assert.deepEqual([updated.calories, updated.calorieSource, updated.avgHr, updated.sets.length], [212, 'heart_rate', 140, 0]);
+      const resting = (await put({ avgHr: 70 }).expect(200)).body.session;
+      assert.deepEqual([resting.calories, resting.calorieSource], [137, 'estimate']);
+
+      await put({ avgHr: 300 }).expect(400);
+      await put({}).expect(400);
+      await put({ avgHr: 140 }, other.agent).expect(404);
+      await runner.agent.post('/api/sessions').send(session('core-power-blast', { avgHr: 10 })).expect(400);
+    });
+
     it('keeps sessions private', async () => {
       const mine = await lifter.agent.get('/api/sessions').expect(200);
       assert.equal(mine.body.count, 3);

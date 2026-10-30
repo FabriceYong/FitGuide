@@ -132,6 +132,28 @@ function calorieFactor(profile, year) {
 /** A catalog calorie estimate for this person. */
 const personalCalories = (kcal, profile, year) => (kcal == null ? kcal : Math.round(kcal * calorieFactor(profile, year)));
 
+// Keytel et al. (2005): energy from average heart rate during exercise, by sex.
+// For "Non-binary" / "Prefer not to say" use the mean of both equations.
+const KEYTEL = {
+  Male: { base: -55.0969, hr: 0.6309, weight: 0.1988, age: 0.2017 },
+  Female: { base: -20.4022, hr: 0.4472, weight: -0.1263, age: 0.074 },
+};
+// Below this the equations aren't valid (they were fitted on exercise heart rates).
+const MIN_EXERCISE_HR = 90;
+
+/**
+ * Calories for a workout from the wearer's average heart rate, or null when
+ * there's no usable reading (then use the catalog estimate).
+ * @param {{ avgHr?: number | null, durationSec: number }} effort
+ */
+function heartRateCalories({ avgHr, durationSec }, profile, year = new Date().getFullYear()) {
+  if (!(avgHr >= MIN_EXERCISE_HR) || !(durationSec > 0) || !profile || !(profile.weight > 0)) return null;
+  const age = profile.birthYear ? year - profile.birthYear : ASSUMED_AGE;
+  const perMinute = (c) => (c.base + c.hr * avgHr + c.weight * profile.weight + c.age * age) / 4.184;
+  const rate = KEYTEL[profile.gender] ? perMinute(KEYTEL[profile.gender]) : (perMinute(KEYTEL.Male) + perMinute(KEYTEL.Female)) / 2;
+  return rate > 0 ? Math.round((rate * durationSec) / 60) : null;
+}
+
 // ─── Ranking ─────────────────────────────────────────────────────────────────
 
 // Categories that suit each goal, best first.
@@ -237,6 +259,7 @@ module.exports = {
   restingKcal,
   calorieFactor,
   personalCalories,
+  heartRateCalories,
   requiredEquipment,
   limitationConflicts,
   workoutFit,

@@ -9,6 +9,7 @@ import 'navigation.dart';
 import 'state/auth_controller.dart';
 import 'state/dashboard_controller.dart';
 import 'state/favorites_controller.dart';
+import 'state/phone_health_controller.dart';
 import 'state/workouts_controller.dart';
 
 class FitGuideApp extends StatelessWidget {
@@ -25,6 +26,8 @@ class FitGuideApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => WorkoutsController()),
         ChangeNotifierProvider(create: (_) => DashboardController()),
         ChangeNotifierProvider(create: (context) => FavoritesController(context.read<AuthController>())),
+        // Not lazy: syncs the phone's health store as soon as the app opens.
+        ChangeNotifierProvider(create: (context) => PhoneHealthController(context.read<AuthController>()), lazy: false),
       ],
       child: MaterialApp(
         title: 'FitGuide',

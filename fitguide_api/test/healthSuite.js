@@ -94,6 +94,77 @@ function defineHealthSuite(ctx) {
       await athlete.agent.post('/api/health-data/import').send({ csv: 'steps\n100' }).expect(400);
     });
 
+    it('takes the phone health store upload and replaces each synced day', async () => {
+      const phone = await ctx().signUp('Phone Sync');
+      const yesterday = addDays(today(), -1);
+      const sync = (body) => phone.agent.post('/api/health-data/sync').send(body);
+      const first = await sync({
+        source: 'health_connect',
+        days: [
+          { date: today(), steps: 4200, activeCalories: 180 },
+          { date: yesterday, steps: 11000, restingHr: 57, sleepMinutes: 450, activeCalories: 520 },
+          { date: addDays(today(), 1), steps: 10 },
+          { date: yesterday, steps: -5 },
+        ],
+        bloodPressure: [
+          { measuredAt: new Date(Date.now() - 3600e3).toISOString(), systolic: 118, diastolic: 76, pulse: 64 },
+          { measuredAt: new Date(Date.now() - 2 * 3600e3).toISOString(), systolic: 70, diastolic: 90 },
+          { systolic: 120, diastolic: 80 },
+        ],
+      }).expect(200);
+      assert.deepEqual([first.body.days, first.body.readings, first.body.skipped], [2, 1, 4]);
+
+      // A manual entry wins over the phone for that field; the rest still shows.
+      await phone.agent.put(`/api/health-data/${today()}`).send({ steps: 5000 }).expect(200);
+      let res = (await phone.agent.get('/api/health-data').expect(200)).body;
+      assert.deepEqual([res.today.steps, res.today.activeCalories], [5000, 180]);
+      assert.deepEqual(res.today.sources.sort(), ['health_connect', 'manual']);
+      assert.equal(res.latestRestingHr.value, 57);
+      assert.equal(res.weekAverage.activeCalories, 350);
+      assert.equal(res.bloodPressure.latest.systolic, 118);
+      assert.equal(res.bloodPressure.latest.category, 'normal');
+
+      // Syncing again replaces the day (resting HR gone from the store → cleared)
+      // and doesn't duplicate readings; an empty day removes the source's row.
+      await sync({
+        source: 'health_connect',
+        days: [{ date: yesterday, steps: 12000 }, { date: today() }],
+        bloodPressure: [{ measuredAt: res.bloodPressure.latest.measuredAt, systolic: 119, diastolic: 77 }],
+      }).expect(200);
+      res = (await phone.agent.get('/api/health-data').expect(200)).body;
+      const y = res.days.find((d) => d.date === yesterday);
+      assert.deepEqual([y.steps, y.restingHr, y.activeCalories], [12000, null, null]);
+      assert.deepEqual(res.today.sources, ['manual']);
+      assert.equal(res.bloodPressure.readings.length, 1);
+      assert.equal(res.bloodPressure.latest.systolic, 119);
+
+      await sync({ source: 'fitbit', days: [] }).expect(400);
+      await sync({ source: 'apple_health', days: Array(32).fill({ date: today(), steps: 1 }) }).expect(400);
+    });
+
+    it('records blood pressure readings typed in, with their category', async () => {
+      const bp = await ctx().signUp('Pressure');
+      const add = (body) => bp.agent.post('/api/health-data/blood-pressure').send(body);
+      const reading = (await add({ systolic: 135, diastolic: 85, pulse: 70 }).expect(201)).body.reading;
+      assert.deepEqual([reading.category, reading.source, reading.date], ['high_1', 'manual', today()]);
+      const older = (await add({ systolic: 125, diastolic: 75, measuredAt: new Date(Date.now() - 86400e3).toISOString() }).expect(201)).body.reading;
+      assert.equal(older.category, 'elevated');
+
+      await add({ systolic: 80, diastolic: 120 }).expect(400);
+      await add({ systolic: 300, diastolic: 80 }).expect(400);
+      await add({ systolic: 120 }).expect(400);
+      await add({ systolic: 120, diastolic: 80, measuredAt: new Date(Date.now() + 3600e3).toISOString() }).expect(400);
+
+      const res = (await bp.agent.get('/api/health-data').expect(200)).body.bloodPressure;
+      assert.deepEqual(res.readings.map((r) => r.systolic), [135, 125]);
+
+      const stranger = await ctx().signUp('Stranger');
+      await stranger.agent.delete(`/api/health-data/blood-pressure/${reading.id}`).expect(404);
+      assert.equal((await stranger.agent.get('/api/health-data').expect(200)).body.bloodPressure.latest, null);
+      await bp.agent.delete(`/api/health-data/blood-pressure/${reading.id}`).expect(200);
+      await bp.agent.delete(`/api/health-data/blood-pressure/${reading.id}`).expect(404);
+    });
+
     it('keeps health data private', async () => {
       const other = await ctx().signUp('Private');
       const res = await other.agent.get('/api/health-data').expect(200);

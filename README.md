@@ -134,7 +134,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | Personal plan generator and rules-based adaptation | `services/planGenerator.js`, `routes/plan.js` | `/plan` |
 | AI coach (Claude) with plan tools | `services/coach.js`, `routes/coach.js` | `/plan` |
 | Nutrition: targets, food log, meal plans | `services/nutrition.js`, `routes/nutrition.js` | `/nutrition` |
-| Health data and wearables (Strava, Fitbit, CSV) | `services/integrations.js`, `healthData.js` | `/progress` |
+| Health data: steps, active calories, sleep, resting heart rate, blood pressure; Apple Health / Health Connect (synced by the mobile app), Strava, Fitbit, CSV | `services/integrations.js`, `healthData.js` | `/progress`; app: `services/phone_health.dart`, `state/phone_health_controller.dart` |
 | Friends, challenges, leaderboards, verified reviews | `services/social.js`, `routes/social.js` | `/community` |
 | Admin CMS, coach applications and the coach studio (dashboard, workouts, programs, review) | `routes/admin.js`, `creator.js`, `coaches.js` | `/admin`, `/studio`, `/coaches/[id]` |
 | PLUS subscriptions (Stripe) | `services/billing.js`, `routes/billing.js` | `/plus` |
@@ -185,8 +185,18 @@ keys are set, and show as unavailable otherwise:
   pages, the workout player, and shared plumbing (API client, auth context,
   site header). Some have lint warnings under React's newer rules. The
   dashboard and all newer pages are TypeScript and held to the strict rules.
-- Apple Health has no web API and Google Fit's REST API is being retired,
-  so those users import a CSV instead of connecting directly.
+- Apple Health and Health Connect have no web API: the mobile app reads
+  them (read-only) when it opens and uploads the last 14 days to
+  `/api/health-data/sync`, so the website shows the same numbers. Web-only
+  users can import a CSV. The Android side (Health Connect permissions,
+  `FlutterFragmentActivity`, minSdk 26) is set up; the iPhone side needs a
+  Mac: open `ios/` in Xcode and check the HealthKit capability is on for
+  the Runner target (the entitlements file is already there) before
+  building.
+- Workout calories come from the watch's heart rate (Keytel 2005
+  equations) when the phone's health store has readings for the workout;
+  otherwise from the workout's MET-based estimate scaled to the user's
+  body. Blood pressure needs a cuff; phones and watches can't measure it.
 - Mobile app: the admin CMS and coach studio stay on the website (the app
   links to them); members apply to coach and contact coaches in the app. PLUS checkout and wearable sign-in open in the browser;
   App Store and Play rules may require in-app purchases before a store

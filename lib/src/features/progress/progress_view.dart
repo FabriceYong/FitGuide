@@ -528,6 +528,7 @@ class _RecentSessions extends StatelessWidget {
                               formatDateTime(s.completedAt),
                               '${(s.durationSec / 60).round()} min',
                               if (s.calories != null) '${s.calories} kcal',
+                              if (s.avgHr != null) '${s.avgHr} bpm avg',
                               if (s.perceivedEffort != null) 'RPE ${s.perceivedEffort}',
                               if (s.status == 'partial') 'partial',
                               if (s.enrollmentId != null) 'program W${s.programWeek}D${s.programDay}',

@@ -8,7 +8,7 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 const { isPlus } = require('../services/billing');
 const { rejectInvalid, pick } = require('../utils/validate');
 const { isUniqueViolation } = require('../db/prisma');
-const { calorieFactor } = require('@fitguide/shared');
+const { calorieFactor, heartRateCalories } = require('@fitguide/shared');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -16,6 +16,23 @@ router.use(authMiddleware);
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const SET_FIELDS = ['exerciseSlug', 'exerciseName', 'setNumber', 'reps', 'weightKg', 'durationSec', 'distanceM', 'rpe'];
 const nullable = { values: 'null' };
+
+const heartRateRules = () => [
+  body('avgHr').optional(nullable).isInt({ min: 25, max: 250 }).withMessage('avgHr must be 25–250').toInt(),
+  body('maxHr').optional(nullable).isInt({ min: 25, max: 250 }).withMessage('maxHr must be 25–250').toInt(),
+];
+
+/**
+ * Calories for a session: from the wearer's heart rate when there's a usable
+ * reading, otherwise the workout's rate for a reference adult scaled to this
+ * user's body (see calorieFactor).
+ */
+function sessionCalories(workout, user, { durationSec, avgHr }) {
+  const fromHr = heartRateCalories({ avgHr, durationSec }, user);
+  if (fromHr != null) return { calories: fromHr, calorieSource: 'heart_rate' };
+  const rate = workout && workout.calories && workout.duration ? (workout.calories / (workout.duration * 60)) * calorieFactor(user) : 0;
+  return { calories: Math.round(rate * durationSec), calorieSource: 'estimate' };
+}
 
 const sessionRules = [
   body('workoutSlug').isString().trim().notEmpty().withMessage('workoutSlug is required'),
@@ -26,6 +43,7 @@ const sessionRules = [
   body('stepsCompleted').optional().isInt({ min: 0, max: 500 }).toInt(),
   body('totalSteps').optional().isInt({ min: 0, max: 500 }).toInt(),
   body('perceivedEffort').optional(nullable).isInt({ min: 1, max: 10 }).withMessage('perceivedEffort must be 1–10').toInt(),
+  ...heartRateRules(),
   body('notes').optional().isString().isLength({ max: 1000 }).withMessage('Notes cannot exceed 1000 characters').trim(),
   body('sets').optional().isArray({ max: 200 }).withMessage('sets must be a list of at most 200 entries'),
   body('sets.*.exerciseName').isString().trim().notEmpty().isLength({ max: 200 }).withMessage('Each set needs an exerciseName'),
@@ -61,8 +79,8 @@ function linkExercises(sets, exercises) {
 }
 
 // ─── POST /api/sessions ───────────────────────────────────────────────────────
-// Save a finished (or partly finished) workout. Calories are estimated here
-// from the workout's rate and the user's body, not taken from the client. With a clientId,
+// Save a finished (or partly finished) workout. Calories are worked out here
+// (sessionCalories), not taken from the client. With a clientId,
 // sending the same session again returns the saved one (200, duplicate: true).
 router.post('/', sessionRules, rejectInvalid, async (req, res, next) => {
   try {
@@ -97,8 +115,7 @@ router.post('/', sessionRules, rejectInvalid, async (req, res, next) => {
     }
 
     const exercises = await exerciseStore.all();
-    // The workout's rate for a reference adult, scaled to this user's body (see calorieFactor).
-    const rate = workout.calories && workout.duration ? (workout.calories / (workout.duration * 60)) * calorieFactor(req.user) : 0;
+    const heartRate = { avgHr: b.avgHr ?? null, maxHr: b.maxHr ?? null };
     let session;
     try {
       session = await sessionStore.create(req.user.id, {
@@ -109,7 +126,8 @@ router.post('/', sessionRules, rejectInvalid, async (req, res, next) => {
         startedAt,
         completedAt,
         durationSec,
-        calories: Math.round(rate * durationSec),
+        ...heartRate,
+        ...sessionCalories(workout, req.user, { durationSec, avgHr: heartRate.avgHr }),
         stepsCompleted: b.stepsCompleted || 0,
         totalSteps: b.totalSteps || 0,
         perceivedEffort: b.perceivedEffort ?? null,
@@ -158,6 +176,29 @@ router.get('/:id', async (req, res, next) => {
   try {
     const session = await sessionStore.findOwned(req.user.id, req.params.id);
     if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
+    res.json({ success: true, session });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── PUT /api/sessions/:id/heart-rate ─────────────────────────────────────────
+// Body: { avgHr, maxHr? } — the watch's readings for the session, which can
+// reach the phone's health store minutes after the workout is saved. The
+// calories are worked out again from them.
+router.put('/:id/heart-rate', [body('avgHr').exists().withMessage('avgHr is required'), ...heartRateRules()], rejectInvalid, async (req, res, next) => {
+  try {
+    const existing = await sessionStore.findOwned(req.user.id, req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: 'Session not found.' });
+    const [workout] = await workoutStore.getManyBySlugs([existing.workoutSlug]);
+    const session = await sessionStore.update(req.user.id, existing.id, (draft) => {
+      draft.avgHr = req.body.avgHr;
+      draft.maxHr = req.body.maxHr ?? null;
+      const next = sessionCalories(workout, req.user, { durationSec: draft.durationSec, avgHr: draft.avgHr });
+      // A workout that's since been removed has no rate: keep the saved estimate.
+      if (next.calorieSource === 'estimate' && !workout) next.calories = draft.calories;
+      Object.assign(draft, next);
+    });
     res.json({ success: true, session });
   } catch (err) {
     next(err);

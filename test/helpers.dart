@@ -3,7 +3,9 @@ import 'package:fitguide/src/core/storage.dart';
 import 'package:fitguide/src/core/theme/app_theme.dart';
 import 'package:fitguide/src/state/auth_controller.dart';
 import 'package:fitguide/src/state/dashboard_controller.dart';
+import 'package:fitguide/src/services/phone_health.dart';
 import 'package:fitguide/src/state/favorites_controller.dart';
+import 'package:fitguide/src/state/phone_health_controller.dart';
 import 'package:fitguide/src/state/workouts_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,8 +21,9 @@ Future<void> setUpApp() async {
 }
 
 /// Pump [child] with the app's providers and theme, on a phone-sized screen
-/// ([size] in logical pixels; an iPhone 14 by default).
-Future<AuthController> pumpApp(WidgetTester tester, Widget child, {AuthController? auth, Size size = const Size(390, 844)}) async {
+/// ([size] in logical pixels; an iPhone 14 by default). Without [phoneHealth]
+/// the device has no health store, as on desktop.
+Future<AuthController> pumpApp(WidgetTester tester, Widget child, {AuthController? auth, Size size = const Size(390, 844), PhoneHealthStore? phoneHealth}) async {
   tester.view.physicalSize = size * 3;
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
@@ -33,6 +36,7 @@ Future<AuthController> pumpApp(WidgetTester tester, Widget child, {AuthControlle
         ChangeNotifierProvider(create: (_) => WorkoutsController()),
         ChangeNotifierProvider(create: (_) => DashboardController()),
         ChangeNotifierProvider(create: (context) => FavoritesController(context.read<AuthController>())),
+        ChangeNotifierProvider(create: (context) => PhoneHealthController(context.read<AuthController>(), store: () => phoneHealth)),
       ],
       child: MaterialApp(theme: AppTheme.darkTheme, home: Scaffold(body: child)),
     ),

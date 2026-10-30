@@ -40,9 +40,12 @@ class SessionRecord {
       : id = asString(j['id']) ?? '',
         workoutSlug = asString(j['workoutSlug']) ?? '',
         workoutTitle = asString(j['workoutTitle']) ?? '',
+        startedAt = asString(j['startedAt']) ?? '',
         completedAt = asString(j['completedAt']) ?? '',
         durationSec = asInt(j['durationSec']) ?? 0,
         calories = asInt(j['calories']),
+        avgHr = asInt(j['avgHr']),
+        calorieSource = asString(j['calorieSource']) ?? 'estimate',
         perceivedEffort = asInt(j['perceivedEffort']),
         status = asString(j['status']) ?? 'completed',
         enrollmentId = asString(j['enrollmentId']),
@@ -52,9 +55,14 @@ class SessionRecord {
   final String id;
   final String workoutSlug;
   final String workoutTitle;
+  final String startedAt;
   final String completedAt;
   final int durationSec;
   final int? calories;
+
+  /// From the wearer's watch (Apple Health / Health Connect); calories then come from it.
+  final int? avgHr;
+  final String calorieSource;
   final int? perceivedEffort;
   final String status;
   final String? enrollmentId;

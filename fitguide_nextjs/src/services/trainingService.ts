@@ -44,6 +44,9 @@ export interface SessionRecord {
   completedAt: string;
   durationSec: number;
   calories: number | null;
+  /** From the wearer's watch (synced by the mobile app); calories then come from it. */
+  avgHr?: number | null;
+  calorieSource?: 'estimate' | 'heart_rate';
   perceivedEffort?: number | null;
   status: 'completed' | 'partial';
   enrollmentId?: string | null;

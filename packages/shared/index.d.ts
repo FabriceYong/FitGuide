@@ -72,6 +72,7 @@ export declare function suggestedFocusAreas(profile: { goal?: string; gender?: s
 export declare function restingKcal(profile: TailoringProfile & { weight: number; height: number }, year?: number): number;
 export declare function calorieFactor(profile: TailoringProfile | null | undefined, year?: number): number;
 export declare function personalCalories<T extends number | null | undefined>(kcal: T, profile: TailoringProfile | null | undefined, year?: number): T;
+export declare function heartRateCalories(effort: { avgHr?: number | null; durationSec: number }, profile: TailoringProfile | null | undefined, year?: number): number | null;
 export declare function requiredEquipment(workout: TailorableWorkout): string[];
 export declare function limitationConflicts(workout: TailorableWorkout, limitations: readonly string[] | undefined): Limitation[];
 export declare function workoutFit(workout: TailorableWorkout, profile?: TailoringProfile, options?: { recentSlugs?: readonly string[] }): WorkoutFit;

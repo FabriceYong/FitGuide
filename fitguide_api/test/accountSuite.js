@@ -130,6 +130,7 @@ function defineAccountSuite(ctx) {
       await prisma.bodyMetric.create({ data: { userId: id, date: '2026-10-01', weightKg: 70 } });
       await prisma.coachMessage.create({ data: { userId: id, role: 'user', content: [{ type: 'text', text: 'hi' }], display: 'hi' } });
       await prisma.dailyMetric.create({ data: { userId: id, date: '2026-10-01', source: 'manual', steps: 1000 } });
+      await prisma.bloodPressureReading.create({ data: { userId: id, date: '2026-10-01', measuredAt: new Date(), source: 'manual', systolic: 120, diastolic: 80 } });
       await prisma.connection.create({ data: { userId: id, provider: 'strava', accessToken: 'encrypted' } });
       await prisma.food.create({ data: { slug: slug('food'), name: 'Mine', category: 'custom', servingLabel: '1', servingSize: 1, calories: 1, protein: 0, carbs: 0, fat: 0, ownerId: id } });
       await prisma.friendship.create({ data: { requesterId: id, addresseeId: friend.user.id, status: 'accepted' } });
@@ -152,7 +153,7 @@ function defineAccountSuite(ctx) {
         prisma.refreshToken.count({ where }), prisma.review.count({ where }), prisma.reviewLike.count({ where }),
         prisma.workoutLike.count({ where }), prisma.favorite.count({ where }), prisma.enrollment.count({ where }),
         prisma.workoutSession.count({ where }), prisma.bodyMetric.count({ where }), prisma.coachMessage.count({ where }),
-        prisma.dailyMetric.count({ where }), prisma.connection.count({ where }), prisma.challengeMember.count({ where }),
+        prisma.dailyMetric.count({ where }), prisma.bloodPressureReading.count({ where }), prisma.connection.count({ where }), prisma.challengeMember.count({ where }),
         prisma.food.count({ where: { ownerId: id } }), prisma.program.count({ where: { ownerId: id } }),
         prisma.friendship.count({ where: { OR: [{ requesterId: id }, { addresseeId: id }] } }),
       ]);

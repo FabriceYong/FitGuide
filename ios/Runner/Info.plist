@@ -22,6 +22,10 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>FitGuide reads your steps, active calories, heart rate, sleep and blood pressure so they show in the app and on the FitGuide website, and to work out the calories your workouts burn.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>FitGuide only reads from Apple Health; it doesn't write to it.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a profile photo or progress photos for a review.</string>
 	<key>NSCameraUsageDescription</key>

@@ -19,9 +19,32 @@ const handle = (fn) => async (req, res, next) => {
 
 // ─── GET /api/health-data?days=30 ─────────────────────────────────────────────
 // Steps, resting heart rate, sleep and active calories per day, merged
-// across manual entry, CSV imports and connected services.
+// across manual entry, CSV imports, the phone's health store and connected
+// services; plus blood pressure readings.
 router.get('/', [query('days').optional().isInt({ min: 1, max: 365 }).toInt()], rejectInvalid, handle(async (req, res) => {
   res.json({ success: true, ...(await healthData.summary(req.user.id, today(tzOffsetFrom(req)), req.query.days || 30)) });
+}));
+
+// ─── POST /api/health-data/sync ───────────────────────────────────────────────
+// The mobile app's upload from Apple Health / Health Connect (see
+// services/healthData.syncFromPhone for the body).
+router.post('/sync', handle(async (req, res) => {
+  const tzOffset = tzOffsetFrom(req);
+  res.json({ success: true, ...(await healthData.syncFromPhone(req.user.id, req.body, today(tzOffset), tzOffset)) });
+}));
+
+// ─── POST /api/health-data/blood-pressure ─────────────────────────────────────
+// Body: { systolic, diastolic, pulse?, measuredAt? } — a reading typed in.
+router.post('/blood-pressure', handle(async (req, res) => {
+  res.status(201).json({ success: true, reading: await healthData.addBloodPressure(req.user.id, req.body || {}, tzOffsetFrom(req)) });
+}));
+
+// ─── DELETE /api/health-data/blood-pressure/:id ───────────────────────────────
+router.delete('/blood-pressure/:id', handle(async (req, res) => {
+  if (!(await healthData.deleteBloodPressure(req.user.id, req.params.id))) {
+    return res.status(404).json({ success: false, message: 'Reading not found.' });
+  }
+  res.json({ success: true });
 }));
 
 // ─── PUT /api/health-data/:date ───────────────────────────────────────────────

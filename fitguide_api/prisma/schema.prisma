@@ -66,6 +66,7 @@ model User {
   foods                  Food[]
   foodLogs               FoodLog[]
   dailyMetrics           DailyMetric[]
+  bloodPressure          BloodPressureReading[]
   externalActivities     ExternalActivity[]
   connections            Connection[]
   oauthStates            OAuthState[]
@@ -324,6 +325,11 @@ model WorkoutSession {
   stepsCompleted  Int      @default(0)
   totalSteps      Int      @default(0)
   perceivedEffort Int? // session RPE 1-10
+  // Heart rate from the wearer's watch or strap (Apple Health / Health
+  // Connect); when present, calories come from it (calorieSource heart_rate).
+  avgHr           Int?
+  maxHr           Int?
+  calorieSource   String   @default("estimate") // estimate | heart_rate
   notes           String   @default("") @db.VarChar(1000)
   // Set when the session was a scheduled program day.
   enrollmentId    String?
@@ -494,7 +500,7 @@ model DailyMetric {
   id             String   @id @default(uuid())
   userId         String
   date           String   @db.VarChar(10) // YYYY-MM-DD, user's local date
-  source         String // manual | csv | fitbit | strava
+  source         String // manual | apple_health | health_connect | fitbit | csv | strava
   steps          Int?
   restingHr      Int? // beats per minute
   sleepMinutes   Int?
@@ -506,6 +512,26 @@ model DailyMetric {
   @@unique([userId, date, source])
   @@index([userId, date])
   @@map("daily_metrics")
+}
+
+// One blood pressure reading: typed in, or from a cuff that writes to Apple
+// Health / Health Connect (synced by the mobile app).
+model BloodPressureReading {
+  id         String   @id @default(uuid())
+  userId     String
+  measuredAt DateTime
+  date       String   @db.VarChar(10) // YYYY-MM-DD, user's local date
+  systolic   Int // mmHg
+  diastolic  Int // mmHg
+  pulse      Int? // beats per minute
+  source     String // manual | apple_health | health_connect
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, source, measuredAt])
+  @@index([userId, measuredAt(sort: Desc)])
+  @@map("blood_pressure_readings")
 }
 
 // A workout recorded by another service (e.g. a Strava run). Counts toward

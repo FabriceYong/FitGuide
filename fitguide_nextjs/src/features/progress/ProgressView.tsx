@@ -338,7 +338,7 @@ function RecentSessions({ sessions, onDelete }: { sessions: SessionRecord[]; onD
               <div className="min-w-0">
                 <Link href={`/workouts/${s.workoutSlug}`} className="font-semibold text-sm hover:text-lime-light truncate block">{s.workoutTitle}</Link>
                 <p className="text-[11px] text-white-70">
-                  {formatDateTime(s.completedAt)} · {Math.round(s.durationSec / 60)} min{s.calories != null ? ` · ${s.calories} kcal` : ''}
+                  {formatDateTime(s.completedAt)} · {Math.round(s.durationSec / 60)} min{s.calories != null ? ` · ${s.calories} kcal` : ''}{s.avgHr ? ` · ${s.avgHr} bpm avg` : ''}
                   {s.perceivedEffort ? ` · RPE ${s.perceivedEffort}` : ''}
                   {s.status === 'partial' ? ' · partial' : ''}
                   {s.enrollmentId ? ` · program W${s.programWeek}D${s.programDay}` : ''}

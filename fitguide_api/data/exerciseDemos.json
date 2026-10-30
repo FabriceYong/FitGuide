@@ -1,0 +1,1059 @@
+[
+  {
+    "name": "Mountain pose",
+    "patterns": [
+      "mountain pose",
+      "tadasana",
+      "heart cent(er|re)"
+    ]
+  },
+  {
+    "name": "Raised arms",
+    "patterns": [
+      "rais(e|ed) (your )?arms",
+      "arms overhead",
+      "sweep(ing)? (your )?arms",
+      "upward salute"
+    ]
+  },
+  {
+    "name": "Forward fold",
+    "patterns": [
+      "forward fold",
+      "fold forward",
+      "uttanasana"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Standing_Toe_Touches/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Standing_Toe_Touches/1.jpg"
+      ],
+      "title": "Standing Toe Touches",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Half lift",
+    "patterns": [
+      "half lift",
+      "lift halfway",
+      "ardha"
+    ]
+  },
+  {
+    "name": "Sun salutation",
+    "patterns": [
+      "sun salutation",
+      "surya namaskar"
+    ]
+  },
+  {
+    "name": "Crescent lunge",
+    "patterns": [
+      "crescent"
+    ]
+  },
+  {
+    "name": "Lunge",
+    "patterns": [
+      "\\blunges?\\b"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Bodyweight_Walking_Lunge/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Bodyweight_Walking_Lunge/1.jpg"
+      ],
+      "title": "Bodyweight Walking Lunge",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Warrior I",
+    "patterns": [
+      "warrior (i|1|one)\\b"
+    ]
+  },
+  {
+    "name": "Warrior II",
+    "patterns": [
+      "warrior (ii|2|two)\\b"
+    ]
+  },
+  {
+    "name": "Side angle & reverse warrior",
+    "patterns": [
+      "side angle",
+      "reverse warrior"
+    ]
+  },
+  {
+    "name": "Triangle pose",
+    "patterns": [
+      "triangle",
+      "trikonasana"
+    ]
+  },
+  {
+    "name": "Tree pose",
+    "patterns": [
+      "tree pose",
+      "vrikshasana"
+    ]
+  },
+  {
+    "name": "Neck rolls",
+    "patterns": [
+      "neck rolls?",
+      "shoulder (circles|rolls)"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Side_Neck_Stretch/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Side_Neck_Stretch/1.jpg"
+      ],
+      "title": "Side Neck Stretch",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Seated breathing",
+    "patterns": [
+      "centering",
+      "pranayama",
+      "breath awareness",
+      "diaphragmatic",
+      "meditat"
+    ]
+  },
+  {
+    "name": "Leg swings",
+    "patterns": [
+      "leg swings?",
+      "mobility",
+      "hip circles?"
+    ]
+  },
+  {
+    "name": "Quad stretch",
+    "patterns": [
+      "\\bquads?\\b",
+      "hip flexors?",
+      "calf stretch",
+      "lower body stretch"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/1873/c0ed299b-6d87-4d90-885d-bb3b5d85f1eb.png.400x400_q85.png"
+      ],
+      "title": "Quad Stretch",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/1873/view/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "author": "Davidgj32"
+    }
+  },
+  {
+    "name": "Chest opener",
+    "patterns": [
+      "chest opener",
+      "doorway",
+      "cross[- ]body"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Dynamic_Chest_Stretch/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Dynamic_Chest_Stretch/1.jpg"
+      ],
+      "title": "Dynamic Chest Stretch",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Standing stretch",
+    "patterns": [
+      "stretch"
+    ],
+    "weak": true,
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/1861/0ffe4e99-71ad-47fb-b98c-1f243faa0499.png.400x400_q85.png"
+      ],
+      "title": "Side stretch",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/1861/view/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "author": "Davidgj32"
+    }
+  },
+  {
+    "name": "March in place",
+    "patterns": [
+      "\\bmarch(ing)?\\b"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/1965/03c08a42-dedb-4a46-8d15-acaf497a35a2.png.400x400_q85.png"
+      ],
+      "title": "Marching High Knees",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/1965/view/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  {
+    "name": "Warm-up march",
+    "patterns": [
+      "warm[- ]?up"
+    ],
+    "weak": true,
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/1965/03c08a42-dedb-4a46-8d15-acaf497a35a2.png.400x400_q85.png"
+      ],
+      "title": "Marching High Knees",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/1965/view/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  {
+    "name": "Walk",
+    "patterns": [
+      "\\bwalk(ing|s)?\\b"
+    ]
+  },
+  {
+    "name": "Jog",
+    "patterns": [
+      "\\bjog",
+      "\\brun(s|ning)?\\b",
+      "\\bsprint"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Trail_Running_Walking/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Trail_Running_Walking/1.jpg"
+      ],
+      "title": "Trail Running/Walking",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "High knees",
+    "patterns": [
+      "high knees?"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/983/16245344-9957-4a24-8d61-f9939ed5f964.png.400x400_q85.png"
+      ],
+      "title": "High knees",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/983/view/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  {
+    "name": "Butt kicks",
+    "patterns": [
+      "butt kicks?",
+      "heel kicks?"
+    ]
+  },
+  {
+    "name": "Jumping jacks",
+    "patterns": [
+      "jumping jacks?",
+      "star jumps?"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/320/6c9124b6-3551-47a8-9c22-20141c8b9c53.png.400x400_q85.png",
+        "https://wger.de/media/exercise-images/320/85a075aa-53ff-4d61-bad3-5f47e14e0f8e.png.400x400_q85.png"
+      ],
+      "title": "Jumping Jacks",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/320/view/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  {
+    "name": "Skater hops",
+    "patterns": [
+      "skaters?"
+    ]
+  },
+  {
+    "name": "Lateral shuffle",
+    "patterns": [
+      "shuffles?"
+    ]
+  },
+  {
+    "name": "Fast feet",
+    "patterns": [
+      "fast feet"
+    ]
+  },
+  {
+    "name": "Shadow boxing",
+    "patterns": [
+      "shadow ?box",
+      "\\bjabs?\\b",
+      "\\bpunch",
+      "boxing"
+    ]
+  },
+  {
+    "name": "Burpee",
+    "patterns": [
+      "burpees?",
+      "tabata",
+      "all[- ]out"
+    ]
+  },
+  {
+    "name": "Mountain climbers",
+    "patterns": [
+      "mountain climbers?"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Mountain_Climbers/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Mountain_Climbers/1.jpg"
+      ],
+      "title": "Mountain Climbers",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Squat",
+    "patterns": [
+      "\\bsquats?\\b"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Bodyweight_Squat/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Bodyweight_Squat/1.jpg"
+      ],
+      "title": "Bodyweight Squat",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Barbell back squat",
+    "patterns": [
+      "back squats?",
+      "barbell squats?"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Barbell_Squat/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Barbell_Squat/1.jpg"
+      ],
+      "title": "Barbell Squat",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Jump squat",
+    "patterns": [
+      "jump squats?",
+      "squat jumps?"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Freehand_Jump_Squat/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Freehand_Jump_Squat/1.jpg"
+      ],
+      "title": "Freehand Jump Squat",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Romanian deadlift",
+    "patterns": [
+      "romanian",
+      "\\brdls?\\b",
+      "deadlifts?"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Romanian_Deadlift/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Romanian_Deadlift/1.jpg"
+      ],
+      "title": "Romanian Deadlift",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Glute bridge",
+    "patterns": [
+      "bridges?\\b",
+      "setu bandha",
+      "hip thrusts?"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Butt_Lift_Bridge/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Butt_Lift_Bridge/1.jpg"
+      ],
+      "title": "Butt Lift (Bridge)",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Push-up",
+    "patterns": [
+      "push[- ]?ups?",
+      "press[- ]?ups?"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Pushups/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Pushups/1.jpg"
+      ],
+      "title": "Pushups",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Chaturanga",
+    "patterns": [
+      "chaturanga",
+      "four[- ]limbed"
+    ]
+  },
+  {
+    "name": "Bench press",
+    "patterns": [
+      "bench press",
+      "chest press"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/192/Bench-press-1.png.400x400_q85.png",
+        "https://wger.de/media/exercise-images/192/Bench-press-2.png.400x400_q85.png"
+      ],
+      "title": "Bench Press",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/73/view/",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "author": "Everkinetic"
+    }
+  },
+  {
+    "name": "Bent-over row",
+    "patterns": [
+      "bent[- ]over",
+      "\\brows?\\b"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/109/Barbell-rear-delt-row-1.png.400x400_q85.jpg",
+        "https://wger.de/media/exercise-images/109/Barbell-rear-delt-row-2.png.400x400_q85.jpg"
+      ],
+      "title": "Bent Over Rowing",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/83/view/",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "author": "Everkinetic"
+    }
+  },
+  {
+    "name": "Overhead press",
+    "patterns": [
+      "overhead( \\w+){0,4} press",
+      "shoulder press",
+      "military press"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/119/seated-barbell-shoulder-press-large-1.png.400x400_q85.jpg",
+        "https://wger.de/media/exercise-images/119/seated-barbell-shoulder-press-large-2.png.400x400_q85.jpg"
+      ],
+      "title": "Shoulder Press, Barbell",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/566/view/",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "author": "Everkinetic"
+    }
+  },
+  {
+    "name": "Pull-up",
+    "patterns": [
+      "pull[- ]?ups?",
+      "pull[- ]?downs?",
+      "chin[- ]?ups?"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/475/b0554016-16fd-4dbe-be47-a2a17d16ae0e.jpg.400x400_q85.jpg"
+      ],
+      "title": "Pull-ups",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/475/view/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "author": "Imobard"
+    }
+  },
+  {
+    "name": "Lateral raise",
+    "patterns": [
+      "lateral raises?",
+      "side raises?"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/148/lateral-dumbbell-raises-large-2.png.400x400_q85.jpg",
+        "https://wger.de/media/exercise-images/148/lateral-dumbbell-raises-large-1.png.400x400_q85.jpg"
+      ],
+      "title": "Lateral Raises",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/348/view/",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "author": "Everkinetic"
+    }
+  },
+  {
+    "name": "Biceps curl",
+    "patterns": [
+      "bicep",
+      "\\bcurls?\\b"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/81/Biceps-curl-1.png.400x400_q85.png",
+        "https://wger.de/media/exercise-images/81/Biceps-curl-2.png.400x400_q85.png"
+      ],
+      "title": "Biceps Curls With Dumbbell",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/92/view/",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "author": "Everkinetic"
+    }
+  },
+  {
+    "name": "Triceps dip",
+    "patterns": [
+      "tricep\\w* dips?",
+      "\\bdips\\b",
+      "bench dips?"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/83/Bench-dips-1.png.400x400_q85.png",
+        "https://wger.de/media/exercise-images/83/Bench-dips-2.png.400x400_q85.png"
+      ],
+      "title": "Dips Between Two Benches",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/197/view/",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "author": "Everkinetic"
+    }
+  },
+  {
+    "name": "Overhead triceps extension",
+    "patterns": [
+      "overhead (tricep\\w* )?extensions?",
+      "skull ?crushers?"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Standing_Dumbbell_Triceps_Extension/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Standing_Dumbbell_Triceps_Extension/1.jpg"
+      ],
+      "title": "Standing Dumbbell Triceps Extension",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Face pull",
+    "patterns": [
+      "face pulls?",
+      "rear delt"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Face_Pull/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Face_Pull/1.jpg"
+      ],
+      "title": "Face Pull",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Plank",
+    "patterns": [
+      "\\bplank\\b",
+      "plank pose",
+      "high plank"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Pushups/0.jpg"
+      ],
+      "title": "Pushups",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Forearm plank",
+    "patterns": [
+      "forearm plank",
+      "plank hold",
+      "elbow plank"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/458/b7bd9c28-9f1d-4647-bd17-ab6a3adf5770.png.400x400_q85.png"
+      ],
+      "title": "Plank",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/458/view/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "author": "utkb"
+    }
+  },
+  {
+    "name": "Plank shoulder taps",
+    "patterns": [
+      "shoulder taps?",
+      "plank with shoulder tap"
+    ]
+  },
+  {
+    "name": "Plank to down dog",
+    "patterns": [
+      "plank to down(ward)?[- ]?(facing )?dog"
+    ]
+  },
+  {
+    "name": "Side plank",
+    "patterns": [
+      "side plank"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Side_Bridge/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Side_Bridge/1.jpg"
+      ],
+      "title": "Side Bridge",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Side plank hip dips",
+    "patterns": [
+      "side plank hip dips?",
+      "hip dips?"
+    ]
+  },
+  {
+    "name": "Upward-facing dog",
+    "patterns": [
+      "\\bup(ward)?[- ]?(facing )?dog"
+    ]
+  },
+  {
+    "name": "Downward-facing dog",
+    "patterns": [
+      "\\bdown(ward)?[- ]?(facing )?dog"
+    ]
+  },
+  {
+    "name": "Cat-cow",
+    "patterns": [
+      "cat[- ]?cow",
+      "cat stretch"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Cat_Stretch/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Cat_Stretch/1.jpg"
+      ],
+      "title": "Cat Stretch",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Bird dog",
+    "patterns": [
+      "bird[- ]?dog"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/1572/3d14e761-a73d-49da-8804-f3016a7573ff.png.400x400_q85.jpg"
+      ],
+      "title": "Bird Dog",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/1572/view/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "author": "Settebello"
+    }
+  },
+  {
+    "name": "Thread the needle",
+    "patterns": [
+      "thread the needle"
+    ]
+  },
+  {
+    "name": "Child's pose",
+    "patterns": [
+      "child'?s pose",
+      "balasana"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Childs_Pose/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Childs_Pose/1.jpg"
+      ],
+      "title": "Child's Pose",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Cobra",
+    "patterns": [
+      "\\bcobra",
+      "bhujangasana"
+    ]
+  },
+  {
+    "name": "Pigeon pose",
+    "patterns": [
+      "pigeon"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/1872/df982df1-512a-4eb9-acd9-68cc1c265df6.png.400x400_q85.png"
+      ],
+      "title": "Pigeon Stretch",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/1872/view/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "author": "Davidgj32"
+    }
+  },
+  {
+    "name": "Seated forward fold",
+    "patterns": [
+      "seated forward fold",
+      "paschimottanasana",
+      "hamstring fold"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Seated_Floor_Hamstring_Stretch/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Seated_Floor_Hamstring_Stretch/1.jpg"
+      ],
+      "title": "Seated Floor Hamstring Stretch",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Supine spinal twist",
+    "patterns": [
+      "spinal twist",
+      "supine twist"
+    ]
+  },
+  {
+    "name": "Happy baby",
+    "patterns": [
+      "happy baby"
+    ]
+  },
+  {
+    "name": "Knees to chest",
+    "patterns": [
+      "knees? to (your )?chest",
+      "hug (your )?knees"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Hug_Knees_To_Chest/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Hug_Knees_To_Chest/1.jpg"
+      ],
+      "title": "Hug Knees To Chest",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Legs up the wall",
+    "patterns": [
+      "legs up the wall",
+      "viparita karani"
+    ]
+  },
+  {
+    "name": "Savasana",
+    "patterns": [
+      "savasana",
+      "corpse pose",
+      "body scan"
+    ]
+  },
+  {
+    "name": "Pelvic tilt",
+    "patterns": [
+      "pelvic tilts?",
+      "core engagement",
+      "belly button"
+    ]
+  },
+  {
+    "name": "Supine hamstring stretch",
+    "patterns": [
+      "supine stretch",
+      "hamstring (strap )?stretch"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Lying_Hamstring/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Lying_Hamstring/1.jpg"
+      ],
+      "title": "Lying Hamstring",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Dead bug",
+    "patterns": [
+      "dead ?bugs?"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Dead_Bug/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Dead_Bug/1.jpg"
+      ],
+      "title": "Dead Bug",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Bicycle crunch",
+    "patterns": [
+      "bicycle"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Air_Bike/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Air_Bike/1.jpg"
+      ],
+      "title": "Air Bike",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Reverse crunch",
+    "patterns": [
+      "reverse crunch"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Reverse_Crunch/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Reverse_Crunch/1.jpg"
+      ],
+      "title": "Reverse Crunch",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Toe-touch crunch",
+    "patterns": [
+      "toe[- ]touch"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Toe_Touchers/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Toe_Touchers/1.jpg"
+      ],
+      "title": "Toe Touchers",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Crunch",
+    "patterns": [
+      "crunch(es)?\\b",
+      "sit[- ]?ups?"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Crunches/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Crunches/1.jpg"
+      ],
+      "title": "Crunches",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Russian twist",
+    "patterns": [
+      "russian twists?"
+    ],
+    "media": {
+      "frames": [
+        "https://wger.de/media/exercise-images/1193/70ca5d80-3847-4a8c-8882-c6e9e485e29e.png.400x400_q85.png"
+      ],
+      "title": "Russian Twist",
+      "source": "wger",
+      "sourceUrl": "https://wger.de/en/exercise/1193/view/",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "author": "lion"
+    }
+  },
+  {
+    "name": "Hollow body hold",
+    "patterns": [
+      "hollow (body|hold)"
+    ]
+  },
+  {
+    "name": "V-sit",
+    "patterns": [
+      "v[- ]?sits?",
+      "boat pose"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Jackknife_Sit-Up/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Jackknife_Sit-Up/1.jpg"
+      ],
+      "title": "Jackknife Sit-Up",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Flutter kicks",
+    "patterns": [
+      "flutter kicks?"
+    ]
+  },
+  {
+    "name": "Foam rolling",
+    "patterns": [
+      "foam roll"
+    ],
+    "media": {
+      "frames": [
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Quadriceps-SMR/0.jpg",
+        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Quadriceps-SMR/1.jpg"
+      ],
+      "title": "Quadriceps-SMR",
+      "source": "Free Exercise DB",
+      "sourceUrl": "https://github.com/yuhonas/free-exercise-db",
+      "license": "Unlicense (public domain)",
+      "licenseUrl": "https://unlicense.org/"
+    }
+  },
+  {
+    "name": "Rest & recover",
+    "patterns": [
+      "^\\s*rest\\b",
+      "\\brest period\\b",
+      "^\\s*round \\d+\\s*$",
+      "^\\s*recovery\\b"
+    ]
+  }
+]

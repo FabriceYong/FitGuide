@@ -85,6 +85,25 @@ function defineApiSuite() {
         const bad = await request(app).get('/api/health').set('Origin', 'https://evil.example');
         assert.equal(bad.headers['access-control-allow-origin'], undefined);
       });
+
+      it('lets local dev servers on any port call the API without cookies, outside production', async () => {
+        // `flutter run -d chrome` serves the app from a new port each run
+        const preflight = (origin) => request(app).options('/api/auth/login').set('Origin', origin)
+          .set('Access-Control-Request-Method', 'POST').set('Access-Control-Request-Headers', 'content-type,x-auth-transport');
+        const dev = await preflight('http://localhost:61234').expect(204);
+        assert.equal(dev.headers['access-control-allow-origin'], 'http://localhost:61234');
+        assert.equal(dev.headers['access-control-allow-credentials'], undefined);
+        const lookalike = await preflight('http://localhost.evil.example');
+        assert.equal(lookalike.headers['access-control-allow-origin'], undefined);
+
+        process.env.NODE_ENV = 'production';
+        try {
+          const prod = await preflight('http://localhost:61234');
+          assert.equal(prod.headers['access-control-allow-origin'], undefined);
+        } finally {
+          process.env.NODE_ENV = 'test';
+        }
+      });
     });
 
     describe('auth', () => {

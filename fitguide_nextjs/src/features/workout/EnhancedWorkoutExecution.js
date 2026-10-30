@@ -7,13 +7,36 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { calorieFactor } from '@fitguide/shared';
 import { useAuth } from '../../contexts/AuthContext';
-import { useExerciseGif } from './hooks/useExerciseGif';
+import { useExerciseDemo } from './hooks/useExerciseDemo';
 import { SessionSummary } from './SessionSummary';
 import {
   X, Play, Pause, ChevronLeft, ChevronRight, Check, Clock,
   Flame, Target, AlertTriangle, Volume2, VolumeX, Info,
   Zap, Activity
 } from 'lucide-react';
+
+// A movement's picture: flips between its frames (start and end position)
+// unless the visitor prefers reduced motion. Keyed by movement, so each one
+// starts on its first frame.
+function DemoPictures({ frames, alt, onReady }) {
+  const [second, setSecond] = useState(false);
+  useEffect(() => {
+    if (frames.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const timer = setInterval(() => setSecond((s) => !s), 1300);
+    return () => clearInterval(timer);
+  }, [frames]);
+  return (
+    <>
+      <img src={frames[0]} alt={alt} className="absolute inset-0 w-full h-full object-contain" onLoad={onReady} onError={onReady} />
+      {frames[1] && (
+        <img src={frames[1]} alt="" aria-hidden="true" className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${second ? 'opacity-100' : 'opacity-0'}`} />
+      )}
+    </>
+  );
+}
+
+// "© Everkinetic · CC BY-SA 3.0 · wger"
+const mediaCredit = (media) => [media.author && `© ${media.author}`, media.license, media.source].filter(Boolean).join(' · ');
 
 // Circular Timer SVG Component
 function CircularTimer({ timeRemaining, totalDuration, color, isPlaying }) {
@@ -83,8 +106,11 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
     : generateEnhancedDefaultSteps();
 
   const currentStep = steps[currentStepIndex];
-  const { gifUrl: liveGifUrl, loading: gifLoading } = useExerciseGif(currentStep?.gifUrl, currentStep?.instruction || '');
-  const displayMediaUrl = liveGifUrl || currentStep?.imageUrl || null;
+  // The step's own media, else a freely licensed picture of the movement it names.
+  const { demo, loading: demoLoading } = useExerciseDemo(currentStep);
+  const displayMediaUrl = currentStep?.gifUrl || currentStep?.imageUrl || null;
+  const demoPictures = !displayMediaUrl && demo?.media?.frames?.length ? demo.media : null;
+  const gifLoading = !displayMediaUrl && demoLoading;
 
   useEffect(() => { setGifLoaded(false); }, [currentStepIndex]);
 
@@ -765,6 +791,11 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
                   onLoad={() => setGifLoaded(true)}
                   onError={() => setGifLoaded(true)}
                 />
+              ) : demoPictures ? (
+                // Light backing: some drawings are dark lines on a transparent background.
+                <div className="absolute inset-x-3 top-12 bottom-16 rounded-xl overflow-hidden bg-white">
+                  <DemoPictures key={demo.name} frames={demoPictures.frames} alt={`Demonstration: ${demo.name}`} onReady={() => setGifLoaded(true)} />
+                </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center p-6 text-center">
                   <div>
@@ -774,6 +805,20 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
                     <p className="font-bold text-sm mb-1">Follow the instructions</p>
                     <p className="text-xs text-white/50">Maintain proper form throughout</p>
                   </div>
+                </div>
+              )}
+
+              {demo && !displayMediaUrl && (
+                <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between gap-2">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold truncate border" style={{ color: tintColor, backgroundColor: `${tintColor}20`, borderColor: `${tintColor}40` }}>
+                    {demo.name}
+                  </span>
+                  {demoPictures && (
+                    // Credit the picture's author and licence (CC BY-SA needs it).
+                    <a href={demoPictures.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/60 hover:text-white truncate">
+                      {mediaCredit(demoPictures)}
+                    </a>
+                  )}
                 </div>
               )}
 

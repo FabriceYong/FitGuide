@@ -8,6 +8,27 @@ const getCorsOrigins = () => (process.env.CORS_ORIGINS || 'http://localhost:3000
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+// http://localhost:<any port> and friends: where `flutter run -d chrome` and
+// other dev servers serve from. Their port changes every run, so they can't
+// be listed in CORS_ORIGINS ahead of time.
+const LOOPBACK_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
+/**
+ * CORS options per request. Listed origins (the website) may send cookies.
+ * Outside production, any loopback origin may also call the API, without
+ * cookies: the Flutter app signs in with bearer tokens, so it needs none.
+ */
+const corsOptions = (req, callback) => {
+  const { origin } = req.headers;
+  if (!origin || getCorsOrigins().includes(origin)) {
+    callback(null, { origin: true, credentials: true });
+  } else if (process.env.NODE_ENV !== 'production' && LOOPBACK_ORIGIN.test(origin)) {
+    callback(null, { origin: true, credentials: false });
+  } else {
+    callback(null, { origin: false });
+  }
+};
+
 const intFromEnv = (name, fallback) => {
   const value = parseInt(process.env[name], 10);
   return Number.isFinite(value) && value > 0 ? value : fallback;
@@ -26,4 +47,4 @@ const isForeignOriginWrite = (req) => {
   return Boolean(origin) && !getCorsOrigins().includes(origin);
 };
 
-module.exports = { getCorsOrigins, intFromEnv, isForeignOriginWrite };
+module.exports = { corsOptions, getCorsOrigins, intFromEnv, isForeignOriginWrite };

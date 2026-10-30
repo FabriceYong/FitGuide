@@ -121,5 +121,24 @@ Future<bool> checkIsFavorite(String slug) async {
   }
 }
 
-// ── Exercise media for the workout player ────────────────────────────────────
-Future<String?> fetchExerciseGif(String name) async => asString((await _api.request('/exercise-media/gif', query: {'name': name}))['gifUrl']);
+// ── Demo pictures for the workout player ────────────────────────────────────
+
+const _demoMediaKey = 'fitguide_demo_media_v1';
+Future<Map<String, DemoMedia>>? _demoMedia;
+
+/// Freely licensed pictures for the player's demos, by demo name. Kept on the
+/// device so the player still has them offline; empty if never loaded.
+Future<Map<String, DemoMedia>> demoMedia() => _demoMedia ??= () async {
+      List<Json> rows;
+      try {
+        rows = asJsonList((await _api.request('/exercise-media/demos'))['demos']);
+        await Storage.setJson(_demoMediaKey, rows);
+      } catch (_) {
+        rows = asJsonList(Storage.getJson(_demoMediaKey));
+        _demoMedia = null; // ask the server again next time
+      }
+      return {
+        for (final r in rows)
+          if (r['media'] != null && asString(r['name']) != null) asString(r['name'])!: DemoMedia.fromJson(asJson(r['media'])),
+      };
+    }();

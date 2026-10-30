@@ -230,3 +230,23 @@ class FeedArticle {
   final String thumbnail;
   final String author;
 }
+
+/// A freely licensed picture of a movement (one or more frames to flip
+/// between), with where it comes from and its licence.
+class DemoMedia {
+  DemoMedia.fromJson(Json j)
+      : frames = asStrings(j['frames']),
+        source = asString(j['source']) ?? '',
+        sourceUrl = asString(j['sourceUrl']),
+        license = asString(j['license']) ?? '',
+        author = asString(j['author']);
+
+  final List<String> frames;
+  final String source;
+  final String? sourceUrl;
+  final String license;
+  final String? author;
+
+  /// "© Everkinetic · CC BY-SA 3.0 · wger"
+  String get credit => [if (author != null && author!.isNotEmpty) '© $author', license, source].where((s) => s.isNotEmpty).join(' · ');
+}

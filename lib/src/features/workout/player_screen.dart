@@ -24,7 +24,8 @@ import '../../widgets/forms.dart';
 import '../../widgets/ui.dart';
 import '../plus/plus_gate.dart';
 import 'default_steps.dart';
-import 'exercise_media.dart';
+import 'exercise_demo_view.dart';
+import 'exercise_demos.dart';
 import 'session_summary.dart';
 
 /// The guided player (app/workouts/[slug]/play → EnhancedWorkoutExecution.js).
@@ -98,8 +99,9 @@ class _PlayerState extends State<_Player> {
   bool _sound = true;
   ({String status, String completedAt})? _summary;
   Timer? _timer;
-  String? _media;
-  bool _mediaLoading = false;
+
+  /// Freely licensed pictures of the demos, by demo name.
+  Map<String, DemoMedia> _pictures = const {};
 
   @override
   void initState() {
@@ -109,6 +111,9 @@ class _PlayerState extends State<_Player> {
     _caloriesPerMinute = (w.calories ?? 0) / (w.duration > 0 ? w.duration : 1) * calorieFactor(context.read<AuthController>().user);
     _goTo(0, initial: true);
     WakelockPlus.enable().catchError((_) {});
+    demoMedia().then((pictures) {
+      if (mounted) setState(() => _pictures = pictures);
+    });
   }
 
   @override
@@ -130,21 +135,6 @@ class _PlayerState extends State<_Player> {
     HapticFeedback.mediumImpact();
   }
 
-  void _loadMedia() {
-    final step = _step;
-    final index = _current;
-    setState(() {
-      _media = step.gifUrl ?? step.imageUrl;
-      _mediaLoading = _media == null;
-    });
-    if (_media != null) return;
-    exerciseMedia(step.gifUrl, step.instruction).then((url) {
-      if (mounted && index == _current) setState(() => _media = url);
-    }).whenComplete(() {
-      if (mounted && index == _current) setState(() => _mediaLoading = false);
-    });
-  }
-
   /// Show a step: reset its timer (paused) and its logged reps/weight.
   void _goTo(int index, {bool initial = false}) {
     _saveInputs();
@@ -162,12 +152,8 @@ class _PlayerState extends State<_Player> {
 
     if (initial) {
       apply();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _loadMedia();
-      });
     } else {
       setState(apply);
-      _loadMedia();
     }
   }
 
@@ -453,6 +439,12 @@ class _PlayerState extends State<_Player> {
 
   List<Widget> _controls(Workout w) {
     final step = _step;
+    // The step's own media, else a drawn demo of the movement it names.
+    final media = step.gifUrl ?? step.imageUrl;
+    final demo = demoForStep(step);
+    final pictures = demo == null ? null : _pictures[demo.name];
+    Widget? demoView([EdgeInsets padding = const EdgeInsets.only(top: 36, bottom: 48)]) =>
+        demo == null ? null : ExerciseDemoView(demo, key: ValueKey(demo.name), color: _tint, padding: padding);
     return [
       Text('STEP ${_current + 1} OF $_total', textAlign: TextAlign.center, style: fgLabel(color: AppColors.muted)),
       const SizedBox(height: 4),
@@ -469,18 +461,52 @@ class _PlayerState extends State<_Player> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (_media != null)
-                  NetImage(_media, semanticLabel: step.instruction)
-                else if (_mediaLoading)
-                  Center(
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(shape: BoxShape.circle, color: _tint.withAlpha(0x20)),
-                      child: Padding(padding: const EdgeInsets.all(14), child: CircularProgressIndicator(strokeWidth: 3, color: _tint)),
-                    ),
+                if (media != null)
+                  NetImage(
+                    media,
+                    semanticLabel: step.instruction,
+                    fallback: pictures != null ? DemoPictures(pictures.frames, fallback: demoView(EdgeInsets.zero)) : demoView(),
                   )
-                else
+                else if (demo != null) ...[
+                  if (pictures != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 56, 12, 56),
+                      child: DemoPictures(pictures.frames, key: ValueKey(demo.name), semanticLabel: 'Demonstration: ${demo.name}', fallback: demoView(EdgeInsets.zero)),
+                    )
+                  else
+                    demoView()!,
+                  Positioned(
+                    left: 12,
+                    top: 12,
+                    right: 12,
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: _tint.withAlpha(0x20), borderRadius: BorderRadius.circular(999), border: Border.all(color: _tint.withAlpha(0x40))),
+                            child: Text(demo.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: fg(size: 12, weight: FontWeight.w700, color: _tint)),
+                          ),
+                        ),
+                        if (pictures != null) ...[
+                          const SizedBox(width: 8),
+                          // Credit the picture's author and licence (CC BY-SA needs it).
+                          Flexible(
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: TapPadding(
+                                child: InkWell(
+                                  onTap: pictures.sourceUrl == null ? null : () => openExternal(pictures.sourceUrl!),
+                                  child: Text(pictures.credit, maxLines: 1, overflow: TextOverflow.ellipsis, style: fg(size: 10, color: AppColors.whiteA(0.6))),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ] else
                   // Clear of the label at the bottom (taller with large system text);
                   // shrinks to fit.
                   Padding(
@@ -877,6 +903,9 @@ class _PlayerState extends State<_Player> {
   }
 
   Widget _stepRow(int idx, WorkoutStep s) {
+    final thumb = demoForStep(s);
+    final thumbPicture = thumb == null ? null : _pictures[thumb.name]?.frames.firstOrNull;
+    final thumbDrawn = thumb == null ? null : ExcludeSemantics(child: ExerciseDemoView(thumb, color: _tint, animate: false));
     final isCurrent = idx == _current;
     final isDone = _completed.contains(idx);
     return Semantics(
@@ -929,14 +958,17 @@ class _PlayerState extends State<_Player> {
                   ),
                 ),
                 if (isCurrent) ...[const SizedBox(width: 8), Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: _tint))],
-                if (s.gifUrl != null) ...[
+                if (s.gifUrl != null || thumb != null) ...[
                   const SizedBox(width: 8),
                   Container(
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.whiteA(0.1)), color: Colors.black.withValues(alpha: 0.4)),
                     clipBehavior: Clip.antiAlias,
-                    child: NetImage(s.gifUrl),
+                    // The step's own picture, else the free one, else the drawn demo.
+                    child: s.gifUrl != null || thumbPicture != null
+                        ? NetImage(s.gifUrl ?? thumbPicture, fallback: s.gifUrl != null && thumbPicture != null ? NetImage(thumbPicture, fallback: thumbDrawn) : thumbDrawn)
+                        : thumbDrawn,
                   ),
                 ],
               ],

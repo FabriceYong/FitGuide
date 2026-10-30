@@ -11,8 +11,59 @@
 const express = require('express');
 const https = require('https');
 const { gifsAllowed } = require('../utils/media');
+const { matchDemo, publicDemo, allDemos, pictureSource } = require('../utils/exerciseDemos');
 
 const router = express.Router();
+
+// ─── Freely licensed demos (always on) ───────────────────────────────────────
+
+// The list changes only with a deploy; an hour keeps clients close behind.
+const ONE_HOUR = 'public, max-age=3600';
+
+// Where clients reach this API, for picture URLs served through it.
+const apiBase = (req) => (process.env.API_PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+
+// GET /api/exercise-media/demos: every movement with its patterns and picture,
+// for clients that match steps themselves (the app).
+router.get('/demos', (req, res) => {
+  res.set('Cache-Control', ONE_HOUR);
+  res.json({ demos: allDemos(apiBase(req)) });
+});
+
+// GET /api/exercise-media/demo?name=<exercise name>&instruction=<step text>
+// → { demo: { name, media } | null }
+router.get('/demo', (req, res) => {
+  const name = typeof req.query.name === 'string' ? req.query.name.slice(0, 200) : '';
+  const instruction = typeof req.query.instruction === 'string' ? req.query.instruction.slice(0, 500) : '';
+  if (!name.trim() && !instruction.trim()) {
+    return res.status(400).json({ error: 'Query parameter "name" or "instruction" is required' });
+  }
+  res.set('Cache-Control', ONE_HOUR);
+  return res.json({ demo: publicDemo(matchDemo(name, instruction), apiBase(req)) });
+});
+
+// GET /api/exercise-media/picture/:slug/:frame: a wger picture, fetched once
+// and kept in memory (a few dozen small images).
+const pictures = new Map();
+
+router.get('/picture/:slug/:frame', async (req, res) => {
+  const source = pictureSource(req.params.slug, req.params.frame);
+  if (!source) return res.status(404).json({ error: 'No such picture' });
+  try {
+    if (!pictures.has(source)) {
+      const upstream = await fetch(source, { signal: AbortSignal.timeout(15000) });
+      const type = upstream.headers.get('content-type') || '';
+      if (!upstream.ok || !type.startsWith('image/')) throw new Error(`HTTP ${upstream.status} ${type}`);
+      pictures.set(source, { type, body: Buffer.from(await upstream.arrayBuffer()) });
+    }
+    const { type, body } = pictures.get(source);
+    res.set('Cache-Control', 'public, max-age=604800');
+    return res.type(type).send(body);
+  } catch (err) {
+    console.error('[exerciseMedia] picture fetch error:', err.message);
+    return res.status(502).json({ error: 'Could not load the picture' });
+  }
+});
 
 // ExerciseDB media is non-commercial: off once paid plans are on (see utils/media.js).
 router.use((_req, res, next) => {

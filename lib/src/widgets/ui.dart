@@ -472,10 +472,13 @@ class _SkeletonState extends State<Skeleton> with SingleTickerProviderStateMixin
 
 /// A network image that fills its box and fades in; a dark box on failure.
 class NetImage extends StatelessWidget {
-  const NetImage(this.url, {super.key, this.fit = BoxFit.cover, this.semanticLabel});
+  const NetImage(this.url, {super.key, this.fit = BoxFit.cover, this.semanticLabel, this.fallback});
   final String? url;
   final BoxFit fit;
   final String? semanticLabel;
+
+  /// Shown when the image fails to load.
+  final Widget? fallback;
 
   @override
   Widget build(BuildContext context) {
@@ -491,7 +494,7 @@ class NetImage extends StatelessWidget {
       frameBuilder: (context, child, frame, sync) => sync
           ? child
           : AnimatedOpacity(opacity: frame == null ? 0 : 1, duration: const Duration(milliseconds: 400), child: child),
-      errorBuilder: (context, error, stack) => const ColoredBox(color: AppColors.obsidianWave),
+      errorBuilder: (context, error, stack) => fallback ?? const ColoredBox(color: AppColors.obsidianWave),
     );
   }
 }

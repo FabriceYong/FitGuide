@@ -4,7 +4,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const { rateLimit } = require('express-rate-limit');
 const { UPLOADS_ROOT } = require('./utils/uploads');
-const { getCorsOrigins, intFromEnv } = require('./utils/config');
+const { corsOptions, intFromEnv } = require('./utils/config');
 
 const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
@@ -63,7 +63,7 @@ function createApp() {
     // from /uploads, so those responses must be embeddable cross-origin.
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   }));
-  app.use(cors({ origin: getCorsOrigins(), credentials: true }));
+  app.use(cors(corsOptions));
   // Stripe signs the raw body, so its webhook is read before JSON parsing.
   app.post('/api/billing/webhook', billingRoutes.webhook);
   app.use(express.json({ limit: '100kb' }));

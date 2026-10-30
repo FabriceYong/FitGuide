@@ -161,6 +161,12 @@ keys are set, and show as unavailable otherwise:
 - Exercise GIFs from ExerciseDB/AscendAPI are licensed for non-commercial
   use. They switch off automatically while Stripe billing is on, until
   you set `EXERCISE_GIFS_LICENSED=true` for licensed or your own media.
+- Workout step demos use free pictures picked by hand for each movement
+  (`fitguide_api/data/exerciseDemos.json`): Free Exercise DB (public
+  domain, served from jsDelivr) and wger (CC BY-SA, served through the API
+  and credited on screen). Movements without one get the app's drawn
+  demo. The names and patterns in that file must match
+  `lib/src/features/workout/exercise_demos.dart`; a Flutter test checks.
 - Secrets that were committed in early history (the rss2json key, a
   MongoDB connection string, Unsplash and WorkoutX keys) must be rotated
   with each provider.

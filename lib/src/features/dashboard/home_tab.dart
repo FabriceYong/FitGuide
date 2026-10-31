@@ -284,6 +284,7 @@ class _HomeTabState extends State<HomeTab> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: spaced([
                 if (auth.hasAccount) TodayPanel(key: ValueKey('today-${auth.user!.id}'), summary: summary, suggestion: picks.firstOrNull?.workout),
+                const _GymFinderCard(),
                 _section(
                   header: SectionHeader('Your progress', action: auth.hasAccount ? 'See all →' : null, onAction: () => dashboard.setTab(DashboardTab.progress)),
                   children: [
@@ -473,6 +474,57 @@ class _HomeTabState extends State<HomeTab> {
   Widget _section({required Widget header, required List<Widget> children}) {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [header, const SizedBox(height: 14), ...children]);
   }
+}
+
+/// "Find a gym near you": opens the gym map (the home page's /gyms link).
+class _GymFinderCard extends StatelessWidget {
+  const _GymFinderCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final wide = atLeast(context, Breakpoints.sm);
+    return Semantics(
+      button: true,
+      label: 'Find a gym near you. See the gyms around you on a map, nearest first.',
+      excludeSemantics: true,
+      child: FgCard(
+        padding: EdgeInsets.all(wide ? 20 : 14),
+        borderColor: AppColors.limeLight.withValues(alpha: 0.3),
+        gradient: LinearGradient(colors: [AppColors.limeLight.withValues(alpha: 0.15), AppColors.obsidianWave, AppColors.obsidianWave]),
+        onTap: () => openHref(context, '/gyms'),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: AppColors.limeLight.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+              child: const Icon(LucideIcons.mapPin, size: 22, color: AppColors.limeLight),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Find a gym near you', style: fg(size: 15, weight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text('See the gyms around you on a map, nearest first, without leaving FitGuide.', style: fg(size: 13, color: AppColors.white70)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            if (wide)
+              const IgnorePointer(
+                child: FgButton(label: 'Open map', trailingIcon: LucideIcons.arrowRight, height: 40, radius: 12, fontSize: 14, fontWeight: FontWeight.w800, onPressed: _noop),
+              )
+            else
+              const Icon(LucideIcons.arrowRight, size: 20, color: AppColors.limeLight),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static void _noop() {}
 }
 
 class _Feature extends StatelessWidget {

@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- The app talks to the FitGuide API and loads workout photos. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- "Find a gym near you": the map starts from where the phone is. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <!-- Read-only Health Connect access: what the phone, watch and cuff
          recorded, uploaded so the website shows the same numbers. -->
     <uses-permission android:name="android.permission.health.READ_STEPS"/>

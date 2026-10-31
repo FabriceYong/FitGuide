@@ -8,6 +8,7 @@ export default async function sitemap() {
   return [
     { url: `${SITE_URL}/workouts`, changeFrequency: 'weekly', priority: 0.9 },
     { url: `${SITE_URL}/programs`, changeFrequency: 'weekly', priority: 0.9 },
+    { url: `${SITE_URL}/gyms`, changeFrequency: 'monthly', priority: 0.6 },
     ...(workouts?.workouts || []).map((w) => ({
       url: `${SITE_URL}/workouts/${w.slug}`,
       lastModified: w.updatedAt || undefined,

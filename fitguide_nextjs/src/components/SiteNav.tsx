@@ -22,6 +22,7 @@ export const SITE_LINKS: { href: string; key: MessageKey }[] = [
   { href: '/plan', key: 'nav.plan' },
   { href: '/nutrition', key: 'nav.nutrition' },
   { href: '/community', key: 'nav.community' },
+  { href: '/gyms', key: 'nav.gyms' },
   { href: '/progress', key: 'nav.progress' },
   { href: '/plus', key: 'nav.plus' },
 ];

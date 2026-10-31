@@ -9,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../navigation.dart';
 import '../../state/auth_controller.dart';
 import '../community/community_screen.dart';
+import '../gyms/gym_screen.dart';
 import '../nutrition/nutrition_screen.dart';
 import '../plan/plan_screen.dart';
 import '../plus/plus_screen.dart';
@@ -59,6 +60,7 @@ class SiteHeader extends StatelessWidget {
     ('/plan', 'nav.plan'),
     ('/nutrition', 'nav.nutrition'),
     ('/community', 'nav.community'),
+    ('/gyms', 'nav.gyms'),
     ('/progress', 'nav.progress'),
     ('/plus', 'nav.plus'),
   ];
@@ -71,6 +73,7 @@ class SiteHeader extends StatelessWidget {
       '/plan' => const PlanScreen(),
       '/nutrition' => const NutritionScreen(),
       '/community' => const CommunityScreen(),
+      '/gyms' => const GymScreen(),
       '/plus' => const PlusScreen(),
       _ => null,
     };

@@ -30,6 +30,8 @@
 	<string>Choose a photo of a meal to log it, a profile photo, or progress photos for a review.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo of a meal to log it, a profile photo, or progress photos for a review.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>FitGuide uses your location to show the gyms near you. It isn't saved.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>https</string>

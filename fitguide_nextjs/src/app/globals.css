@@ -328,3 +328,80 @@ body {
     padding-bottom: 4rem;
   }
 }
+
+/* Gym map (features/gyms/GymMap.tsx): OpenStreetMap tiles darkened to match
+   the site, numbered pins matching the list, and a dot for the member. */
+.gym-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6);
+}
+.gym-map.leaflet-container {
+  background: var(--color-obsidian-wave);
+  font-family: var(--font-poppins);
+}
+.gym-map.leaflet-container .leaflet-control-attribution {
+  background: rgba(10, 12, 16, 0.8);
+  color: var(--color-white-70);
+}
+.gym-map.leaflet-container .leaflet-control-attribution a {
+  color: #FFFFFF;
+}
+.gym-map .leaflet-bar a {
+  background: var(--color-noir-eclipse);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.gym-map .leaflet-bar a:hover {
+  background: var(--color-obsidian-wave);
+}
+.gym-pin {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-noir-eclipse);
+  border: 2px solid var(--color-lime-light);
+  color: var(--color-lime-light);
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s;
+}
+.gym-pin.is-selected {
+  background: var(--color-lime-light);
+  color: var(--color-noir-eclipse);
+  transform: scale(1.25);
+}
+.gym-you {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #3B82F6;
+  border: 3px solid #FFFFFF;
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.3);
+}
+.gym-map .leaflet-popup-content-wrapper,
+.gym-map .leaflet-popup-tip {
+  background: var(--color-noir-eclipse);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.gym-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+.gym-popup strong {
+  font-size: 14px;
+}
+.gym-popup span {
+  color: var(--color-white-70);
+}
+.gym-map .gym-popup a {
+  margin-top: 6px;
+  color: var(--color-lime-light);
+  font-weight: 700;
+}

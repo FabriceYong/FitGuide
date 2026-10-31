@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  AlertCircle, ArrowRight, BookOpen, CalendarDays, Calculator, Check, Clock, Crown, Dumbbell, ExternalLink, Flame, Lightbulb,
+  AlertCircle, ArrowRight, BookOpen, CalendarDays, Calculator, Check, Clock, Crown, Dumbbell, ExternalLink, Flame, Lightbulb, MapPin,
   RefreshCw, ShieldCheck, Sparkles, Star, Target, TrendingUp, Users, Utensils, X, type LucideIcon,
 } from 'lucide-react';
 import { personalCalories, rankWorkouts } from '@fitguide/shared';
@@ -197,6 +197,23 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
       </div>
 
       {hasAccount && <TodayPanel summary={summary} suggestion={recommended[0]} />}
+
+      <Link
+        href="/gyms"
+        className="group flex items-center gap-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-lime-light/15 via-obsidian-wave to-obsidian-wave border border-lime-light/30 hover:border-lime-light"
+      >
+        <span className="w-12 h-12 rounded-xl bg-lime-light/15 text-lime-light flex items-center justify-center shrink-0" aria-hidden="true">
+          <MapPin className="w-6 h-6" />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block font-extrabold text-white group-hover:text-lime-light">Find a gym near you</span>
+          <span className="block text-sm text-white-70">See the gyms around you on a map, nearest first, without leaving FitGuide.</span>
+        </span>
+        <span className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-lime-light text-noir-eclipse text-sm font-extrabold shrink-0" aria-hidden="true">
+          Open map <ArrowRight className="w-4 h-4" />
+        </span>
+        <ArrowRight className="sm:hidden w-5 h-5 text-lime-light shrink-0" aria-hidden="true" />
+      </Link>
 
       {/* Your numbers */}
       <section aria-labelledby="home-progress">

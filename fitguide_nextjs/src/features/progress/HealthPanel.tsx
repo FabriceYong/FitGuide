@@ -127,7 +127,7 @@ export function HealthPanel() {
   const field = 'w-full bg-noir-eclipse border border-white-30/20 rounded-xl px-3 py-2 text-sm text-white';
 
   return (
-    <section aria-labelledby="health-heading" className="space-y-6">
+    <section id="health" aria-labelledby="health-heading" className="space-y-6 scroll-mt-24">
       <h2 id="health-heading" className="text-2xl font-extrabold">Health data</h2>
       {message && <p role="status" className="text-sm bg-white/5 border border-white-30/10 rounded-xl px-4 py-3">{message}</p>}
 

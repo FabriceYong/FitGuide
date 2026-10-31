@@ -1,9 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Loader2, CalendarDays, PlayCircle, Sparkles, Utensils } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
-import { AuthPage, Field, StepHeading, inputClass, linkButton, primaryButton } from '../onboarding/ui';
+import { AuthPage, BrandPanel, Field, StepHeading, inputClass, linkButton, primaryButton } from '../onboarding/ui';
+
+const POINTS = [
+    { icon: PlayCircle, text: 'Guided workouts with a demonstration for every move' },
+    { icon: CalendarDays, text: 'A weekly plan built around your goal' },
+    { icon: Utensils, text: 'Calorie and macro targets with a simple food log' },
+    { icon: Sparkles, text: 'An AI coach that adjusts your plan as you go' },
+];
 
 export const LoginPage = ({ onLoginSuccess, onSwitchToRegister }) => {
     const [email, setEmail] = useState('');
@@ -29,6 +36,7 @@ export const LoginPage = ({ onLoginSuccess, onSwitchToRegister }) => {
     return (
         <AuthPage
             width="max-w-[440px]"
+            aside={<BrandPanel title="Your training, planned and tracked" photo="1517836357463-d25dfeac3438" points={POINTS} />}
             header={(
                 <>
                     <span className="hidden sm:inline">New to FitGuide? </span>
@@ -99,11 +107,14 @@ export const LoginPage = ({ onLoginSuccess, onSwitchToRegister }) => {
                 </button>
             </p>
 
-            <div className="mt-8 p-4 rounded-lg border border-white-30/20 bg-white/[0.03] text-sm">
-                <p className="font-semibold text-white mb-1">Demo account</p>
-                <p className="text-white-70">Email: demo@fitguide.com</p>
-                <p className="text-white-70">Password: demo123</p>
-            </div>
+            {/* The seeded demo login, for local development only: never shown on the live site. */}
+            {process.env.NODE_ENV !== 'production' && (
+                <div className="mt-8 p-4 rounded-lg border border-white-30/20 bg-white/[0.03] text-sm">
+                    <p className="font-semibold text-white mb-1">Demo account (development only)</p>
+                    <p className="text-white-70">Email: demo@fitguide.com</p>
+                    <p className="text-white-70">Password: demo123</p>
+                </div>
+            )}
 
             <p className="mt-8 text-center text-xs text-white-70">
                 © {new Date().getFullYear()} FitGuide

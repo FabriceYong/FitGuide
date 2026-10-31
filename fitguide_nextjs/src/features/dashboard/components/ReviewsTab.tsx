@@ -9,6 +9,7 @@ import { useWorkouts } from '../../../context/WorkoutContext';
 import { fetchReviews, likeReview, postReview } from '../../../services/contentService';
 import type { Review } from '../../../types/catalog';
 import { useStartSignUp } from '../../auth/AuthWrapper';
+import { EmptyState } from '../../../components/EmptyState';
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -115,7 +116,8 @@ export function ReviewsTab() {
       {!reviews && !error ? (
         <p className="flex items-center gap-2 text-white-70 py-10" role="status"><Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> Loading reviews…</p>
       ) : shown.length === 0 ? (
-        <p className="text-center py-16 bg-obsidian-wave rounded-[24px] text-white-70 text-sm">No reviews yet. Finish a workout and be the first to review it.</p>
+        <EmptyState icon={MessageSquare} color="#8B7CF6" title="No reviews yet" text="Finish a workout and tell others how it went. Reviews from people who did the workout are marked verified." />
+
       ) : (
         <ul className="space-y-6">
           {shown.map((r) => (

@@ -8,7 +8,66 @@ import { STATUS_STYLES, formatDate, playHref } from '../programs/ProgramDetail';
 import { adaptPlan, fetchPlan, type AdaptResult, type Plan, type PlanDay } from '../../services/planService';
 import { PlanGenerator } from './PlanGenerator';
 import { CoachChat } from './CoachChat';
+import { LoadingBlocks, Skeleton } from '../../components/Skeleton';
 import { track } from '../../lib/analytics';
+
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** This week, Monday to Sunday: what's planned each day and how it went. */
+function WeekStrip({ plan }: { plan: Plan }) {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+  const byDate = new Map(plan.schedule.map((d) => [d.date, d]));
+  const todayYmd = ymd(today);
+  const planned = days.filter((d) => byDate.has(ymd(d))).length;
+  const done = days.filter((d) => byDate.get(ymd(d))?.status === 'done').length;
+
+  return (
+    <section aria-labelledby="plan-week" className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-5 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 id="plan-week" className="font-extrabold">This week</h2>
+        <span className="text-xs text-white-70">{planned ? `${done} of ${planned} sessions done` : 'A rest week'}</span>
+      </div>
+      <ol className="grid grid-cols-7 gap-1.5 sm:gap-2">
+        {days.map((d) => {
+          const key = ymd(d);
+          const day = byDate.get(key);
+          const isToday = key === todayYmd;
+          const state = day ? (day.status === 'done' ? 'done' : day.status === 'missed' ? 'missed' : 'planned') : 'rest';
+          const styles = {
+            done: 'bg-lime-light text-noir-eclipse',
+            missed: 'bg-red-500/15 text-red-300 border border-red-500/30',
+            planned: 'bg-white/5 text-white border border-white-30/20',
+            rest: 'text-white-70',
+          }[state];
+          const label = `${d.toLocaleDateString(undefined, { weekday: 'long' })}: ${day ? `${day.title}, ${state === 'planned' ? (isToday ? 'today' : 'planned') : state}` : 'rest day'}`;
+          const body = (
+            <>
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{d.toLocaleDateString(undefined, { weekday: 'narrow' })}</span>
+              <span className="text-base font-extrabold tabular-nums">{d.getDate()}</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${state === 'rest' ? 'bg-transparent' : state === 'done' ? 'bg-noir-eclipse/60' : state === 'missed' ? 'bg-red-400' : 'bg-lime-light'}`} aria-hidden="true" />
+            </>
+          );
+          const cls = `flex flex-col items-center gap-1 py-2.5 rounded-xl ${styles} ${isToday ? 'ring-2 ring-lime-light ring-offset-2 ring-offset-obsidian-wave' : ''}`;
+          return (
+            <li key={key}>
+              {day && day.status !== 'done'
+                ? <Link href={playHref(plan, day)} aria-label={label} className={`${cls} hover:border-lime-light`}>{body}</Link>
+                : <span aria-label={label} role="img" className={cls}>{body}</span>}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
 
 /** /plan: the user's personal plan (or the generator) next to the coach. */
 export function PlanView() {
@@ -51,7 +110,14 @@ export function PlanView() {
   };
 
   if (!ready || (hasAccount && plan === undefined && !error)) {
-    return <p className="flex items-center gap-2 text-white-70"><Loader2 className="w-4 h-4 animate-spin" /> Loading your plan…</p>;
+    return (
+      <LoadingBlocks label="Loading your plan">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-44" />
+        <Skeleton className="h-28" />
+        {Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}
+      </LoadingBlocks>
+    );
   }
   if (!hasAccount) {
     return (
@@ -124,6 +190,8 @@ export function PlanView() {
                 </div>
               )}
             </section>
+
+            <WeekStrip plan={plan} />
 
             {notice.length > 0 && (
               <div role="status" className="bg-lime-light/10 border border-lime-light/30 rounded-xl p-4 text-sm space-y-1">

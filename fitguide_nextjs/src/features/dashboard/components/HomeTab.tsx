@@ -22,6 +22,7 @@ import { Modal } from '../../../components/Modal';
 import type { TabId } from '../tabs';
 import { HeroCarousel, type HeroSlide } from './HeroCarousel';
 import { StatCard } from './StatCard';
+import { TodayPanel } from './TodayPanel';
 import { WorkoutCard } from './WorkoutCard';
 
 /** Days since 1970, used to rotate daily picks. */
@@ -195,6 +196,8 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
         <HeroCarousel slides={slides} greeting={user?.name ? `Hello, ${user.name.split(' ')[0]}` : undefined} />
       </div>
 
+      {hasAccount && <TodayPanel summary={summary} suggestion={recommended[0]} />}
+
       {/* Your numbers */}
       <section aria-labelledby="home-progress">
         <div className="flex justify-between items-center mb-6">
@@ -280,8 +283,8 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
 
       <TipOfTheDay />
 
-      {/* Ways into the rest of FitGuide */}
-      <section aria-labelledby="home-features">
+      {/* Ways into the rest of FitGuide, for visitors finding their way around (members have "Today"). */}
+      {!hasAccount && <section aria-labelledby="home-features">
         <h2 id="home-features" className="text-2xl font-extrabold text-white mb-2">Everything in FitGuide</h2>
         <p className="text-sm text-white-70 mb-6">
           {workouts.length ? `${workouts.length} workouts` : 'Guided workouts'}
@@ -299,7 +302,7 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
             ? <Feature icon={Crown} color="#FCD34D" title="Your PLUS membership" text="Manage your subscription and see what’s included." href="/plus" />
             : <Feature icon={Crown} color="#FCD34D" title="FitGuide PLUS" text="Every PLUS workout and program, and unlimited coach messages." href="/plus" />}
         </ul>
-      </section>
+      </section>}
 
       {/* Reading */}
       <section aria-labelledby="home-articles" className="space-y-6">

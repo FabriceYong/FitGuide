@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Check, Copy, Loader2, Medal, Plus, Trophy, UserPlus, Users, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { EmptyState } from '../../components/EmptyState';
 import { localToday } from '../../services/trainingService';
 import {
   acceptFriend, addFriend, createChallenge, deleteChallenge, fetchChallenge, fetchChallenges, fetchFriends, fetchLeaderboard,
@@ -180,7 +181,13 @@ export function CommunityView() {
             )}
 
             {challenges.length === 0 ? (
-              <p className="text-sm text-white-70">No challenges yet. Start one with your friends.</p>
+              <EmptyState
+                icon={Trophy}
+                color="#FBBF24"
+                title="No challenges yet"
+                text="Pick a goal like most active minutes in two weeks, invite friends with a code, and see who's ahead."
+                action={!creating && <button type="button" onClick={startCreate} className="mt-1 px-4 py-2 rounded-xl bg-lime-light text-noir-eclipse font-bold text-sm">Start a challenge</button>}
+              />
             ) : (
               <ul className="space-y-3">
                 {challenges.map((c) => (
@@ -258,7 +265,9 @@ export function CommunityView() {
 
             <div className="space-y-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-white-70">Friends ({friends.friends.length})</h3>
-              {friends.friends.length === 0 && <p className="text-sm text-white-70">Share your code to add friends.</p>}
+              {friends.friends.length === 0 && (
+                <EmptyState compact icon={Users} color="#F472B6" title="Train with friends" text="Send someone your friend code above, or enter theirs, to compare weeks and join challenges together." />
+              )}
               {friends.friends.map((f) => (
                 <div key={f.friendshipId} className="flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold">{f.name}</span>

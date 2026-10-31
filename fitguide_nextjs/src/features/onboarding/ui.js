@@ -43,16 +43,46 @@ export function AuthHeader({ children }) {
  * The page around a sign-in or sign-up form: header, then a centred card.
  * On phones the card's frame drops away and the form fills the width.
  */
-export function AuthPage({ header, width = 'max-w-[600px]', children }) {
+export function AuthPage({ header, width = 'max-w-[600px]', aside = null, children }) {
+    const card = (
+        <div className={`mx-auto w-full ${width} sm:bg-obsidian-wave sm:border sm:border-white-30/20 sm:rounded-2xl sm:p-10 sm:shadow-xl`}>
+            {children}
+        </div>
+    );
     return (
         <div className="min-h-screen bg-noir-eclipse text-white font-poppins flex flex-col">
             <AuthHeader>{header}</AuthHeader>
-            <main id="main" className="flex-1 px-4 py-8 sm:py-12">
-                <div className={`mx-auto w-full ${width} sm:bg-obsidian-wave sm:border sm:border-white-30/20 sm:rounded-2xl sm:p-10 sm:shadow-xl`}>
-                    {children}
-                </div>
-            </main>
+            {aside ? (
+                // A brand panel beside the form on wide screens; just the form on phones.
+                <main id="main" className="flex-1 grid lg:grid-cols-2">
+                    {aside}
+                    <div className="px-4 py-8 sm:py-12 flex items-center">{card}</div>
+                </main>
+            ) : (
+                <main id="main" className="flex-1 px-4 py-8 sm:py-12">{card}</main>
+            )}
         </div>
+    );
+}
+
+/** The sign-in page's brand panel: a photo and what FitGuide offers. */
+export function BrandPanel({ title, points, photo }) {
+    return (
+        <aside className="relative hidden lg:flex flex-col justify-end p-12 overflow-hidden">
+            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(https://images.unsplash.com/photo-${photo}?w=1400&q=75&fit=crop)` }} aria-hidden="true" />
+            <div className="absolute inset-0 bg-gradient-to-t from-noir-eclipse via-noir-eclipse/70 to-noir-eclipse/20" aria-hidden="true" />
+            <div className="relative max-w-md space-y-6">
+                <h2 className="text-4xl font-extrabold leading-tight tracking-tight">{title}</h2>
+                <ul className="space-y-3">
+                    {points.map(({ icon: Icon, text }) => (
+                        <li key={text} className="flex items-center gap-3 text-white/90">
+                            <span className="w-9 h-9 rounded-xl bg-lime-light/15 border border-lime-light/30 flex items-center justify-center shrink-0" aria-hidden="true"><Icon className="w-4 h-4 text-lime-light" /></span>
+                            {text}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </aside>
     );
 }
 

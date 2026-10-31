@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, Crown, Loader2 } from 'lucide-react';
+import { Check, ChevronDown, Crown, Loader2, Minus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiRequest } from '../../lib/api';
 import { track } from '../../lib/analytics';
@@ -121,6 +121,65 @@ export function PlusView() {
         </div>
       )}
       <p className="text-xs text-white-70 text-center">{t('plus.stripe')}</p>
+
+      <section aria-labelledby="plus-compare" className="space-y-4 pt-4">
+        <h2 id="plus-compare" className="text-2xl font-extrabold text-center">{t('plus.compare.title')}</h2>
+        <div className="bg-obsidian-wave border border-white-30/10 rounded-2xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white-30/10 text-left">
+                <th scope="col" className="p-4 font-bold text-white-70">{t('plus.compare.feature')}</th>
+                <th scope="col" className="p-4 font-bold text-center w-28">{t('plus.compare.free')}</th>
+                <th scope="col" className="p-4 font-extrabold text-center w-28 text-amber-300 bg-amber-400/5">PLUS</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white-30/10">
+              {COMPARE.map(([feature, free, plus]) => (
+                <tr key={feature}>
+                  <th scope="row" className="p-4 font-medium text-left">{t(feature)}</th>
+                  <td className="p-4 text-center text-white-70">{cell(free, t)}</td>
+                  <td className="p-4 text-center bg-amber-400/5">{cell(plus, t)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="plus-faq" className="space-y-3">
+        <h2 id="plus-faq" className="text-2xl font-extrabold text-center">{t('plus.faq.title')}</h2>
+        {FAQ.map(([q, a]) => (
+          <details key={q} className="group bg-obsidian-wave border border-white-30/10 rounded-2xl px-5 py-4">
+            <summary className="flex items-center justify-between gap-3 cursor-pointer font-bold list-none">
+              {t(q)} <ChevronDown className="w-4 h-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
+            </summary>
+            <p className="text-sm text-white-70 mt-3 leading-relaxed">{t(a)}</p>
+          </details>
+        ))}
+      </section>
     </div>
   );
+}
+
+// [feature, free, PLUS]: true for included, false for not, or a short note.
+const COMPARE: [MessageKey, boolean | MessageKey, boolean | MessageKey][] = [
+  ['plus.compare.workouts', 'plus.compare.workoutsFree', 'plus.compare.workoutsPlus'],
+  ['plus.compare.plan', true, true],
+  ['plus.compare.nutrition', true, true],
+  ['plus.compare.health', true, true],
+  ['plus.compare.coach', 'plus.compare.coachFree', 'plus.compare.coachPlus'],
+  ['plus.compare.programs', false, true],
+];
+
+const FAQ: [MessageKey, MessageKey][] = [
+  ['plus.faq.cancelQ', 'plus.faq.cancelA'],
+  ['plus.faq.keepQ', 'plus.faq.keepA'],
+  ['plus.faq.switchQ', 'plus.faq.switchA'],
+  ['plus.faq.payQ', 'plus.faq.payA'],
+];
+
+function cell(value: boolean | MessageKey, t: (key: MessageKey) => string) {
+  if (value === true) return <Check className="w-5 h-5 text-lime-light mx-auto" aria-label="Included" />;
+  if (value === false) return <Minus className="w-5 h-5 text-white-30 mx-auto" aria-label="Not included" />;
+  return <span className="font-semibold">{t(value)}</span>;
 }

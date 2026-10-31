@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bar, BarChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, Utensils } from 'lucide-react';
+import { AlertTriangle, Apple, ChevronLeft, ChevronRight, Coffee, Loader2, Moon, Plus, Sun, Trash2, Utensils, type LucideIcon } from 'lucide-react';
 import { NUTRITION, type Meal } from '@fitguide/shared';
 import { useAuth } from '../../contexts/AuthContext';
+import { ProgressRing } from '../../components/ProgressRing';
+import { LoadingBlocks, Skeleton } from '../../components/Skeleton';
 import { localToday } from '../../services/trainingService';
 import {
   deleteLogEntry, fetchDayLog, fetchMealPlan, fetchNutritionHistory, logFood,
@@ -22,18 +24,23 @@ const shiftDate = (ymd: string, days: number) => {
 };
 const formatDay = (ymd: string) => new Date(`${ymd}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 
-function MacroBar({ label, value, target, unit }: { label: string; value: number; target: number; unit: string }) {
-  const pct = target ? Math.min(100, Math.round((value / target) * 100)) : 0;
+const MEAL_ICONS: Record<Meal, { icon: LucideIcon; color: string }> = {
+  breakfast: { icon: Coffee, color: '#FBBF24' },
+  lunch: { icon: Sun, color: '#34D399' },
+  dinner: { icon: Moon, color: '#818CF8' },
+  snack: { icon: Apple, color: '#F472B6' },
+};
+
+/** A macro's ring: grams eaten against the day's target. */
+function MacroRing({ label, value, target, color }: { label: string; value: number; target: number; color: string }) {
   const over = value > target * 1.05;
   return (
-    <div>
-      <div className="flex justify-between text-xs mb-1">
-        <span className="font-bold uppercase tracking-wider text-white-70">{label}</span>
-        <span className={over ? 'text-amber-300' : 'text-white'}>{Math.round(value)} / {target} {unit}</span>
-      </div>
-      <div className="h-2 bg-white/10 rounded-full overflow-hidden" role="progressbar" aria-label={label} aria-valuenow={Math.round(value)} aria-valuemin={0} aria-valuemax={target}>
-        <div className={`h-full rounded-full ${over ? 'bg-amber-400' : 'bg-lime-light'}`} style={{ width: `${pct}%` }} />
-      </div>
+    <div className="flex flex-col items-center gap-2 text-center" role="group" aria-label={`${label}: ${Math.round(value)} of ${target} grams`}>
+      <ProgressRing value={value} goal={target} color={over ? '#FBBF24' : color} size={76} stroke={8}>
+        <span className="text-sm font-extrabold tabular-nums">{Math.round(value)}</span>
+        <span className="text-[10px] text-white-70">/ {target} g</span>
+      </ProgressRing>
+      <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color }}>{label}</span>
     </div>
   );
 }
@@ -120,21 +127,36 @@ export function NutritionView() {
 
       {error && <p role="alert" className="flex items-center gap-2 text-sm text-red-300"><AlertTriangle className="w-4 h-4" /> {error}</p>}
       {!log ? (
-        <p className="flex items-center gap-2 text-white-70"><Loader2 className="w-4 h-4 animate-spin" /> Loading your day…</p>
+        <LoadingBlocks label="Loading your day">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-8">
+            <div className="space-y-6">
+              <Skeleton className="h-52" />
+              {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-28" />)}
+            </div>
+            <Skeleton className="h-96" />
+          </div>
+        </LoadingBlocks>
       ) : (
         <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start">
           <div className="space-y-6 min-w-0">
-            <section className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-6 space-y-4">
-              <div className="flex flex-wrap items-end justify-between gap-2">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-white-70">Eaten</p>
-                  <p className="text-4xl font-extrabold">{log.totals.calories}<span className="text-base text-white-70 font-semibold"> / {log.targets.calories} kcal</span></p>
+            <section className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-6 space-y-5">
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="flex items-center gap-5" role="group" aria-label={`Eaten ${Math.round(log.totals.calories)} of ${log.targets.calories} kcal`}>
+                  <ProgressRing value={log.totals.calories} goal={log.targets.calories} color={log.totals.calories > log.targets.calories * 1.05 ? '#FBBF24' : '#00C4B4'} size={136} stroke={12}>
+                    <span className="text-3xl font-extrabold tabular-nums">{Math.round(log.totals.calories)}</span>
+                    <span className="text-xs text-white-70">of {log.targets.calories} kcal</span>
+                  </ProgressRing>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-white-70">Left today</p>
+                    <p className="text-2xl font-extrabold tabular-nums">{Math.max(0, Math.round(log.targets.calories - log.totals.calories))} <span className="text-sm text-white-70 font-semibold">kcal</span></p>
+                  </div>
                 </div>
-                <p className="text-sm text-white-70">{Math.max(0, log.targets.calories - log.totals.calories)} kcal left</p>
+                <div className="grid grid-cols-3 gap-4 flex-1 w-full sm:w-auto">
+                  <MacroRing label="Protein" value={log.totals.protein} target={log.targets.protein} color="#60A5FA" />
+                  <MacroRing label="Carbs" value={log.totals.carbs} target={log.targets.carbs} color="#FBBF24" />
+                  <MacroRing label="Fat" value={log.totals.fat} target={log.targets.fat} color="#F472B6" />
+                </div>
               </div>
-              <MacroBar label="Protein" value={log.totals.protein} target={log.targets.protein} unit="g" />
-              <MacroBar label="Carbs" value={log.totals.carbs} target={log.targets.carbs} unit="g" />
-              <MacroBar label="Fat" value={log.totals.fat} target={log.targets.fat} unit="g" />
               <p className="text-xs text-white-70">
                 Targets for your goal ({log.targets.goal.toLowerCase()}) and diet ({log.targets.diet}), estimated from your profile.
                 {' '}{log.targets.notes.join(' ')}{' '}
@@ -143,16 +165,24 @@ export function NutritionView() {
               </p>
             </section>
 
-            {NUTRITION.MEALS.map((meal) => (
+            {NUTRITION.MEALS.map((meal) => {
+              const { icon: MealIcon, color } = MEAL_ICONS[meal];
+              const mealCalories = Math.round(log.meals[meal].reduce((n, e) => n + e.calories, 0));
+              return (
               <section key={meal} className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-5 space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className="font-extrabold">{MEAL_LABELS[meal]}</h2>
+                  <h2 className="font-extrabold flex items-center gap-3">
+                    <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${color}22` }} aria-hidden="true"><MealIcon className="w-4.5 h-4.5" style={{ color }} /></span>
+                    <span>{MEAL_LABELS[meal]}{mealCalories > 0 && <span className="block text-xs font-semibold text-white-70">{mealCalories} kcal</span>}</span>
+                  </h2>
                   <button onClick={() => setAdding(meal)} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15">
                     <Plus className="w-3.5 h-3.5" /> Add food
                   </button>
                 </div>
                 {log.meals[meal].length === 0 ? (
-                  <p className="text-sm text-white-70">Nothing logged.</p>
+                  <button type="button" onClick={() => setAdding(meal)} className="w-full text-left text-sm text-white-70 border border-dashed border-white-30/20 rounded-xl px-4 py-3 hover:border-white-30/40">
+                    Nothing logged yet. Tap to add your {MEAL_LABELS[meal].toLowerCase()}.
+                  </button>
                 ) : (
                   <ul className="divide-y divide-white-30/10">
                     {log.meals[meal].map((e) => (
@@ -169,7 +199,8 @@ export function NutritionView() {
                   </ul>
                 )}
               </section>
-            ))}
+              );
+            })}
           </div>
 
           <div className="space-y-6">

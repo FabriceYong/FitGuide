@@ -92,16 +92,17 @@ export default function Dashboard() {
         )}
       >
         <nav aria-label="Dashboard" className="hidden md:block max-w-[1600px] mx-auto px-8 pb-3">
-          <ul className="flex items-center gap-1 overflow-x-auto">
+          <ul className="flex items-center gap-0.5 lg:gap-1 overflow-x-auto">
             {TAB_ITEMS.map(({ id, label, icon: Icon }) => (
               <li key={id}>
                 <button
                   type="button"
                   onClick={() => setTab(id)}
                   aria-current={tab === id ? 'page' : undefined}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider whitespace-nowrap ${tab === id ? 'bg-lime-light text-noir-eclipse' : 'text-white-70 hover:text-white hover:bg-white/5'}`}
+                  className={`flex items-center gap-1.5 px-2.5 lg:px-4 py-2 rounded-lg font-semibold text-xs uppercase tracking-wider whitespace-nowrap ${tab === id ? 'bg-lime-light text-noir-eclipse' : 'text-white-70 hover:text-white hover:bg-white/5'}`}
                 >
-                  <Icon className="w-3.5 h-3.5" aria-hidden="true" /> {label}
+                  {/* Text only on tablets, so all the tabs fit in one row. */}
+                  <Icon className="hidden lg:block w-3.5 h-3.5" aria-hidden="true" /> {label}
                 </button>
               </li>
             ))}

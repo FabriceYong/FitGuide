@@ -13,7 +13,8 @@ export const inputClass = 'w-full h-11 px-3.5 rounded-lg bg-noir-eclipse border 
 const buttonBase = 'inline-flex items-center justify-center gap-2 h-11 px-5 rounded-lg text-[15px] font-semibold transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-light/60';
 export const primaryButton = `${buttonBase} bg-lime-light text-noir-eclipse hover:bg-lime-light/90`;
 export const secondaryButton = `${buttonBase} border border-white-30/40 text-white hover:bg-white/5`;
-export const linkButton = 'text-lime-light font-semibold hover:underline cursor-pointer';
+// The padding makes it easier to tap; the negative margin keeps the line height.
+export const linkButton = 'py-2 -my-2 text-lime-light font-semibold hover:underline cursor-pointer';
 
 /** The FitGuide logo, as used in the site header. */
 export function BrandMark() {

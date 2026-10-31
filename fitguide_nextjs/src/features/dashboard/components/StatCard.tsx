@@ -28,15 +28,15 @@ export function StatCard({
   const gradientId = `stat-${label.replace(/\W+/g, '-')}`;
   const showChart = data.some((v) => v > 0);
   return (
-    <div className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-6 relative overflow-hidden">
+    <div className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-4 sm:p-6 relative overflow-hidden">
       <div className="absolute inset-0 opacity-5" style={{ background: `radial-gradient(circle at top right, ${color}, transparent 70%)` }} />
       <div className="relative">
-        <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: `${color}20`, color }} aria-hidden="true">
+        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-3 sm:mb-4" style={{ background: `${color}20`, color }} aria-hidden="true">
           {icon}
         </div>
-        <p className="text-4xl font-extrabold text-white">
+        <p className="text-3xl sm:text-4xl font-extrabold text-white">
           {value}
-          {suffix && <span className="text-lg font-bold text-white-70 ml-1">{suffix}</span>}
+          {suffix && <span className="text-base sm:text-lg font-bold text-white-70 ml-1">{suffix}</span>}
         </p>
         <p className="text-xs font-semibold text-white-70 uppercase tracking-wider mt-1">{label}</p>
         {footnote && <p className="text-xs text-white-70 mt-1">{footnote}</p>}

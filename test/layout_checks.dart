@@ -2,7 +2,9 @@ import 'package:fitguide/src/features/auth/login_screen.dart';
 import 'package:fitguide/src/features/dashboard/calculators_tab.dart';
 import 'package:fitguide/src/features/dashboard/dashboard_screen.dart';
 import 'package:fitguide/src/features/onboarding/onboarding_wizard.dart';
+import 'package:fitguide/src/features/progress/progress_view.dart';
 import 'package:fitguide/src/models/catalog.dart';
+import 'package:fitguide/src/models/training.dart';
 import 'package:fitguide/src/state/auth_controller.dart';
 import 'package:fitguide/src/state/dashboard_controller.dart';
 import 'package:fitguide/src/widgets/workout_card.dart';
@@ -63,6 +65,22 @@ void layoutChecks({required Size size, required double textScale}) {
 
   testWidgets('calculators', (tester) async {
     await expectNoOverflow(() => pump(tester, const SingleChildScrollView(child: CalculatorsTab())));
+  });
+
+  testWidgets('the weekly activity chart, with a day picked', (tester) async {
+    ActivityDay day(String date, int minutes) => ActivityDay({'date': date, 'minutes': minutes, 'sessions': minutes > 0 ? 1 : 0});
+    final days = [day('2026-10-25', 0), day('2026-10-26', 29), day('2026-10-27', 0), day('2026-10-28', 127), day('2026-10-29', 0), day('2026-10-30', 25), day('2026-10-31', 45)];
+    final previous = [for (var i = 18; i <= 24; i++) day('2026-10-$i', 20)];
+    await expectNoOverflow(() => pump(tester, SingleChildScrollView(child: WeeklyActivityChart(days: days, previous: previous))));
+    expect(find.text('226 min', findRichText: true), findsOneWidget);
+    expect(find.text('86 min more than the week before'), findsOneWidget);
+    for (final label in ['Sun', 'Wed', 'Today']) {
+      await expectNoOverflow(() async {
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+      });
+    }
+    expect(find.text('45 min · 1 workout'), findsOneWidget);
   });
 
   testWidgets('workout cards', (tester) async {

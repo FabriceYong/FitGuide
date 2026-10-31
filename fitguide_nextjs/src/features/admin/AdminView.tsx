@@ -120,11 +120,11 @@ function AnalyticsTab() {
           </ResponsiveContainer>
         </div>
       </div>
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className={card}>
           <h3 className="font-bold mb-3">Top pages</h3>
           <ol className="space-y-1.5 text-sm">
-            {data.topPages.map((p) => <li key={p.path} className="flex justify-between gap-3"><span className="truncate">{p.path}</span><span className="font-bold">{p.count}</span></li>)}
+            {data.topPages.map((p) => <li key={p.path} className="flex justify-between gap-3"><span className="truncate min-w-0">{p.path}</span><span className="font-bold shrink-0">{p.count}</span></li>)}
             {!data.topPages.length && <li className="text-white-70">No page views yet.</li>}
           </ol>
         </div>

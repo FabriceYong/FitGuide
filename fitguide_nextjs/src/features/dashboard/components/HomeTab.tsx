@@ -188,7 +188,7 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
               <strong className="text-lime-light">New to exercise or returning after a break?</strong> Take the one-minute PAR-Q health check first.
             </p>
             <button type="button" onClick={() => setShowParq(true)} className="text-xs font-bold text-noir-eclipse bg-lime-light px-3 py-1.5 rounded-full shrink-0">Take the check</button>
-            <button type="button" onClick={() => setParqDone(true)} className="text-white-70 hover:text-white shrink-0" aria-label="Hide the health check reminder">
+            <button type="button" onClick={() => setParqDone(true)} className="p-2 -m-2 text-white-70 hover:text-white shrink-0" aria-label="Hide the health check reminder">
               <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
@@ -202,7 +202,7 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
       <section aria-labelledby="home-progress">
         <div className="flex justify-between items-center mb-6">
           <h2 id="home-progress" className="text-2xl font-extrabold text-white">Your progress</h2>
-          {hasAccount && <button type="button" onClick={() => onNavigate('progress')} className="text-sm font-semibold text-lime-light hover:underline">See all →</button>}
+          {hasAccount && <button type="button" onClick={() => onNavigate('progress')} className="py-2 -my-2 text-sm font-semibold text-lime-light hover:underline">See all →</button>}
         </div>
         {!hasAccount ? (
           <div className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-6 flex flex-wrap items-center justify-between gap-4">
@@ -212,11 +212,11 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
         ) : progressError && !summary ? (
           <p role="alert" className="flex items-center gap-2 text-red-300"><AlertCircle className="w-5 h-5" aria-hidden="true" /> {progressError}</p>
         ) : !summary ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" aria-hidden="true">
-            {Array.from({ length: 4 }, (_, i) => <div key={i} className="h-48 bg-obsidian-wave rounded-2xl animate-pulse" />)}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" aria-hidden="true">
+            {Array.from({ length: 4 }, (_, i) => <div key={i} className="h-40 sm:h-48 bg-obsidian-wave rounded-2xl animate-pulse" />)}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard icon={<Dumbbell className="w-6 h-6" />} label="Total workouts" value={summary.totals.sessions} color="#00C4B4" data={weeklySessions} chartLabel="Workouts per week over the last 12 weeks" />
             <StatCard icon={<Clock className="w-6 h-6" />} label="Minutes this week" value={summary.thisWeek.minutes} suffix="min" color="#8B7CF6" data={lastWeek.map((d) => d.minutes)} chartType="line" chartLabel="Minutes per day over the last 7 days" />
             <StatCard icon={<Flame className="w-6 h-6" />} label="Calories this week" value={summary.thisWeek.calories} suffix="kcal" color="#EF4444" data={lastWeek.map((d) => d.calories)} chartType="bar" chartLabel="Calories per day over the last 7 days" />
@@ -390,7 +390,7 @@ function TipOfTheDay() {
         <Lightbulb className="w-3.5 h-3.5" aria-hidden="true" /> Tip
       </span>
       <p className="text-sm text-white font-medium flex-1 min-w-56">{TIPS[index]}</p>
-      <button type="button" onClick={() => setIndex((i) => (i + 1) % TIPS.length)} className="text-xs font-bold text-lime-light hover:underline">Next tip</button>
+      <button type="button" onClick={() => setIndex((i) => (i + 1) % TIPS.length)} className="py-2 -my-2 text-xs font-bold text-lime-light hover:underline">Next tip</button>
     </section>
   );
 }

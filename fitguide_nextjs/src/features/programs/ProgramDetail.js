@@ -201,12 +201,13 @@ export function ProgramDetail({ program, workouts }) {
                                 const status = scheduled ? STATUS_STYLES[scheduled.status] : null;
                                 const workout = workouts[d.workoutSlug];
                                 return (
-                                    <li key={`${d.week}:${d.day}`} className="flex flex-wrap items-center gap-4 bg-obsidian-wave border border-white-30/10 rounded-xl px-4 py-3">
-                                        <div className="w-24 shrink-0">
+                                    // Phones: day and actions on top, the workout across the full width below.
+                                    <li key={`${d.week}:${d.day}`} className="grid grid-cols-[1fr_auto] sm:grid-cols-[6rem_1fr_auto] items-center gap-x-4 gap-y-2 bg-obsidian-wave border border-white-30/10 rounded-xl px-4 py-3">
+                                        <div>
                                             <p className="text-sm font-bold">Day {d.day}</p>
                                             {scheduled && <p className="text-[11px] text-white-70">{formatDate(scheduled.date)}</p>}
                                         </div>
-                                        <div className="flex-1 min-w-[180px]">
+                                        <div className="order-last sm:order-none col-span-2 sm:col-span-1">
                                             <Link href={`/workouts/${d.workoutSlug}`} className="font-semibold hover:text-lime-light">{d.title}</Link>
                                             <div className="flex flex-wrap gap-3 text-[11px] text-white-70 mt-0.5">
                                                 {workout && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{workout.duration} min</span>}
@@ -215,12 +216,14 @@ export function ProgramDetail({ program, workouts }) {
                                             </div>
                                             {d.notes && <p className="text-xs text-white-70 mt-1 italic">{d.notes}</p>}
                                         </div>
-                                        {status && <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${status.className}`}>{status.label}</span>}
-                                        {mine && scheduled && scheduled.status !== 'done' && (
-                                            <Link href={playHref(mine, scheduled)} aria-label={`Start week ${d.week} day ${d.day}`} className="w-9 h-9 rounded-full bg-white/10 hover:bg-lime-light hover:text-noir-eclipse flex items-center justify-center transition-colors">
-                                                <Play className="w-4 h-4" />
-                                            </Link>
-                                        )}
+                                        <div className="flex items-center gap-3">
+                                            {status && <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${status.className}`}>{status.label}</span>}
+                                            {mine && scheduled && scheduled.status !== 'done' && (
+                                                <Link href={playHref(mine, scheduled)} aria-label={`Start week ${d.week} day ${d.day}`} className="w-9 h-9 rounded-full bg-white/10 hover:bg-lime-light hover:text-noir-eclipse flex items-center justify-center transition-colors">
+                                                    <Play className="w-4 h-4" />
+                                                </Link>
+                                            )}
+                                        </div>
                                     </li>
                                 );
                             })}

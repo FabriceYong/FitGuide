@@ -16,7 +16,7 @@ export function LanguageSwitcher() {
       <select
         value={locale}
         onChange={(e) => { if (isLocale(e.target.value)) setLocale(e.target.value); }}
-        className="bg-transparent text-xs font-bold uppercase text-white-70 hover:text-white focus:text-white cursor-pointer"
+        className="bg-transparent py-1.5 text-xs font-bold uppercase text-white-70 hover:text-white focus:text-white cursor-pointer"
       >
         {LOCALES.map((l) => <option key={l} value={l} className="bg-noir-eclipse">{LOCALE_NAMES[l]}</option>)}
       </select>

@@ -149,7 +149,10 @@ class _ProgressViewState extends State<ProgressView> {
               ],
             ),
           ),
-        ...pairs(context, _WeeklyChart(days: summary.days.sublist(math.max(0, summary.days.length - 7))), _ProgramPanel(enrollment: summary.activeEnrollment)),
+        ...pairs(context, WeeklyActivityChart(
+              days: summary.days.sublist(math.max(0, summary.days.length - 7)),
+              previous: summary.days.sublist(math.max(0, summary.days.length - 14), math.max(0, summary.days.length - 7)),
+            ), _ProgramPanel(enrollment: summary.activeEnrollment)),
         if (summary.days.isNotEmpty) _ActivityCalendar(days: summary.days),
         ...pairs(context, _PersonalRecords(records: summary.personalRecords), _RecentSessions(sessions: data.recentSessions, onDelete: _deleteSession)),
         _BodyMetrics(
@@ -247,57 +250,238 @@ class _StatTiles extends StatelessWidget {
   }
 }
 
-class _WeeklyChart extends StatelessWidget {
-  const _WeeklyChart({required this.days});
+/// Three round steps that cover the busiest day: 0 / 10 / 20 / 30, 0 / 20 / 40 / 60 and so on.
+List<int> minuteTicks(int peak) {
+  const steps = [10, 15, 20, 30, 45, 60, 90, 120];
+  final step = steps.firstWhere((s) => s * 3 >= peak, orElse: () => (peak / 3 / 60).ceil() * 60);
+  return [0, step, step * 2, step * 3];
+}
+
+String _workoutsLabel(int n) => '$n workout${n == 1 ? '' : 's'}';
+
+/// Minutes per day for the last 7 days (WeeklyChart in ProgressView.tsx): the
+/// week's total up top, compared with the 7 days before, then one column per
+/// day on a light grid. Only the best day carries its number; tapping a day
+/// shows its details.
+class WeeklyActivityChart extends StatefulWidget {
+  const WeeklyActivityChart({super.key, required this.days, required this.previous});
   final List<ActivityDay> days;
+  final List<ActivityDay> previous;
+
+  @override
+  State<WeeklyActivityChart> createState() => _WeeklyActivityChartState();
+}
+
+class _WeeklyActivityChartState extends State<WeeklyActivityChart> {
+  static const _plot = 160.0;
+  int? _active;
+
+  void _toggle(int i) => setState(() => _active = _active == i ? null : i);
+
+  Widget _tooltip(ActivityDay d) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: AppColors.noirEclipse,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: AppColors.whiteA(0.2)),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(formatDay(d.date), style: fg(size: 11, weight: FontWeight.w700)),
+        Text(d.minutes > 0 ? '${d.minutes} min · ${_workoutsLabel(d.sessions)}' : 'Rest day', style: fg(size: 11, color: AppColors.white70)),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
-    final max = days.fold<int>(30, (m, d) => math.max(m, d.minutes));
+    final days = widget.days;
     final total = days.fold<int>(0, (n, d) => n + d.minutes);
+    final before = widget.previous.fold<int>(0, (n, d) => n + d.minutes);
+    final workouts = days.fold<int>(0, (n, d) => n + d.sessions);
+    final peak = days.fold<int>(0, (m, d) => math.max(m, d.minutes));
+    final peakIndex = peak > 0 ? days.lastIndexWhere((d) => d.minutes == peak) : -1;
+    final ticks = minuteTicks(peak);
+    final top = ticks.last;
+    final change = total - before;
+    final trend = change > 0
+        ? LucideIcons.trendingUp
+        : change < 0
+        ? LucideIcons.trendingDown
+        : null;
+    final comparison = widget.previous.isEmpty || (before == 0 && total == 0)
+        ? _workoutsLabel(workouts)
+        : change == 0
+        ? 'Same as the week before'
+        : '${change.abs()} min ${change > 0 ? 'more' : 'less'} than the week before';
+    double y(int minutes) => minutes / top * _plot;
+
     return Panel(
       title: 'Weekly activity',
       icon: LucideIcons.activity,
-      action: Text('Last 7 days · minutes', style: fg(size: 12, color: AppColors.white70)),
-      child: Semantics(
-        label: 'Minutes trained per day over the last 7 days, $total in total',
-        child: ExcludeSemantics(
-          child: SizedBox(
-            height: 176,
+      action: Text('Last 7 days', style: fg(size: 12, color: AppColors.white70)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.end,
+            spacing: 16,
+            runSpacing: 4,
+            children: [
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$total',
+                      style: fg(size: 36, weight: FontWeight.w800, height: 1),
+                    ),
+                    TextSpan(
+                      text: ' min',
+                      style: fg(size: 16, weight: FontWeight.w700, color: AppColors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (trend != null) ...[Icon(trend, size: 16, color: change > 0 ? AppColors.limeLight : AppColors.amber300), const SizedBox(width: 6)],
+                    Flexible(
+                      child: Text(comparison, style: fg(size: 14, color: AppColors.white70)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Semantics(
+            label: 'Minutes trained per day over the last 7 days: ${days.map((d) => '${formatWeekday(d.date)} ${d.minutes}').join(', ')}',
+            child: ExcludeSemantics(
+              child: SizedBox(
+                height: _plot,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          for (final t in ticks)
+                            Positioned(
+                              right: 0,
+                              bottom: y(t) - 6,
+                              child: Text('$t', style: fg(size: 10, color: AppColors.white70, height: 1.2)),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, c) {
+                          final col = c.maxWidth / days.length;
+                          final active = _active;
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              for (final t in ticks)
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  bottom: y(t),
+                                  child: Container(height: 1, color: AppColors.whiteA(t == 0 ? 0.25 : 0.1)),
+                                ),
+                              Row(
+                                children: [
+                                  for (final (i, d) in days.indexed)
+                                    Expanded(
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () => _toggle(i),
+                                        child: Align(
+                                          alignment: Alignment.bottomCenter,
+                                          child: d.minutes > 0
+                                              ? AnimatedContainer(
+                                                  duration: const Duration(milliseconds: 500),
+                                                  width: math.min(24, col - 8),
+                                                  height: y(d.minutes),
+                                                  decoration: BoxDecoration(
+                                                    color: _accent.withValues(alpha: active == null || active == i ? 1 : 0.5),
+                                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                                                  ),
+                                                )
+                                              : const SizedBox.shrink(),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              if (peakIndex >= 0 && active != peakIndex)
+                                Positioned(
+                                  left: peakIndex * col,
+                                  width: col,
+                                  bottom: y(peak) + 4,
+                                  child: IgnorePointer(
+                                    child: Text(
+                                      '$peak',
+                                      textAlign: TextAlign.center,
+                                      style: fg(size: 11, weight: FontWeight.w700),
+                                    ),
+                                  ),
+                                ),
+                              if (active != null)
+                                // Kept inside the chart: the first days open to the right, the last to the left.
+                                if (active < 2)
+                                  Positioned(left: active * col, bottom: y(days[active].minutes) + 6, child: _tooltip(days[active]))
+                                else if (active > days.length - 3)
+                                  Positioned(right: (days.length - 1 - active) * col, bottom: y(days[active].minutes) + 6, child: _tooltip(days[active]))
+                                else
+                                  Positioned(
+                                    left: (active - 1) * col,
+                                    width: col * 3,
+                                    bottom: y(days[active].minutes) + 6,
+                                    child: Center(child: _tooltip(days[active])),
+                                  ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ExcludeSemantics(
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                const SizedBox(width: 36),
                 for (final (i, d) in days.indexed)
                   Expanded(
-                    child: Tooltip(
-                      message: '${formatDay(d.date)}: ${d.minutes} min, ${d.sessions} session${d.sessions == 1 ? '' : 's'}',
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          SizedBox(height: 16, child: Text(d.minutes > 0 ? '${d.minutes}' : '', style: fg(size: 10, color: AppColors.white70))),
-                          const SizedBox(height: 4),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 500),
-                            width: 16,
-                            height: math.max(4, d.minutes / max * 120),
-                            decoration: BoxDecoration(
-                              color: d.minutes > 0 ? _accent.withValues(alpha: i == days.length - 1 ? 1 : 0.7) : AppColors.whiteA(0.08),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            formatWeekday(d.date),
-                            style: fg(size: 11, weight: i == days.length - 1 ? FontWeight.w700 : FontWeight.w400, color: i == days.length - 1 ? AppColors.white : AppColors.white70),
-                          ),
-                        ],
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _toggle(i),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text(
+                          i == days.length - 1 ? 'Today' : formatWeekday(d.date),
+                          textAlign: TextAlign.center,
+                          style: fg(size: 11, weight: i == days.length - 1 ? FontWeight.w700 : FontWeight.w400, color: i == days.length - 1 ? AppColors.white : AppColors.white70),
+                        ),
                       ),
                     ),
                   ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }

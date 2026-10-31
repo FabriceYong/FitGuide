@@ -77,7 +77,7 @@ export function HeroCarousel({ slides, greeting }: { slides: HeroSlide[]; greeti
           {slide.secondary && <Cta cta={slide.secondary} />}
         </div>
         {slides.length > 1 && (
-          <div className="flex gap-2 mt-10">
+          <div className="flex -mx-1 mt-10">
             {slides.map((s, i) => (
               <button
                 key={s.id}
@@ -85,7 +85,7 @@ export function HeroCarousel({ slides, greeting }: { slides: HeroSlide[]; greeti
                 onClick={() => setIndex(i)}
                 aria-label={`Show highlight ${i + 1}: ${s.title}`}
                 aria-current={i === index ? 'true' : undefined}
-                className="py-3"
+                className="py-3 px-1"
               >
                 <span className={`block h-1.5 rounded-full transition-all ${i === index ? 'w-8 bg-lime-light' : 'w-4 bg-white/40 hover:bg-white/60'}`} />
               </button>

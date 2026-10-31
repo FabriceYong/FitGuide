@@ -60,8 +60,8 @@ export function ProfileMenu({ name, fullName = name, detail, avatar, isGuest, on
         aria-controls={open ? menuId : undefined}
         className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-xl hover:bg-white/5"
       >
-        <span className="sr-only lg:hidden">Your account</span>
-        <span className="hidden lg:block text-sm font-bold text-white max-w-[9rem] truncate">{name}</span>
+        <span className="sr-only 2xl:hidden">Your account</span>
+        <span className="hidden 2xl:block text-sm font-bold text-white max-w-[9rem] truncate">{name}</span>
         {avatar}
         <ChevronDown className={`w-4 h-4 text-white-70 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>

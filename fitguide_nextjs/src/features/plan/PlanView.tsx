@@ -207,18 +207,21 @@ export function PlanView() {
                     {plan.schedule.filter((d) => d.week === week).map((d: PlanDay) => {
                       const status = STATUS_STYLES[d.status];
                       return (
-                        <li key={`${d.week}:${d.day}`} className="flex flex-wrap items-center gap-4 bg-obsidian-wave border border-white-30/10 rounded-xl px-4 py-3">
-                          <div className="w-28 shrink-0">
+                        // Phones: day and actions on top, the workout across the full width below.
+                        <li key={`${d.week}:${d.day}`} className="grid grid-cols-[1fr_auto] sm:grid-cols-[7rem_1fr_auto] items-center gap-x-4 gap-y-2 bg-obsidian-wave border border-white-30/10 rounded-xl px-4 py-3">
+                          <div>
                             <p className="text-sm font-bold">Day {d.day}</p>
                             <p className="text-[11px] text-white-70">{formatDate(d.date)}</p>
                           </div>
-                          <Link href={`/workouts/${d.workoutSlug}`} className="flex-1 min-w-[180px] font-semibold hover:text-lime-light">{d.title}</Link>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${status.className}`}>{status.label}</span>
-                          {d.status !== 'done' && (
-                            <Link href={playHref(plan, d)} aria-label={`Start week ${d.week} day ${d.day}`} className="w-9 h-9 rounded-full bg-white/10 hover:bg-lime-light hover:text-noir-eclipse flex items-center justify-center">
-                              <Play className="w-4 h-4" />
-                            </Link>
-                          )}
+                          <Link href={`/workouts/${d.workoutSlug}`} className="order-last sm:order-none col-span-2 sm:col-span-1 font-semibold hover:text-lime-light">{d.title}</Link>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${status.className}`}>{status.label}</span>
+                            {d.status !== 'done' && (
+                              <Link href={playHref(plan, d)} aria-label={`Start week ${d.week} day ${d.day}`} className="w-9 h-9 rounded-full bg-white/10 hover:bg-lime-light hover:text-noir-eclipse flex items-center justify-center">
+                                <Play className="w-4 h-4" />
+                              </Link>
+                            )}
+                          </div>
                         </li>
                       );
                     })}

@@ -131,11 +131,11 @@ export function HealthPanel() {
       <h2 id="health-heading" className="text-2xl font-extrabold">Health data</h2>
       {message && <p role="status" className="text-sm bg-white/5 border border-white-30/10 rounded-xl px-4 py-3">{message}</p>}
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {tiles.map(({ icon: Icon, label, value, sub }) => (
-          <div key={label} className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-white-70 flex items-center gap-2"><Icon className="w-4 h-4 text-lime-light" /> {label}</p>
-            <p className="text-3xl font-extrabold mt-2">{value}</p>
+          <div key={label} className="bg-obsidian-wave border border-white-30/10 rounded-2xl p-4 sm:p-5">
+            <p className="text-xs font-bold uppercase tracking-wider text-white-70 flex items-start gap-2"><Icon className="w-4 h-4 shrink-0 text-lime-light" /> {label}</p>
+            <p className="text-2xl sm:text-3xl font-extrabold mt-2">{value}</p>
             <p className="text-xs text-white-70 mt-1">{sub}</p>
           </div>
         ))}

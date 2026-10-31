@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import Link from 'next/link';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
-  Activity, AlertTriangle, CalendarDays, Clock, Dumbbell, Flame, Loader2, Play, Ruler, Scale, Trash2, Trophy, Zap, type LucideIcon,
+  Activity, AlertTriangle, CalendarDays, Clock, Dumbbell, Flame, Loader2, Play, Ruler, Scale, Trash2, TrendingDown, TrendingUp, Trophy, Zap, type LucideIcon,
 } from 'lucide-react';
 import type { MeasurementField } from '@fitguide/shared';
 import { useAuth, type AuthUser } from '../../contexts/AuthContext';
@@ -102,7 +102,7 @@ export function ProgressView() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <WeeklyChart days={summary.days.slice(-7)} />
+        <WeeklyChart days={summary.days.slice(-7)} previous={summary.days.slice(-14, -7)} />
         <ProgramPanel enrollment={summary.activeEnrollment} />
       </div>
 
@@ -152,8 +152,8 @@ const Loading = () => (
 
 function Panel({ title, icon: Icon, action, children }: { title: string; icon?: LucideIcon; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="bg-obsidian-wave border border-white-30/10 rounded-[24px] p-6">
-      <div className="flex items-center justify-between gap-4 mb-5">
+    <section className="bg-obsidian-wave border border-white-30/10 rounded-[24px] p-5 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 mb-5">
         <h2 className="flex items-center gap-2 text-base font-bold">{Icon && <Icon className="w-5 h-5 text-lime-light" aria-hidden="true" />}{title}</h2>
         {action}
       </div>
@@ -192,29 +192,91 @@ function StatTiles({ summary }: { summary: ProgressSummary }) {
   );
 }
 
-function WeeklyChart({ days }: { days: ActivityDay[] }) {
-  const max = Math.max(30, ...days.map((d) => d.minutes));
+/** Three round steps that cover the busiest day: 0 / 10 / 20 / 30, 0 / 20 / 40 / 60 and so on. */
+function minuteTicks(peak: number) {
+  const step = [10, 15, 20, 30, 45, 60, 90, 120].find((s) => s * 3 >= peak) ?? Math.ceil(peak / 3 / 60) * 60;
+  return [0, step, step * 2, step * 3];
+}
+
+const workoutsLabel = (n: number) => `${n} workout${n === 1 ? '' : 's'}`;
+
+/**
+ * Minutes per day for the last 7 days: the week's total up top, compared with
+ * the 7 days before, then one column per day on a light grid. Only the best
+ * day carries its number; every day shows its details on hover or focus.
+ */
+function WeeklyChart({ days, previous }: { days: ActivityDay[]; previous: ActivityDay[] }) {
+  const [active, setActive] = useState<number | null>(null);
   const total = days.reduce((n, d) => n + d.minutes, 0);
+  const before = previous.reduce((n, d) => n + d.minutes, 0);
+  const workouts = days.reduce((n, d) => n + d.sessions, 0);
+  const peak = Math.max(0, ...days.map((d) => d.minutes));
+  const peakIndex = peak ? days.map((d) => d.minutes).lastIndexOf(peak) : -1;
+  const ticks = minuteTicks(peak);
+  const top = ticks[ticks.length - 1];
+  const change = total - before;
+  const Trend = change > 0 ? TrendingUp : change < 0 ? TrendingDown : null;
+
   return (
-    <Panel title="Weekly activity" icon={Activity} action={<span className="text-xs text-white-70">Last 7 days · minutes</span>}>
-      <div className="flex justify-between items-end h-44 px-2" role="img" aria-label={`Minutes trained per day over the last 7 days, ${total} in total`}>
-        {days.map((d, i) => {
-          const isToday = i === days.length - 1;
-          return (
-            <div key={d.date} className="flex flex-col items-center flex-1" title={`${formatDay(d.date)}: ${d.minutes} min, ${d.sessions} session${d.sessions === 1 ? '' : 's'}`}>
-              <span className="text-[10px] text-white-70 mb-1 h-4">{d.minutes || ''}</span>
-              <div
-                className="w-4 rounded-full transition-all duration-500"
-                style={{
-                  height: `${Math.max(4, (d.minutes / max) * 120)}px`,
-                  backgroundColor: d.minutes ? ACCENT : 'rgba(255,255,255,0.08)',
-                  opacity: d.minutes && !isToday ? 0.7 : 1,
-                }}
-              />
-              <span className={`text-[11px] mt-3 ${isToday ? 'text-white font-bold' : 'text-white-70'}`}>{formatDay(d.date, { weekday: 'short' })}</span>
-            </div>
-          );
-        })}
+    <Panel title="Weekly activity" icon={Activity} action={<span className="text-xs text-white-70">Last 7 days</span>}>
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-1 mb-8">
+        <p className="text-4xl font-extrabold leading-none">{total}<span className="text-base font-bold text-white-70 ml-1">min</span></p>
+        <p className="flex items-center gap-1.5 text-sm text-white-70 pb-0.5">
+          {Trend && <Trend className={`w-4 h-4 ${change > 0 ? 'text-lime-light' : 'text-amber-300'}`} aria-hidden="true" />}
+          {!previous.length || (!before && !total) ? workoutsLabel(workouts)
+            : change === 0 ? 'Same as the week before'
+              : `${Math.abs(change)} min ${change > 0 ? 'more' : 'less'} than the week before`}
+        </p>
+      </div>
+
+      <div className="flex gap-2" aria-hidden="true">
+        <div className="relative w-7 h-40 shrink-0 text-[10px] text-white-70 tabular-nums">
+          {ticks.map((t) => <span key={t} className="absolute right-0 translate-y-1/2" style={{ bottom: `${(t / top) * 100}%` }}>{t}</span>)}
+        </div>
+        <div className="relative flex-1 h-40">
+          {ticks.map((t) => <div key={t} className={`absolute inset-x-0 h-px ${t ? 'bg-white/10' : 'bg-white/25'}`} style={{ bottom: `${(t / top) * 100}%` }} />)}
+          <div className="absolute inset-0 grid grid-cols-7">
+            {days.map((d, i) => (
+              <div key={d.date} className="relative flex flex-col items-center justify-end" onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)}>
+                {i === peakIndex && active !== i && <span className="absolute text-[11px] font-bold text-white" style={{ bottom: `calc(${(d.minutes / top) * 100}% + 4px)` }}>{d.minutes}</span>}
+                {d.minutes > 0 && (
+                  <div
+                    className={`w-full max-w-6 shrink-0 rounded-t-[4px] transition-[height,opacity] duration-500 ${active === null || active === i ? 'opacity-100' : 'opacity-50'}`}
+                    style={{ height: `${(d.minutes / top) * 100}%`, backgroundColor: ACCENT }}
+                  />
+                )}
+                {active === i && (
+                  <div className={`absolute z-10 whitespace-nowrap rounded-lg bg-noir-eclipse border border-white-30/20 px-2.5 py-1.5 text-[11px] shadow-lg ${i < 2 ? 'left-0' : i > 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}
+                    style={{ bottom: `calc(${(d.minutes / top) * 100}% + 6px)` }}>
+                    <p className="font-bold">{formatDay(d.date)}</p>
+                    <p className="text-white-70">{d.minutes ? `${d.minutes} min · ${workoutsLabel(d.sessions)}` : 'Rest day'}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-2 mt-2">
+        <div className="w-7 shrink-0" />
+        <div className="flex-1 grid grid-cols-7">
+          {days.map((d, i) => {
+            const isToday = i === days.length - 1;
+            return (
+              <button
+                key={d.date}
+                type="button"
+                onFocus={() => setActive(i)}
+                onBlur={() => setActive(null)}
+                onClick={() => setActive(i)}
+                aria-label={`${formatDay(d.date)}: ${d.minutes ? `${d.minutes} minutes, ${workoutsLabel(d.sessions)}` : 'rest day'}`}
+                className={`py-1 text-[11px] rounded-md ${isToday ? 'text-white font-bold' : 'text-white-70'} ${active === i ? 'bg-white/5' : ''}`}
+              >
+                {isToday ? 'Today' : formatDay(d.date, { weekday: 'short' })}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </Panel>
   );
@@ -233,7 +295,7 @@ function ProgramPanel({ enrollment: e }: { enrollment: Plan | null }) {
     );
   }
   return (
-    <Panel title={e.programTitle} icon={CalendarDays} action={<Link href={scheduleHref(e)} className="text-xs font-bold text-lime-light">View schedule</Link>}>
+    <Panel title={e.programTitle} icon={CalendarDays} action={<Link href={scheduleHref(e)} className="inline-block py-2 -my-2 text-xs font-bold text-lime-light">View schedule</Link>}>
       <div className="grid grid-cols-3 gap-3 text-center mb-5">
         <MiniStat value={`${e.currentWeek}/${e.weeks ?? '?'}`} label="Week" />
         <MiniStat value={`${e.completedCount}/${e.totalDays}`} label="Sessions" />
@@ -336,7 +398,7 @@ function RecentSessions({ sessions, onDelete }: { sessions: SessionRecord[]; onD
           {sessions.map((s) => (
             <li key={s.id} className="flex items-center justify-between gap-3 py-2.5">
               <div className="min-w-0">
-                <Link href={`/workouts/${s.workoutSlug}`} className="font-semibold text-sm hover:text-lime-light truncate block">{s.workoutTitle}</Link>
+                <Link href={`/workouts/${s.workoutSlug}`} className="font-semibold text-sm hover:text-lime-light truncate block py-1 -my-1">{s.workoutTitle}</Link>
                 <p className="text-[11px] text-white-70">
                   {formatDateTime(s.completedAt)} · {Math.round(s.durationSec / 60)} min{s.calories != null ? ` · ${s.calories} kcal` : ''}{s.avgHr ? ` · ${s.avgHr} bpm avg` : ''}
                   {s.perceivedEffort ? ` · RPE ${s.perceivedEffort}` : ''}
@@ -466,7 +528,7 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }: {
                 </label>
               ))}
             </div>
-            <button type="button" onClick={() => setShowMore((v) => !v)} className="text-xs font-bold text-lime-light">
+            <button type="button" onClick={() => setShowMore((v) => !v)} className="self-start py-2 -my-2 text-xs font-bold text-lime-light">
               {showMore ? 'Fewer fields' : 'More measurements'}
             </button>
             {error && <p role="alert" className="text-xs text-red-300">{error}</p>}

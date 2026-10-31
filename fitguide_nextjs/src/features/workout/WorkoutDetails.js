@@ -29,12 +29,12 @@ function StepRow({ step, index, color }) {
   const reps = repTarget(step);
   const target = reps ? `${reps.sets ? `${reps.sets} × ` : ''}${reps.reps} reps` : step.duration ? stepClock(step.duration) : null;
   return (
-    <li className="flex items-center gap-4 p-3 rounded-2xl bg-obsidian-wave border border-white-30/10">
+    <li className="flex items-center gap-3 sm:gap-4 p-3 rounded-2xl bg-obsidian-wave border border-white-30/10">
       <span className="w-16 h-16 shrink-0"><StepDemo step={step} color={color} size="thumb" animate={false} /></span>
       <span className="flex-1 min-w-0">
-        <span className="flex items-center gap-2">
+        <span className="flex items-baseline gap-2">
           <span className="text-[11px] font-bold text-white-70 tabular-nums">{String(index + 1).padStart(2, '0')}</span>
-          <span className="font-bold text-white truncate">{stepName(step)}</span>
+          <span className="font-bold text-white leading-snug line-clamp-2">{stepName(step)}</span>
         </span>
         <span className="block text-xs text-white-70 mt-0.5 line-clamp-2">{step.instruction}</span>
       </span>

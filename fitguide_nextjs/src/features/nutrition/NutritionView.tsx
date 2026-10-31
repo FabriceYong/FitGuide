@@ -217,7 +217,7 @@ export function NutritionView() {
                   <div key={m.meal} className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-white-70">{MEAL_LABELS[m.meal]} · {m.totals.calories} kcal</h3>
-                      <button onClick={() => addSuggested(m.meal)} className="text-xs font-bold text-lime-light hover:underline">Log these</button>
+                      <button onClick={() => addSuggested(m.meal)} className="py-2 -my-2 text-xs font-bold text-lime-light hover:underline">Log these</button>
                     </div>
                     <ul className="text-sm space-y-0.5">
                       {m.items.map((item) => (

@@ -49,6 +49,9 @@ export function Avatar({ url }: { url?: string | null }) {
 /**
  * The header on every page: logo, the main links, language, the admin
  * shortcut and the account menu, with a menu sheet and a tab bar on phones.
+ * The links sit in the header only on screens wide enough for all of them
+ * (wider still for coaches and admins, who have more); until then the menu
+ * button opens them.
  * The home dashboard passes its own handlers and puts its tab row in
  * `children`; other pages link to the dashboard instead.
  */
@@ -69,6 +72,7 @@ export function SiteNav({ active, onHome, onProfile, children, menuExtra, bottom
 
   const profile = onProfile || (() => router.push('/?tab=profile'));
   const firstName = (user?.name || '').trim().split(/\s+/)[0] || 'Profile';
+  const staff = user?.role === 'admin' || user?.role === 'creator';
   const logo = (
     <>
       <span className="w-9 h-9 rounded-xl bg-lime-light flex items-center justify-center" aria-hidden="true">
@@ -97,36 +101,38 @@ export function SiteNav({ active, onHome, onProfile, children, menuExtra, bottom
             ? <button type="button" onClick={onHome} className="flex items-center gap-2 shrink-0" aria-label="FitGuide home">{logo}</button>
             : <Link href="/" className="flex items-center gap-2 shrink-0" aria-label="FitGuide home">{logo}</Link>}
 
-          <div className="hidden md:flex items-center gap-3 min-w-0">
-            <nav aria-label={t('nav.label')} className="flex items-center gap-1 overflow-x-auto">{links}</nav>
-            <LanguageSwitcher />
-            <AdminButton active={active === '/admin'} />
-            {isAuthenticated ? (
-              <ProfileMenu
-                name={firstName}
-                fullName={user?.name || ''}
-                detail={isGuest ? 'Guest' : user?.email || ''}
-                avatar={<Avatar url={user?.avatarUrl} />}
-                isGuest={isGuest}
-                onProfile={profile}
-                onSignOut={() => setConfirmLogout(true)}
-              />
-            ) : (
-              <Link href="/" className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-lime-light text-noir-eclipse text-xs font-extrabold uppercase tracking-wider">
-                <LogIn className="w-4 h-4" aria-hidden="true" /> Sign in
-              </Link>
-            )}
-          </div>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="hidden md:flex items-center gap-3 min-w-0">
+              <nav aria-label={t('nav.label')} className={`${staff ? 'hidden 2xl:flex' : 'hidden xl:flex'} items-center gap-1 min-w-0 overflow-x-auto`}>{links}</nav>
+              <LanguageSwitcher />
+              <AdminButton active={active === '/admin'} />
+              {isAuthenticated ? (
+                <ProfileMenu
+                  name={firstName}
+                  fullName={user?.name || ''}
+                  detail={isGuest ? 'Guest' : user?.email || ''}
+                  avatar={<Avatar url={user?.avatarUrl} />}
+                  isGuest={isGuest}
+                  onProfile={profile}
+                  onSignOut={() => setConfirmLogout(true)}
+                />
+              ) : (
+                <Link href="/" className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-lime-light text-noir-eclipse text-xs font-extrabold uppercase tracking-wider">
+                  <LogIn className="w-4 h-4" aria-hidden="true" /> Sign in
+                </Link>
+              )}
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            className="md:hidden w-10 h-10 rounded-xl border border-white-30/30 flex items-center justify-center"
-            aria-label="Open menu"
-            aria-haspopup="dialog"
-          >
-            <Menu className="w-5 h-5" aria-hidden="true" />
-          </button>
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              className={`${staff ? '2xl:hidden' : 'xl:hidden'} w-10 h-10 shrink-0 rounded-xl border border-white-30/30 flex items-center justify-center`}
+              aria-label="Open menu"
+              aria-haspopup="dialog"
+            >
+              <Menu className="w-5 h-5" aria-hidden="true" />
+            </button>
+          </div>
         </div>
         {children}
       </header>

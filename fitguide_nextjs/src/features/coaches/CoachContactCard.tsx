@@ -27,7 +27,7 @@ export function CoachContact({ coach, programTitle, inPerson = false }: { coach:
     <div className="space-y-3">
       <ul className="space-y-1.5 text-sm">
         {contact.location && <li className="flex items-center gap-2"><MapPin className="w-4 h-4 text-lime-light shrink-0" aria-hidden="true" /> {contact.location}</li>}
-        {contact.email && <li className="flex items-center gap-2"><Mail className="w-4 h-4 text-lime-light shrink-0" aria-hidden="true" /> <a href={`mailto:${contact.email}`} className="underline break-all">{contact.email}</a></li>}
+        {contact.email && <li className="flex items-center gap-2"><Mail className="w-4 h-4 text-lime-light shrink-0" aria-hidden="true" /> <a href={`mailto:${contact.email}`} className="underline break-all py-1">{contact.email}</a></li>}
         {contact.phone && <li className="flex items-center gap-2"><Phone className="w-4 h-4 text-lime-light shrink-0" aria-hidden="true" /> <a href={links.call || undefined} className="underline">{contact.phone}</a></li>}
       </ul>
       <div className="flex flex-wrap gap-2">

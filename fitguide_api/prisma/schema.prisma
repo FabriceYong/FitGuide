@@ -708,7 +708,7 @@ model Article {
 model AiRequest {
   id        String   @id @default(uuid())
   userId    String
-  kind      String // meal_photo | meal_text
+  kind      String // meal_photo | meal_text | swap | feedback | checkin | writing
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

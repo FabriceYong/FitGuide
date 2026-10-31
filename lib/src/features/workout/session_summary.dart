@@ -15,6 +15,7 @@ import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/ui.dart';
+import 'workout_feedback_card.dart';
 
 const _effortLabels = {1: 'Very easy', 3: 'Easy', 5: 'Moderate', 7: 'Hard', 9: 'Very hard', 10: 'Max effort'};
 
@@ -219,6 +220,10 @@ class _SessionSummaryState extends State<SessionSummary> {
                           ],
                         ),
                       ),
+                    ],
+                    if (!saved.queued && asString(saved.session['id']) != null) ...[
+                      const SizedBox(height: 16),
+                      WorkoutFeedbackCard(sessionId: asString(saved.session['id'])!, tint: widget.tint),
                     ],
                     const SizedBox(height: 16),
                     Row(children: [

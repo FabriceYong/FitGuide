@@ -19,6 +19,7 @@ import '../profile/profile_tab.dart';
 import '../programs/programs_tab.dart';
 import '../progress/health_panel.dart';
 import '../progress/progress_view.dart';
+import '../progress/weekly_checkin.dart';
 import 'calculators_tab.dart';
 import 'explore_tab.dart';
 import 'favorites_tab.dart';
@@ -118,7 +119,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case DashboardTab.favorites:
         return const FavoritesTab();
       case DashboardTab.progress:
-        return const Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [ProgressView(), SizedBox(height: 32), HealthPanel()]);
+        return const Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [ProgressView(), WeeklyCheckinCard(), SizedBox(height: 32), HealthPanel()]);
       case DashboardTab.reviews:
         return const ReviewsTab();
       case DashboardTab.tools:

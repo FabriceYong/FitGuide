@@ -9,58 +9,13 @@
  * The photo and text are sent to Anthropic and never stored. Each use is
  * counted (AiRequest) for the daily allowance.
  */
-const Anthropic = require('@anthropic-ai/sdk');
 const { prisma } = require('../db/prisma');
 const { NUTRITION } = require('@fitguide/shared');
 const nutrition = require('./nutrition');
-const { intFromEnv } = require('../utils/config');
+const ai = require('./ai');
 
-const MODEL = () => process.env.MEAL_MODEL || 'claude-sonnet-5-5';
-
-/** Uses per rolling 24 hours, by kind and plan. */
-const LIMITS = {
-  meal_photo: { free: () => intFromEnv('MEAL_PHOTOS_PER_DAY', 3), plus: () => intFromEnv('MEAL_PHOTOS_PER_DAY_PLUS', 30) },
-  meal_text: { free: () => intFromEnv('MEAL_TEXTS_PER_DAY', 10), plus: () => intFromEnv('MEAL_TEXTS_PER_DAY_PLUS', 100) },
-};
-
-class MealError extends Error {
-  constructor(message, status = 400, code) {
-    super(message);
-    this.status = status;
-    this.code = code;
-  }
-}
-
-let client = null;
-const isConfigured = () => Boolean(client || process.env.ANTHROPIC_API_KEY);
-
-function getClient() {
-  if (!client) {
-    if (!process.env.ANTHROPIC_API_KEY) throw new MealError('Reading meals is not set up on this server.', 503);
-    client = new Anthropic({ maxRetries: 2 });
-  }
-  return client;
-}
-
-/** Replace the Anthropic client (tests). Pass null to reset. */
-function setClient(fake) {
-  client = fake;
-}
-
-// ─── Allowance ───────────────────────────────────────────────────────────────
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** How many of `kind` the user has used in the last 24 hours, and may use. */
-async function usage(user, kind) {
-  const max = LIMITS[kind][user.plan === 'plus' ? 'plus' : 'free']();
-  const used = await prisma.aiRequest.count({ where: { userId: user.id, kind, createdAt: { gte: new Date(Date.now() - DAY_MS) } } });
-  return { used, max, left: Math.max(0, max - used) };
-}
-
-async function allowance(user) {
-  return { photos: await usage(user, 'meal_photo'), texts: await usage(user, 'meal_text') };
-}
+const MealError = ai.AiError;
+const allowance = async (user) => ({ photos: await ai.usage(user, 'meal_photo'), texts: await ai.usage(user, 'meal_text') });
 
 // ─── Prompt ──────────────────────────────────────────────────────────────────
 
@@ -147,16 +102,8 @@ function toItem(raw, foodsBySlug) {
  */
 async function recognize(user, input) {
   const kind = input.image ? 'meal_photo' : 'meal_text';
-  const api = getClient();
-  const before = await usage(user, kind);
-  if (!before.left) {
-    const what = kind === 'meal_photo' ? `${before.max} meal photos` : `${before.max} meal descriptions`;
-    throw new MealError(
-      user.plan === 'plus' ? `You've used today's ${what}. Try again tomorrow.` : `Free accounts can read ${what} a day. Try again tomorrow, or log foods by hand.`,
-      429,
-      user.plan === 'plus' ? undefined : 'LIMIT_REACHED',
-    );
-  }
+  ai.getClient('Reading meals');
+  await ai.spend(user, kind);
 
   const foods = await prisma.food.findMany({ where: { OR: [{ ownerId: null }, { ownerId: user.id }] }, orderBy: { name: 'asc' } });
   const content = input.image
@@ -166,32 +113,24 @@ async function recognize(user, input) {
       ]
     : [{ type: 'text', text: `Read this meal: ${input.text}` }];
 
-  // Count the use before the call, so failed or repeated requests still count.
-  await prisma.aiRequest.create({ data: { userId: user.id, kind } });
-
-  const response = await api.beta.messages.create({
-    model: MODEL(),
-    max_tokens: 4000,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
+  const answer = await ai.callTool({
+    what: 'Reading meals',
     system: [
       { type: 'text', text: SYSTEM_PROMPT },
       // The food list changes rarely: cached across requests.
-      { type: 'text', text: `FitGuide foods (slug: name):\n${foodList(foods)}`, cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: `FitGuide foods (slug: name):
+${foodList(foods)}`, cache_control: { type: 'ephemeral' } },
     ],
-    tools: [TOOL],
-    tool_choice: { type: 'tool', name: TOOL.name },
-    messages: [{ role: 'user', content }],
+    tool: TOOL,
+    content,
+    maxTokens: 4000,
+    unreadable: "That couldn't be read as a meal. Try another photo or describe it in words.",
   });
 
-  if (response.stop_reason === 'refusal') throw new MealError("That couldn't be read as a meal. Try another photo or describe it in words.", 422);
-  const call = response.content.find((b) => b.type === 'tool_use' && b.name === TOOL.name);
-  if (!call) throw new MealError("That couldn't be read as a meal. Try another photo or describe it in words.", 422);
-
   const bySlug = new Map(foods.map((f) => [f.slug, f]));
-  const items = (Array.isArray(call.input.items) ? call.input.items : []).slice(0, 20).map((raw) => toItem(raw, bySlug));
-  const note = typeof call.input.note === 'string' && call.input.note.trim() ? call.input.note.trim().slice(0, 300) : null;
+  const items = (Array.isArray(answer.items) ? answer.items : []).slice(0, 20).map((raw) => toItem(raw, bySlug));
+  const note = typeof answer.note === 'string' && answer.note.trim() ? answer.note.trim().slice(0, 300) : null;
   return { items, note, allowance: await allowance(user) };
 }
 
-module.exports = { recognize, allowance, isConfigured, setClient, MealError, toItem, LIMITS };
+module.exports = { recognize, allowance, isConfigured: ai.isConfigured, setClient: ai.setClient, MealError, toItem };

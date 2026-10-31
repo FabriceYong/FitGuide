@@ -23,6 +23,7 @@ const bodyMetricsRoutes = require('./routes/bodyMetrics');
 const progressRoutes = require('./routes/progress');
 const planRoutes = require('./routes/plan');
 const coachRoutes = require('./routes/coach');
+const aiRoutes = require('./routes/ai');
 const nutritionRoutes = require('./routes/nutrition');
 const integrationsRoutes = require('./routes/integrations');
 const healthDataRoutes = require('./routes/healthData');
@@ -120,6 +121,7 @@ function createApp() {
   app.use('/api/progress', progressRoutes);
   app.use('/api/plan', planRoutes);
   app.use('/api/coach', coachRoutes);
+  app.use('/api/ai', aiRoutes);
   app.use('/api/nutrition', nutritionRoutes);
   app.use('/api/integrations', integrationsRoutes);
   app.use('/api/health-data', healthDataRoutes);

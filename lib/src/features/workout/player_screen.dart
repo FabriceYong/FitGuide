@@ -22,11 +22,13 @@ import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/ui.dart';
+import '../../services/ai_service.dart';
 import '../../services/speech.dart';
 import '../plus/plus_gate.dart';
 import 'exercise_demo_view.dart';
 import 'exercise_demos.dart';
 import 'session_summary.dart';
+import 'swap_sheet.dart';
 import 'workout_steps.dart';
 
 /// The guided player (app/workouts/[slug]/play → EnhancedWorkoutExecution.js).
@@ -82,7 +84,9 @@ class _Player extends StatefulWidget {
 }
 
 class _PlayerState extends State<_Player> {
-  late final List<WorkoutStep> _steps = stepsFor(widget.workout);
+  // Not final: a swapped exercise replaces its step for this workout.
+  late final List<WorkoutStep> _steps = [...stepsFor(widget.workout)];
+  bool _canSwap = false;
   late final bool _weights = usesWeights(widget.workout);
   late final Color _tint = categoryColor(widget.workout.category);
   late final double _caloriesPerMinute;
@@ -121,6 +125,22 @@ class _PlayerState extends State<_Player> {
     WakelockPlus.enable().catchError((_) {});
     demoMedia().then((pictures) {
       if (mounted) setState(() => _pictures = pictures);
+    });
+    // The swap shows for accounts when the server has AI set up.
+    if (context.read<AuthController>().hasAccount) {
+      fetchAiStatus().then((s) {
+        if (mounted) setState(() => _canSwap = s.available);
+      }).catchError((Object _) {});
+    }
+  }
+
+  Future<void> _swap() async {
+    _setPlaying(false);
+    final replacement = await showSwapSheet(context, step: _step, workout: widget.workout, tint: _tint);
+    if (replacement == null || !mounted) return;
+    setState(() {
+      _steps[_current] = replacement;
+      _announced = -1;
     });
   }
 
@@ -517,6 +537,22 @@ class _PlayerState extends State<_Player> {
       if (name != step.instruction) ...[
         const SizedBox(height: 4),
         Text(step.instruction, textAlign: TextAlign.center, style: fg(size: 13, color: AppColors.whiteA(0.6), height: 1.4)),
+      ],
+      if (_canSwap) ...[
+        const SizedBox(height: 8),
+        Center(
+          child: FgButton(
+            label: 'Swap this exercise',
+            icon: LucideIcons.shuffle,
+            style: FgButtonStyle.secondary,
+            height: 34,
+            radius: 999,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            onPressed: _swap,
+          ),
+        ),
       ],
       const SizedBox(height: 16),
       // Not taller than half the screen, so a phone on its side still shows the timer.

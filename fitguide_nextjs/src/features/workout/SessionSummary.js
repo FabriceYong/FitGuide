@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { logSession, newClientId } from '../../services/trainingService';
 import { track } from '../../lib/analytics';
 import { formatRecord } from '../progress/format';
+import { WorkoutFeedback } from './WorkoutFeedback';
 
 const EFFORT_LABELS = { 1: 'Very easy', 3: 'Easy', 5: 'Moderate', 7: 'Hard', 9: 'Very hard', 10: 'Max effort' };
 
@@ -97,6 +98,7 @@ export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, on
                                     </ul>
                                 </div>
                             )}
+                            {!saved.queued && saved.session?.id && <WorkoutFeedback sessionId={saved.session.id} color={tintColor} />}
                             <div className="flex gap-3">
                                 <Link href="/progress" className="flex-1 py-3.5 rounded-xl font-bold text-sm text-center bg-white/10 hover:bg-white/20 transition-all">
                                     View progress

@@ -11,9 +11,11 @@ import { calorieFactor } from '@fitguide/shared';
 import { useAuth } from '../../contexts/AuthContext';
 import { SessionSummary } from './SessionSummary';
 import { StepDemo } from './StepDemo';
+import { SwapExercise } from './SwapExercise';
 import { repTarget, stepClock, stepName, stepsFor, usesWeights } from './workoutSteps';
+import { fetchAiStatus } from '../../services/aiService';
 import {
-  X, Play, Pause, ChevronLeft, ChevronRight, Check, Clock, Flame, AlertTriangle, Volume2, VolumeX, Info, ListOrdered, Plus, SkipForward,
+  X, Play, Pause, ChevronLeft, ChevronRight, Check, Clock, Flame, AlertTriangle, Volume2, VolumeX, Info, ListOrdered, Plus, SkipForward, Shuffle,
 } from 'lucide-react';
 
 const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -85,10 +87,12 @@ const spokenTarget = (step) => {
  * @param {(result?: object) => void} props.onComplete  Called when the user leaves the summary
  */
 export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', program = null, onExit, onComplete }) => {
-  const { user } = useAuth();
+  const { user, hasAccount } = useAuth();
   // The workout's burn rate scaled to this user's body, as the API does when saving.
   const caloriesPerMinute = ((workout?.calories || 0) / (workout?.duration || 1)) * calorieFactor(user);
-  const [steps] = useState(() => stepsFor(workout));
+  const [steps, setSteps] = useState(() => stepsFor(workout));
+  const [swapping, setSwapping] = useState(false);
+  const [canSwap, setCanSwap] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(() => steps[0]?.duration || 60);
@@ -121,6 +125,19 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
   const color = tintColor;
 
   const cue = useCallback((text) => { if (soundEnabled) say(text); }, [soundEnabled]);
+
+  // The swap shows for accounts when the server has AI set up.
+  useEffect(() => {
+    if (!hasAccount) return;
+    fetchAiStatus().then((s) => setCanSwap(s.available)).catch(() => setCanSwap(false));
+  }, [hasAccount]);
+
+  /** Use a suggested exercise for the current step, keeping its length. */
+  const applySwap = (swapped) => {
+    setSteps((all) => all.map((s, i) => (i === currentStepIndex ? { ...s, ...swapped, gifUrl: undefined, imageUrl: undefined } : s)));
+    announced.current = -1;
+    setSwapping(false);
+  };
 
   /** Move to a step, with its clock reset. */
   const goToStep = useCallback((index) => {
@@ -329,6 +346,10 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
         </div>
       )}
 
+      {swapping && currentStep && (
+        <SwapExercise step={currentStep} workout={workout} color={color} onUse={applySwap} onClose={() => setSwapping(false)} />
+      )}
+
       {summary && (
         <SessionSummary
           draft={buildSessionDraft()}
@@ -347,6 +368,11 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
             <p className="text-xs font-bold uppercase tracking-wider text-white/50">Step {currentStepIndex + 1} of {totalSteps}</p>
             <h1 className="text-2xl md:text-3xl font-extrabold leading-tight mt-1">{name}</h1>
             {name !== currentStep?.instruction && <p className="text-sm text-white/60 mt-1">{currentStep?.instruction}</p>}
+            {canSwap && (
+              <button type="button" onClick={() => { setIsPlaying(false); setSwapping(true); }} className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15">
+                <Shuffle className="w-3.5 h-3.5" aria-hidden="true" /> Swap this exercise
+              </button>
+            )}
           </div>
 
           {/* Capped so the clock and controls stay on screen on a laptop. */}

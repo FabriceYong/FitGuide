@@ -10,6 +10,7 @@ const { defineTrainingSuite } = require('./trainingSuite');
 const { definePlanCoachSuite } = require('./planCoachSuite');
 const { defineNutritionSuite } = require('./nutritionSuite');
 const { defineMealSuite } = require('./mealSuite');
+const { defineAiSuite } = require('./aiSuite');
 const { defineHealthSuite } = require('./healthSuite');
 const { defineSocialSuite } = require('./socialSuite');
 const { defineAdminSuite } = require('./adminSuite');
@@ -512,6 +513,7 @@ function defineApiSuite() {
 
     describe('nutrition', () => defineNutritionSuite(() => ({ app, signUp })));
     describe('reading meals', () => defineMealSuite(() => ({ app, signUp })));
+    describe('AI helpers', () => defineAiSuite(() => ({ app, signUp })));
 
     describe('health data and wearables', () => defineHealthSuite(() => ({ app, signUp })));
 

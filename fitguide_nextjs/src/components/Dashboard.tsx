@@ -15,6 +15,7 @@ import { CalculatorsTab } from '../features/dashboard/components/CalculatorsTab'
 import { ProgramsTab } from '../features/programs/ProgramsTab';
 import { ProgressView } from '../features/progress/ProgressView';
 import { HealthPanel } from '../features/progress/HealthPanel';
+import { WeeklyCheckin } from '../features/progress/WeeklyCheckin';
 import { ProfileTab } from '../features/profile/components/ProfileTab';
 import { isTab, type TabId } from '../features/dashboard/tabs';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -58,7 +59,7 @@ export default function Dashboard() {
     explore: <ExploreTab />,
     programs: <ProgramsTab />,
     favorites: <FavoritesTab onExplore={() => setTab('explore')} />,
-    progress: <div className="space-y-12"><ProgressView /><HealthPanel /></div>,
+    progress: <div className="space-y-12"><ProgressView /><WeeklyCheckin /><HealthPanel /></div>,
     reviews: <ReviewsTab />,
     tools: <CalculatorsTab />,
     profile: <ProfileTab onLogout={() => setConfirmLogout(true)} onNavigate={setTab} />,

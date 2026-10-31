@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, type ChangeEvent } from 'react';
-import { ArrowDown, ArrowUp, Eye, Film, ImagePlus, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
+import { useEffect, useState, type ChangeEvent } from 'react';
+import { ArrowDown, ArrowUp, Eye, Film, ImagePlus, Loader2, Pencil, Plus, Sparkles, Trash2, Upload, Wand2, X } from 'lucide-react';
+import { draftArticle, fetchAiStatus, polishText } from '../../services/aiService';
 import {
   ARTICLE_CATEGORIES, coverSrc, uploadArticleCover, uploadArticleVideo,
   type ArticleCategory, type ArticleInput,
@@ -91,6 +92,57 @@ export function ArticleEditor({ initial, heading, actions, onCancel, authorName 
     return { ...cur, draftSections: next };
   });
 
+  // Writing help, when the server has AI set up.
+  const [canAssist, setCanAssist] = useState(false);
+  const [assistNote, setAssistNote] = useState<string | null>(null);
+  // A section's text before "Tidy up", for undo.
+  const [before, setBefore] = useState<Record<number, string>>({});
+  useEffect(() => {
+    fetchAiStatus().then((s) => setCanAssist(s.available)).catch(() => setCanAssist(false));
+  }, []);
+
+  /** Fill the empty parts from the title, using whatever's written so far as notes. */
+  const draftWithAi = async () => {
+    setBusy('draft');
+    setError(null);
+    setAssistNote(null);
+    try {
+      const notes = [d.description, d.takeawaysText, ...d.draftSections.map((s) => `${s.heading}\n${s.body}`)].join('\n').trim();
+      const { draft } = await draftArticle({ title: d.title.trim(), category: d.category, ...(notes && { notes: notes.slice(0, 2000) }) });
+      const emptySections = d.draftSections.every((s) => !s.heading.trim() && !s.body.trim());
+      setD((cur) => ({
+        ...cur,
+        description: cur.description.trim() ? cur.description : draft.description,
+        takeawaysText: cur.takeawaysText.trim() ? cur.takeawaysText : draft.takeaways.join('\n'),
+        draftSections: emptySections
+          ? draft.sections.map((s) => ({ heading: s.heading, body: s.paragraphs.join('\n\n'), video: null, tip: s.tip || '' }))
+          : cur.draftSections,
+      }));
+      setAssistNote(emptySections
+        ? 'Draft added below. Read it through and make it yours before sending.'
+        : 'Filled in the summary and key points that were empty. Your sections are unchanged.');
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const tidy = async (i: number) => {
+    const s = d.draftSections[i];
+    setBusy(`tidy-${i}`);
+    setError(null);
+    try {
+      const { text } = await polishText({ heading: s.heading, text: s.body });
+      setBefore((b) => ({ ...b, [i]: s.body }));
+      setSection(i, { body: text });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const upload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -166,6 +218,14 @@ export function ArticleEditor({ initial, heading, actions, onCancel, authorName 
               </select>
             </label>
           </div>
+          {canAssist && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-lime-light/25 bg-lime-light/5 px-4 py-3">
+              <button type="button" onClick={draftWithAi} disabled={busy !== null || d.title.trim().length < 5} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-lime-light text-noir-eclipse disabled:opacity-50">
+                {busy === 'draft' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Draft with AI
+              </button>
+              <span className="text-xs text-white-70 flex-1 min-w-48">{assistNote || 'Writes a first draft from your title and any notes below. You review and edit everything.'}</span>
+            </div>
+          )}
           <label className={label}>Summary <span className="font-normal">(one or two sentences, shown on the home page)</span>
             <textarea maxLength={300} rows={2} value={d.description} onChange={(e) => patch({ description: e.target.value })} className={`${field} mt-1`} />
           </label>
@@ -208,6 +268,18 @@ export function ArticleEditor({ initial, heading, actions, onCancel, authorName 
                   <button type="button" disabled={d.draftSections.length === 1} onClick={() => setD((cur) => ({ ...cur, draftSections: cur.draftSections.filter((_, j) => j !== i) }))} aria-label={`Remove section ${i + 1}`} className="w-9 shrink-0 rounded-lg bg-white/10 flex items-center justify-center text-red-300 disabled:opacity-30"><Trash2 className="w-4 h-4" /></button>
                 </div>
                 <textarea placeholder="Text. Leave a blank line between paragraphs." aria-label={`Section ${i + 1} text`} rows={5} value={s.body} onChange={(e) => setSection(i, { body: e.target.value })} className={field} />
+                {canAssist && s.body.trim().length >= 20 && (
+                  <div className="flex items-center gap-3 -mt-1">
+                    <button type="button" onClick={() => tidy(i)} disabled={busy !== null} className="flex items-center gap-1.5 text-xs font-bold text-lime-light disabled:opacity-50">
+                      {busy === `tidy-${i}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />} Tidy up this section
+                    </button>
+                    {before[i] !== undefined && (
+                      <button type="button" onClick={() => { setSection(i, { body: before[i] }); setBefore((b) => { const next = { ...b }; delete next[i]; return next; }); }} className="text-xs font-bold text-white-70 underline">
+                        Undo
+                      </button>
+                    )}
+                  </div>
+                )}
                 {s.video ? (
                   <div className="rounded-xl border border-white-30/15 p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">

@@ -79,5 +79,32 @@ export const deleteLogEntry = (id: string) => apiRequest(`/nutrition/log/${encod
 
 export const fetchMealPlan = (date: string): Promise<MealPlan> => apiRequest('/nutrition/meal-plan', { auth: true, query: { date, ...tz() } });
 
+// ── Reading a meal from a photo or a description ──────────────────────────────
+export interface Allowance { used: number; max: number; left: number }
+export interface MealReadingStatus { available: boolean; allowance: { photos: Allowance; texts: Allowance } }
+
+/** One food read from the meal: a list food with servings (foodSlug), or a one-off with its own estimate. */
+export interface ReadItem extends Macros {
+  name: string;
+  portion: string;
+  grams: number;
+  confidence: 'high' | 'medium' | 'low';
+  foodSlug: string | null;
+  foodName: string | null;
+  servings: number;
+}
+export interface MealReading { items: ReadItem[]; note: string | null; allowance: MealReadingStatus['allowance'] }
+
+export const fetchMealReadingStatus = (): Promise<MealReadingStatus> => apiRequest('/nutrition/recognize', { auth: true });
+
+export function readMealPhoto(file: File): Promise<MealReading> {
+  const formData = new FormData();
+  formData.append('photo', file);
+  return apiRequest('/nutrition/recognize/photo', { method: 'POST', auth: true, formData });
+}
+
+export const readMealText = (text: string): Promise<MealReading> =>
+  apiRequest('/nutrition/recognize/text', { method: 'POST', auth: true, body: { text } });
+
 export const fetchNutritionHistory = (days = 14): Promise<{ days: (Macros & { date: string })[]; targets: Targets }> =>
   apiRequest('/nutrition/history', { auth: true, query: { days, ...tz() } });

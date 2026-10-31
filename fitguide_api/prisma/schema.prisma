@@ -63,6 +63,7 @@ model User {
   refreshTokens          RefreshToken[]
   ownPrograms            Program[]            @relation("ProgramOwner")
   coachMessages          CoachMessage[]
+  aiRequests             AiRequest[]
   foods                  Food[]
   foodLogs               FoodLog[]
   dailyMetrics           DailyMetric[]
@@ -699,4 +700,19 @@ model Article {
   @@index([status, publishedAt(sort: Desc)])
   @@index([authorId])
   @@map("articles")
+}
+
+/// One use of an AI feature (reading a meal from a photo or a description),
+/// counted for the daily allowance. Only the kind and time are kept: never
+/// the photo or the text.
+model AiRequest {
+  id        String   @id @default(uuid())
+  userId    String
+  kind      String // meal_photo | meal_text
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
+  @@map("ai_requests")
 }

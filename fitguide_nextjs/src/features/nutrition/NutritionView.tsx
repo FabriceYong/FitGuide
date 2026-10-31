@@ -14,6 +14,7 @@ import {
   type DayLog, type Macros, type MealPlan,
 } from '../../services/nutritionService';
 import { FoodPicker } from './FoodPicker';
+import { MealReader } from './MealReader';
 
 const MEAL_LABELS: Record<Meal, string> = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snacks' };
 
@@ -164,6 +165,8 @@ export function NutritionView() {
                 {' '}These are estimates, not medical advice.
               </p>
             </section>
+
+            <MealReader date={date} onLogged={() => refresh(date)} />
 
             {NUTRITION.MEALS.map((meal) => {
               const { icon: MealIcon, color } = MEAL_ICONS[meal];

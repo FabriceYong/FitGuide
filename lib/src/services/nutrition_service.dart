@@ -113,3 +113,66 @@ Future<MealPlan> fetchMealPlan(String date) async => MealPlan(await _api.request
 
 Future<List<HistoryDay>> fetchNutritionHistory([int days = 14]) async =>
     asJsonList((await _api.request('/nutrition/history', auth: true, query: {'days': days, ..._tz()}))['days']).map(HistoryDay.new).toList();
+
+// ── Reading a meal from a photo or a description (nutritionService.ts) ──────
+
+typedef Allowance = ({int used, int max, int left});
+
+Allowance _allowance(Object? j) {
+  final m = asJson(j);
+  return (used: asInt(m['used']) ?? 0, max: asInt(m['max']) ?? 0, left: asInt(m['left']) ?? 0);
+}
+
+class MealReadingStatus {
+  MealReadingStatus(Json j)
+      : available = asBool(j['available']),
+        photos = _allowance(asJson(j['allowance'])['photos']),
+        texts = _allowance(asJson(j['allowance'])['texts']);
+  MealReadingStatus.copy(MealReadingStatus s, {required this.photos, required this.texts}) : available = s.available;
+  final bool available;
+  final Allowance photos;
+  final Allowance texts;
+}
+
+/// One food read from the meal: a list food with servings ([foodSlug]), or a
+/// one-off with its own estimate for one serving.
+class ReadItem extends Macros {
+  ReadItem(super.j)
+      : name = asString(j['name']) ?? 'Food',
+        portion = asString(j['portion']) ?? '',
+        grams = asInt(j['grams']) ?? 0,
+        confidence = asString(j['confidence']) ?? 'medium',
+        foodSlug = asString(j['foodSlug']),
+        servings = asDouble(j['servings']) ?? 1;
+  final String name;
+  final String portion;
+  final int grams;
+  final String confidence;
+  final String? foodSlug;
+  final double servings;
+}
+
+class MealReading {
+  MealReading(Json j)
+      : items = asJsonList(j['items']).map(ReadItem.new).toList(),
+        note = asString(j['note']),
+        photos = _allowance(asJson(j['allowance'])['photos']),
+        texts = _allowance(asJson(j['allowance'])['texts']);
+  final List<ReadItem> items;
+  final String? note;
+  final Allowance photos;
+  final Allowance texts;
+}
+
+Future<MealReadingStatus> fetchMealReadingStatus() async => MealReadingStatus(await _api.request('/nutrition/recognize', auth: true));
+
+Future<MealReading> readMealPhoto(List<int> bytes, String filename, String contentType) async => MealReading(await _api.request(
+      '/nutrition/recognize/photo',
+      method: 'POST',
+      auth: true,
+      files: [UploadFile(field: 'photo', bytes: bytes, filename: filename, contentType: contentType)],
+      timeout: const Duration(seconds: 90),
+    ));
+
+Future<MealReading> readMealText(String text) async =>
+    MealReading(await _api.request('/nutrition/recognize/text', method: 'POST', auth: true, body: {'text': text}, timeout: const Duration(seconds: 60)));

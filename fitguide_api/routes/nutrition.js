@@ -3,7 +3,13 @@ const crypto = require('crypto');
 const { body, query } = require('express-validator');
 const { NUTRITION } = require('@fitguide/shared');
 const { prisma } = require('../db/prisma');
+const multer = require('multer');
+const { rateLimit } = require('express-rate-limit');
+const Anthropic = require('@anthropic-ai/sdk');
 const nutrition = require('../services/nutrition');
+const mealRecognition = require('../services/mealRecognition');
+const { hasImageSignature } = require('../utils/uploads');
+const { intFromEnv } = require('../utils/config');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { rejectInvalid } = require('../utils/validate');
 const { tzOffsetFrom, today, isValidYmd, addDays } = require('../utils/dates');
@@ -180,5 +186,72 @@ router.get('/history', [query('days').optional().isInt({ min: 1, max: 90 }).toIn
     next(err);
   }
 });
+
+// ─── Reading a meal from a photo or a description ────────────────────────────
+
+// Photos are read in memory and never stored.
+const MEAL_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const mealPhoto = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => cb(null, MEAL_PHOTO_TYPES.includes(file.mimetype)),
+});
+
+// A ceiling per account on top of the daily allowance.
+const mealReads = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: () => intFromEnv('MEAL_READS_PER_HOUR', 20),
+  keyGenerator: (req) => `meal:${req.user.id}`,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: "You've read a lot of meals this hour. Please try again a bit later." },
+});
+
+async function readMeal(req, res, next, input) {
+  try {
+    res.json({ success: true, ...(await mealRecognition.recognize(req.user, input)) });
+  } catch (err) {
+    if (err instanceof mealRecognition.MealError) return res.status(err.status).json({ success: false, message: err.message, ...(err.code && { code: err.code }) });
+    if (err instanceof Anthropic.APIError) {
+      console.error('[meals] API error', err.status, err.message);
+      return res.status(502).json({ success: false, message: "Meals can't be read right now. Please try again shortly, or log foods by hand." });
+    }
+    return next(err);
+  }
+}
+
+// ─── GET /api/nutrition/recognize ─────────────────────────────────────────────
+// Whether meals can be read on this server, and how many uses are left today.
+router.get('/recognize', async (req, res, next) => {
+  try {
+    res.json({ success: true, available: mealRecognition.isConfigured(), allowance: await mealRecognition.allowance(req.user) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST /api/nutrition/recognize/photo (multipart, field "photo") ───────────
+router.post('/recognize/photo', mealReads, (req, res, next) => {
+  mealPhoto.single('photo')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ success: false, message: err.code === 'LIMIT_FILE_SIZE' ? 'That photo is too large. The limit is 8 MB.' : err.message });
+    }
+    if (err) return next(err);
+    const file = req.file;
+    if (!file || !hasImageSignature(file.buffer, file.mimetype)) {
+      return res.status(400).json({ success: false, message: 'Choose a photo of your meal (JPEG, PNG, WebP or GIF).' });
+    }
+    return readMeal(req, res, next, { image: { data: file.buffer, mediaType: file.mimetype === 'image/jpg' ? 'image/jpeg' : file.mimetype } });
+  });
+});
+
+// ─── POST /api/nutrition/recognize/text { text } ──────────────────────────────
+router.post(
+  '/recognize/text',
+  mealReads,
+  [body('text').isString().trim().isLength({ min: 2, max: 500 }).withMessage('Describe what you ate (up to 500 characters).')],
+  rejectInvalid,
+  (req, res, next) => readMeal(req, res, next, { text: req.body.text }),
+);
 
 module.exports = router;

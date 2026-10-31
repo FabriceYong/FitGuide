@@ -69,4 +69,7 @@ class Catalog {
 
 class Nutrition {
   static const meals = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+  /// The most servings one log entry can have (NUTRITION.MAX_SERVINGS).
+  static const maxServings = 20;
 }

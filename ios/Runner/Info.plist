@@ -27,9 +27,9 @@
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>FitGuide only reads from Apple Health; it doesn't write to it.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Choose a profile photo or progress photos for a review.</string>
+	<string>Choose a photo of a meal to log it, a profile photo, or progress photos for a review.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Take a profile photo or progress photos for a review.</string>
+	<string>Take a photo of a meal to log it, a profile photo, or progress photos for a review.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>https</string>

@@ -17,6 +17,7 @@ import '../../widgets/progress_ring.dart';
 import '../../widgets/ui.dart';
 import '../common/site_page.dart';
 import 'food_picker.dart';
+import 'meal_reader.dart';
 
 const _mealLabels = {'breakfast': 'Breakfast', 'lunch': 'Lunch', 'dinner': 'Dinner', 'snack': 'Snacks'};
 const _mealIcons = {
@@ -197,6 +198,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
                   ],
                 ),
               ),
+              MealReader(date: _date, onLogged: () => _refresh(_date)),
               for (final meal in Nutrition.meals)
                 FgCard(
                   child: Column(

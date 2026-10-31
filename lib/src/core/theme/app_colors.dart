@@ -37,6 +37,8 @@ class AppColors {
   static const Color green400 = Color(0xFF4ADE80);
   static const Color green500 = Color(0xFF22C55E);
   static const Color cyan400 = Color(0xFF22D3EE);
+  static const Color sky400 = Color(0xFF38BDF8);
+  static const Color pink400 = Color(0xFFF472B6);
   static const Color blue400 = Color(0xFF60A5FA);
   static const Color indigo300 = Color(0xFFA5B4FC);
   static const Color indigo400 = Color(0xFF818CF8);

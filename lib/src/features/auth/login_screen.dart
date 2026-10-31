@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/images.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../state/auth_controller.dart';
@@ -66,6 +69,8 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const _Banner(),
+            const SizedBox(height: 24),
             const StepHeading(title: 'Sign in', description: 'Welcome back. Sign in to continue your training.'),
             if (_error != null) ...[ErrorBox(_error!), const SizedBox(height: 16)],
             FormFieldLabel(
@@ -100,28 +105,85 @@ class _LoginScreenState extends State<LoginScreen> {
                 LinkText('Create an account', onTap: _loading ? null : widget.onSwitchToRegister),
               ],
             ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.whiteA(0.03),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.white30A(0.2)),
+            // The seeded demo login, for development builds only: never in the released app.
+            if (kDebugMode) ...[
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.whiteA(0.03),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.white30A(0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Demo account (development only)', style: fg(size: 14, weight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Text('Email: demo@fitguide.com', style: fg(size: 14, color: AppColors.white70)),
+                    Text('Password: demo123', style: fg(size: 14, color: AppColors.white70)),
+                  ],
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Demo account', style: fg(size: 14, weight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text('Email: demo@fitguide.com', style: fg(size: 14, color: AppColors.white70)),
-                  Text('Password: demo123', style: fg(size: 14, color: AppColors.white70)),
-                ],
-              ),
-            ),
+            ],
             const SizedBox(height: 24),
             Text('© ${DateTime.now().year} FitGuide', textAlign: TextAlign.center, style: fg(size: 12, color: AppColors.white70)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// What FitGuide offers, over a photo, above the form (the website's BrandPanel).
+class _Banner extends StatelessWidget {
+  const _Banner();
+
+  static const _points = [
+    (LucideIcons.circlePlay, 'Guided workouts with a demonstration for every move'),
+    (LucideIcons.calendarDays, 'A weekly plan built around your goal'),
+    (LucideIcons.sparkles, 'An AI coach that adjusts your plan as you go'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.white30A(0.15))),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Positioned.fill(child: NetImage(unsplash('1517836357463-d25dfeac3438', query: 'w=900&q=70&fit=crop'))),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [AppColors.noirEclipse, AppColors.noirEclipse.withValues(alpha: 0.75), AppColors.noirEclipse.withValues(alpha: 0.25)],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 64, 18, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Your training, planned and tracked', style: fg(size: 22, weight: FontWeight.w800, height: 1.25)),
+                const SizedBox(height: 12),
+                for (final (icon, text) in _points)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(children: [
+                      Icon(icon, size: 16, color: AppColors.limeLight),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(text, style: fg(size: 13, color: AppColors.whiteA(0.9)))),
+                    ]),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -13,11 +13,18 @@ import '../../state/dashboard_controller.dart';
 import '../../navigation.dart';
 import '../../widgets/charts.dart';
 import '../../widgets/modal.dart';
+import '../../widgets/progress_ring.dart';
 import '../../widgets/ui.dart';
 import '../common/site_page.dart';
 import 'food_picker.dart';
 
 const _mealLabels = {'breakfast': 'Breakfast', 'lunch': 'Lunch', 'dinner': 'Dinner', 'snack': 'Snacks'};
+const _mealIcons = {
+  'breakfast': (LucideIcons.coffee, AppColors.amber400),
+  'lunch': (LucideIcons.sun, AppColors.emerald400),
+  'dinner': (LucideIcons.moon, AppColors.indigo400),
+  'snack': (LucideIcons.apple, AppColors.pink400),
+};
 
 /// /nutrition: daily targets, the food log, a suggested meal plan and recent
 /// history (features/nutrition/NutritionView.tsx).
@@ -130,7 +137,13 @@ class _NutritionScreenState extends State<NutritionScreen> {
           if (wide) Row(children: [Expanded(child: title), const SizedBox(width: 16), dayNav]) else ...[title, dayNav],
           if (_error != null) ErrorLine(_error!),
           if (log == null)
-            const LoadingRow('Loading your day…')
+            Semantics(
+              label: 'Loading your day',
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: spaced([
+                const Skeleton(height: 200),
+                for (var i = 0; i < 3; i++) const Skeleton(height: 110),
+              ], 16)),
+            )
           else
             // Targets and meals, with suggestions and history in a side
             // column on a wide tablet (`lg:grid-cols-[1fr_360px]`).
@@ -140,18 +153,36 @@ class _NutritionScreenState extends State<NutritionScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('EATEN', style: fgLabel()),
-                    Text.rich(TextSpan(children: [
-                      TextSpan(text: '${log.totals.calories.round()}', style: fg(size: 36, weight: FontWeight.w800)),
-                      TextSpan(text: ' / ${log.targets.calories.round()} kcal', style: fg(size: 16, weight: FontWeight.w600, color: AppColors.white70)),
-                    ])),
-                    Text('${(log.targets.calories - log.totals.calories).clamp(0, double.infinity).round()} kcal left', style: fg(size: 14, color: AppColors.white70)),
-                    const SizedBox(height: 16),
-                    _MacroBar(label: 'Protein', value: log.totals.protein, target: log.targets.protein, unit: 'g'),
-                    const SizedBox(height: 12),
-                    _MacroBar(label: 'Carbs', value: log.totals.carbs, target: log.targets.carbs, unit: 'g'),
-                    const SizedBox(height: 12),
-                    _MacroBar(label: 'Fat', value: log.totals.fat, target: log.targets.fat, unit: 'g'),
+                    Row(children: [
+                      Semantics(
+                        label: 'Eaten ${log.totals.calories.round()} of ${log.targets.calories.round()} kcal',
+                        excludeSemantics: true,
+                        child: ProgressRing(
+                          value: log.totals.calories,
+                          goal: log.targets.calories,
+                          color: log.totals.calories > log.targets.calories * 1.05 ? AppColors.amber400 : AppColors.limeLight,
+                          size: 120,
+                          stroke: 11,
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            Text('${log.totals.calories.round()}', style: fg(size: 26, weight: FontWeight.w800)),
+                            Text('of ${log.targets.calories.round()} kcal', style: fg(size: 10, color: AppColors.white70)),
+                          ]),
+                        ),
+                      ),
+                      const SizedBox(width: 18),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('LEFT TODAY', style: fgLabel()),
+                          Text('${(log.targets.calories - log.totals.calories).clamp(0, double.infinity).round()} kcal', style: fg(size: 22, weight: FontWeight.w800)),
+                        ]),
+                      ),
+                    ]),
+                    const SizedBox(height: 18),
+                    Row(children: [
+                      Expanded(child: _MacroRing(label: 'Protein', value: log.totals.protein, target: log.targets.protein, color: AppColors.blue400)),
+                      Expanded(child: _MacroRing(label: 'Carbs', value: log.totals.carbs, target: log.targets.carbs, color: AppColors.amber400)),
+                      Expanded(child: _MacroRing(label: 'Fat', value: log.totals.fat, target: log.targets.fat, color: AppColors.pink400)),
+                    ]),
                     const SizedBox(height: 16),
                     // The link's 48px touch area is centred on the line, so the text beside it lines up.
                     Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
@@ -173,7 +204,20 @@ class _NutritionScreenState extends State<NutritionScreen> {
                     children: [
                       // Meal name left and button right; the button wraps under it with large text.
                       Wrap(alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, runSpacing: 8, children: [
-                        Semantics(header: true, child: Text(_mealLabels[meal]!, style: fg(size: 16, weight: FontWeight.w800))),
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(color: _mealIcons[meal]!.$2.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(12)),
+                            child: Icon(_mealIcons[meal]!.$1, size: 18, color: _mealIcons[meal]!.$2),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                            Semantics(header: true, child: Text(_mealLabels[meal]!, style: fg(size: 16, weight: FontWeight.w800))),
+                            if ((log.meals[meal] ?? const []).isNotEmpty)
+                              Text('${(log.meals[meal]!).fold<double>(0, (n, e) => n + e.calories).round()} kcal', style: fg(size: 12, weight: FontWeight.w600, color: AppColors.white70)),
+                          ]),
+                        ]),
                         FgButton(
                           label: 'Add food',
                           icon: LucideIcons.plus,
@@ -187,7 +231,18 @@ class _NutritionScreenState extends State<NutritionScreen> {
                       ]),
                       const SizedBox(height: 12),
                       if ((log.meals[meal] ?? const []).isEmpty)
-                        Text('Nothing logged.', style: fg(size: 14, color: AppColors.white70))
+                        Material(
+                          color: Colors.transparent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AppColors.white30A(0.2))),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => _add(meal),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              child: Text('Nothing logged yet. Tap to add your ${_mealLabels[meal]!.toLowerCase()}.', style: fg(size: 14, color: AppColors.white70)),
+                            ),
+                          ),
+                        )
                       else
                         for (final (i, e) in log.meals[meal]!.indexed)
                           Container(
@@ -285,24 +340,35 @@ class _DayButton extends StatelessWidget {
   }
 }
 
-class _MacroBar extends StatelessWidget {
-  const _MacroBar({required this.label, required this.value, required this.target, required this.unit});
+/// A macro's ring: grams eaten against the day's target (MacroRing in NutritionView.tsx).
+class _MacroRing extends StatelessWidget {
+  const _MacroRing({required this.label, required this.value, required this.target, required this.color});
   final String label;
   final double value;
   final double target;
-  final String unit;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final pct = target > 0 ? (value / target * 100).clamp(0, 100).toDouble() : 0.0;
     final over = value > target * 1.05;
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        Expanded(child: Text(label.toUpperCase(), style: fgLabel())),
-        Text('${value.round()} / ${target.round()} $unit', style: fg(size: 12, color: over ? AppColors.amber300 : AppColors.white)),
+    return Semantics(
+      label: '$label: ${value.round()} of ${target.round()} grams',
+      excludeSemantics: true,
+      child: Column(children: [
+        ProgressRing(
+          value: value,
+          goal: target,
+          color: over ? AppColors.amber400 : color,
+          size: 72,
+          stroke: 7,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('${value.round()}', style: fg(size: 14, weight: FontWeight.w800)),
+            Text('/ ${target.round()} g', style: fg(size: 9, color: AppColors.white70)),
+          ]),
+        ),
+        const SizedBox(height: 6),
+        Text(label.toUpperCase(), style: fg(size: 11, weight: FontWeight.w700, color: color, letterSpacing: 0.8)),
       ]),
-      const SizedBox(height: 4),
-      FgProgressBar(percent: pct, color: over ? AppColors.amber400 : AppColors.limeLight, label: label),
-    ]);
+    );
   }
 }

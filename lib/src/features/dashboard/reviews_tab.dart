@@ -15,6 +15,7 @@ import '../../state/auth_controller.dart';
 import '../../state/workouts_controller.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/image_pick.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/ui.dart';
 
 /// Member reviews of workouts, newest first; verified reviews come from
@@ -133,10 +134,11 @@ class _ReviewsTabState extends State<ReviewsTab> {
         if (_reviews == null && _error == null)
           const LoadingRow('Loading reviews…', padding: EdgeInsets.symmetric(vertical: 40))
         else if (shown.isEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
-            decoration: BoxDecoration(color: AppColors.obsidianWave, borderRadius: BorderRadius.circular(16)),
-            child: Text('No reviews yet. Finish a workout and be the first to review it.', textAlign: TextAlign.center, style: fg(size: 14, color: AppColors.white70)),
+          const EmptyState(
+            icon: LucideIcons.messageSquare,
+            color: AppColors.purple400,
+            title: 'No reviews yet',
+            text: 'Finish a workout and tell others how it went. Reviews from people who did the workout are marked verified.',
           )
         else
           Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: spaced([for (final r in shown) _ReviewItem(review: r, title: titles[r.workoutId], canLike: auth.hasAccount, onLike: () => _like(r.id))], 16)),

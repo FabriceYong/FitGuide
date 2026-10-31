@@ -17,6 +17,7 @@ import '../common/site_page.dart';
 import '../programs/schedule.dart';
 import 'coach_chat.dart';
 import 'plan_generator.dart';
+import 'week_strip.dart';
 
 /// /plan: the user's personal plan (or the generator) and the coach
 /// (features/plan/PlanView.tsx).
@@ -94,7 +95,20 @@ class _PlanScreenState extends State<PlanScreen> {
         ),
       );
     }
-    if (!_loaded && _error == null) return const SitePage(active: '/plan', child: LoadingRow('Loading your plan…'));
+    if (!_loaded && _error == null) {
+      return SitePage(
+        active: '/plan',
+        child: Semantics(
+          label: 'Loading your plan',
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: spaced([
+            const Skeleton(height: 40, width: 200),
+            const Skeleton(height: 170),
+            const Skeleton(height: 110),
+            for (var i = 0; i < 4; i++) const Skeleton(height: 56, radius: 12),
+          ], 16)),
+        ),
+      );
+    }
     final plan = _plan;
     final weeks = plan == null ? <int>[] : {for (final d in plan.schedule) d.week}.toList();
     final wide = atLeast(context, Breakpoints.md);
@@ -188,6 +202,7 @@ class _PlanScreenState extends State<PlanScreen> {
               ],
             ),
           ),
+          WeekStrip(plan: plan),
           if (_notice.isNotEmpty)
             Semantics(
               liveRegion: true,

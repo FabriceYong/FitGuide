@@ -12,6 +12,7 @@ import '../../services/social_service.dart';
 import '../../state/auth_controller.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/modal.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/ui.dart';
 import '../common/site_page.dart';
 
@@ -249,7 +250,12 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   ],
                   const SizedBox(height: 16),
                   if (_challenges.isEmpty)
-                    Text('No challenges yet. Start one with your friends.', style: fg(size: 14, color: AppColors.white70))
+                    const EmptyState(
+                      icon: LucideIcons.trophy,
+                      color: AppColors.amber400,
+                      title: 'No challenges yet',
+                      text: "Pick a goal like most active minutes in two weeks, invite friends with a code, and see who's ahead.",
+                    )
                   else
                     ...spaced([for (final c in _challenges) _challengeTile(c)], 12),
                   const SizedBox(height: 16),
@@ -346,7 +352,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 const SizedBox(height: 16),
                 Text('FRIENDS (${friends.friends.length})', style: fgLabel()),
                 const SizedBox(height: 8),
-                if (friends.friends.isEmpty) Text('Share your code to add friends.', style: fg(size: 14, color: AppColors.white70)),
+                if (friends.friends.isEmpty)
+                  const EmptyState(
+                    compact: true,
+                    icon: LucideIcons.users,
+                    color: AppColors.pink400,
+                    title: 'Train with friends',
+                    text: 'Send someone your friend code above, or enter theirs, to compare weeks and join challenges together.',
+                  ),
                 for (final f in friends.friends)
                   Row(children: [
                     Expanded(child: Text(f.name, style: fg(size: 14, weight: FontWeight.w600))),

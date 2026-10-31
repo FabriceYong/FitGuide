@@ -217,7 +217,99 @@ class _PlusScreenState extends State<PlusScreen> with WidgetsBindingObserver {
           if (_awaitingCheckout)
             Center(child: LinkText(t('plus.refresh'), weight: FontWeight.w700, onTap: () => _load(afterCheckout: true))),
           Text(t('plus.stripe'), textAlign: TextAlign.center, style: fg(size: 12, color: AppColors.white70)),
+          const SizedBox(height: 8),
+          Semantics(header: true, child: Text(t('plus.compare.title'), textAlign: TextAlign.center, style: fg(size: 24, weight: FontWeight.w800))),
+          FgCard(
+            padding: EdgeInsets.zero,
+            child: Column(children: [
+              _CompareRow(feature: '', free: t('plus.compare.free'), plus: 'PLUS', header: true),
+              for (final (feature, free, plus) in _compare)
+                _CompareRow(
+                  feature: t(feature),
+                  free: free is String ? t(free) : null,
+                  freeIncluded: free == true,
+                  plus: plus is String ? t(plus) : null,
+                  plusIncluded: plus == true,
+                ),
+            ]),
+          ),
+          Semantics(header: true, child: Text(t('plus.faq.title'), textAlign: TextAlign.center, style: fg(size: 24, weight: FontWeight.w800))),
+          for (final (q, a) in _faq)
+            FgCard(
+              padding: EdgeInsets.zero,
+              child: Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
+                  childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+                  iconColor: AppColors.white70,
+                  collapsedIconColor: AppColors.white70,
+                  title: Text(t(q), style: fg(size: 15, weight: FontWeight.w700)),
+                  children: [Align(alignment: Alignment.centerLeft, child: Text(t(a), style: fg(size: 14, color: AppColors.white70, height: 1.5)))],
+                ),
+              ),
+            ),
         ], 24),
+      ),
+    );
+  }
+}
+
+// [feature, free, PLUS]: true for included, false for not, or a short note's key.
+const _compare = <(String, Object, Object)>[
+  ('plus.compare.workouts', 'plus.compare.workoutsFree', 'plus.compare.workoutsPlus'),
+  ('plus.compare.plan', true, true),
+  ('plus.compare.nutrition', true, true),
+  ('plus.compare.health', true, true),
+  ('plus.compare.coach', 'plus.compare.coachFree', 'plus.compare.coachPlus'),
+  ('plus.compare.programs', false, true),
+];
+
+const _faq = [
+  ('plus.faq.cancelQ', 'plus.faq.cancelA'),
+  ('plus.faq.keepQ', 'plus.faq.keepA'),
+  ('plus.faq.switchQ', 'plus.faq.switchA'),
+  ('plus.faq.payQ', 'plus.faq.payA'),
+];
+
+/// One row of the Free and PLUS table: a note, a tick or a dash in each column.
+class _CompareRow extends StatelessWidget {
+  const _CompareRow({required this.feature, this.free, this.plus, this.freeIncluded = false, this.plusIncluded = false, this.header = false});
+  final String feature;
+  final String? free;
+  final String? plus;
+  final bool freeIncluded;
+  final bool plusIncluded;
+  final bool header;
+
+  Widget _cell(String? note, bool included, {required bool plusColumn}) {
+    final child = note != null
+        ? Text(note, textAlign: TextAlign.center, style: fg(size: header ? 13 : 12, weight: header ? FontWeight.w800 : FontWeight.w600, color: header && plusColumn ? AppColors.amber300 : (plusColumn ? AppColors.white : AppColors.white70)))
+        : Icon(included ? LucideIcons.check : LucideIcons.minus, size: 18, color: included ? AppColors.limeLight : AppColors.white30A(0.5), semanticLabel: included ? 'Included' : 'Not included');
+    return Container(
+      width: 92,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 14),
+      color: plusColumn ? AppColors.amber400.withValues(alpha: 0.05) : null,
+      alignment: Alignment.center,
+      child: child,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(border: header ? null : Border(top: BorderSide(color: AppColors.white30A(0.1)))),
+      child: IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Align(alignment: Alignment.centerLeft, child: Text(feature, style: fg(size: 13, weight: FontWeight.w500))),
+            ),
+          ),
+          _cell(free, freeIncluded, plusColumn: false),
+          _cell(plus, plusIncluded, plusColumn: true),
+        ]),
       ),
     );
   }

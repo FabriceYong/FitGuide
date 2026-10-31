@@ -25,6 +25,7 @@ import '../common/parq_modal.dart';
 import 'article_screen.dart';
 import 'articles.dart';
 import 'hero_carousel.dart';
+import 'today_panel.dart';
 
 /// Days since 1970, used to rotate daily picks.
 int _dayNumber() => DateTime.now().millisecondsSinceEpoch ~/ 86400000;
@@ -282,6 +283,7 @@ class _HomeTabState extends State<HomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: spaced([
+                if (auth.hasAccount) TodayPanel(key: ValueKey('today-${auth.user!.id}'), summary: summary, suggestion: picks.firstOrNull?.workout),
                 _section(
                   header: SectionHeader('Your progress', action: auth.hasAccount ? 'See all →' : null, onAction: () => dashboard.setTab(DashboardTab.progress)),
                   children: [
@@ -425,6 +427,8 @@ class _HomeTabState extends State<HomeTab> {
                   ],
                 ),
                 const _TipOfTheDay(),
+                // Ways into the rest of FitGuide, for visitors finding their way around (members have "Today").
+                if (!auth.hasAccount)
                 _section(
                   header: SectionHeader(
                     'Everything in FitGuide',

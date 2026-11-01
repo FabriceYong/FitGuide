@@ -12,7 +12,7 @@ const POINTS = [
     { icon: Sparkles, text: 'An AI coach that adjusts your plan as you go' },
 ];
 
-export const LoginPage = ({ onLoginSuccess, onSwitchToRegister, onForgotPassword }) => {
+export const LoginPage = ({ onLoginSuccess, onSwitchToRegister, onForgotPassword, onEmailNotConfirmed }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -27,7 +27,9 @@ export const LoginPage = ({ onLoginSuccess, onSwitchToRegister, onForgotPassword
             const data = await apiRequest('/auth/login', { method: 'POST', body: { email, password } });
             onLoginSuccess(data.user);
         } catch (error) {
-            setError(error.message || 'Login failed. Please check your credentials.');
+            // The right password, but the email isn't confirmed yet: a new link is on its way.
+            if (error.data?.code === 'EMAIL_NOT_VERIFIED') onEmailNotConfirmed(error.data.email);
+            else setError(error.message || 'Login failed. Please check your credentials.');
         } finally {
             setIsLoading(false);
         }

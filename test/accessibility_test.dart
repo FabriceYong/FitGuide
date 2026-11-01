@@ -89,7 +89,7 @@ void main() {
 
   testWidgets('sign in is accessible', (tester) async {
     final semantics = tester.ensureSemantics();
-    await pumpApp(tester, LoginScreen(onSwitchToRegister: () {}));
+    await pumpApp(tester, LoginScreen(onSwitchToRegister: () {}, onEmailNotConfirmed: (_, _) {}));
     await showWholePage(tester);
     await expectAccessible(tester);
     semantics.dispose();

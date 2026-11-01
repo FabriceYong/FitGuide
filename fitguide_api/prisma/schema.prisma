@@ -19,6 +19,9 @@ model User {
   name               String    @db.VarChar(100)
   email              String    @unique
   passwordHash       String
+  // Set once the user follows the link emailed at sign-up (or a password
+  // reset link). Accounts can't sign in before.
+  emailVerifiedAt    DateTime?
   // Allowed values for the profile fields live in utils/enums.js.
   gender             String    @default("Prefer not to say")
   height             Float     @default(170)
@@ -80,6 +83,7 @@ model User {
   coachProfile           CoachProfile?
   articles               Article[]            @relation("ArticleAuthor")
   passwordResets         PasswordReset[]
+  emailVerifications     EmailVerification[]
 
   @@map("users")
 }
@@ -116,6 +120,21 @@ model PasswordReset {
 
   @@index([userId])
   @@map("password_resets")
+}
+
+// A "confirm your email" link sent at sign-up. Only a hash of the token is
+// stored; the row is deleted once used, or when a newer link replaces it.
+model EmailVerification {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verifications")
 }
 
 // ─── Catalog ─────────────────────────────────────────────────────────────────

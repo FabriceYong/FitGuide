@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -7,14 +5,14 @@ import '../../../core/api/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/json.dart';
-import '../../../services/catalog_service.dart';
 import '../../../widgets/forms.dart';
-import '../../../widgets/image_pick.dart';
 import '../../../widgets/ui.dart';
 
 const _goalLabels = {'Vitality': 'Overall health', 'Muscle': 'Build muscle', 'Weight': 'Lose fat', 'Flexibility': 'Mobility'};
 
-/// Create the account with the answers so far (ProfileStep.js).
+/// Create the account with the answers so far (ProfileStep.js). It works
+/// once the emailed link confirms the address: [onComplete] gets the email
+/// and password, to sign in with then.
 class ProfileStep extends StatefulWidget {
   const ProfileStep({super.key, required this.onboardingData, required this.onComplete, required this.onBack});
   final Json onboardingData;
@@ -29,7 +27,6 @@ class _ProfileStepState extends State<ProfileStep> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  PickedImage? _avatar;
   bool _loading = false;
   String? _error;
 
@@ -39,19 +36,6 @@ class _ProfileStepState extends State<ProfileStep> {
     _email.dispose();
     _password.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickAvatar() async {
-    try {
-      final picked = await pickImage();
-      if (picked == null) return;
-      setState(() {
-        _avatar = picked;
-        _error = null;
-      });
-    } on ImagePickError catch (err) {
-      setState(() => _error = err.message);
-    }
   }
 
   Future<void> _submit() async {
@@ -83,23 +67,8 @@ class _ProfileStepState extends State<ProfileStep> {
         'workoutMinutes': d['workoutMinutes'],
         'daysPerWeek': d['daysPerWeek'],
       });
-      // Registering returned the session tokens; keep them before uploading.
-      await api.saveSession(data);
-      var response = data;
-      final avatar = _avatar;
-      if (avatar != null) {
-        // Uploads require an account, so the avatar is sent after registering.
-        try {
-          final upload = await api.request('/upload/avatar', method: 'POST', auth: true, files: [
-            UploadFile(field: 'avatar', bytes: avatar.bytes, filename: avatar.filename, contentType: avatar.contentType),
-          ]);
-          final updated = await api.request('/auth/profile', method: 'PUT', auth: true, body: {'avatarUrl': upload['avatarUrl']});
-          response = {...data, 'user': updated['user']};
-        } catch (_) {
-          // Account created; the photo can be added later from the profile.
-        }
-      }
-      widget.onComplete(response);
+      // No session yet: the account works once its email is confirmed.
+      widget.onComplete({'email': asString(data['email']) ?? _email.text.trim(), 'password': _password.text});
     } catch (err) {
       if (mounted) setState(() => _error = err is ApiError ? err.message : 'Registration failed.');
     } finally {
@@ -123,7 +92,10 @@ class _ProfileStepState extends State<ProfileStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const StepHeading(title: 'Create your account', description: 'Save your answers, workouts and progress, and pick up on any device.'),
+          const StepHeading(
+            title: 'Create your account',
+            description: "Save your answers, workouts and progress, and pick up on any device. We'll email you a link to confirm your address.",
+          ),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: AppColors.whiteA(0.03), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.white30A(0.2))),
@@ -140,49 +112,6 @@ class _ProfileStepState extends State<ProfileStep> {
           ),
           const SizedBox(height: 24),
           if (_error != null) ...[ErrorBox(_error!), const SizedBox(height: 16)],
-          Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.noirEclipse, border: Border.all(color: AppColors.white30A(0.4))),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (_avatar != null)
-                      Image.memory(Uint8List.fromList(_avatar!.bytes), fit: BoxFit.cover, semanticLabel: 'Your new profile photo')
-                    else
-                      const Icon(LucideIcons.user, size: 24, color: AppColors.white70),
-                    if (_loading && _avatar != null)
-                      ColoredBox(
-                        color: AppColors.noirEclipse.withValues(alpha: 0.6),
-                        child: const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FgButton(
-                      label: _avatar != null ? 'Change photo' : 'Add a photo',
-                      style: FgButtonStyle.secondary,
-                      height: 40,
-                      fontSize: 14,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      onPressed: _loading ? null : _pickAvatar,
-                    ),
-                    const SizedBox(height: 4),
-                    Text('Optional. JPEG, PNG, WebP or GIF, up to 5 MB.', style: fg(size: 14, color: AppColors.white70)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
           FormFieldLabel(
             label: 'Full name',
             child: FgTextField(controller: _name, autofillHints: const [AutofillHints.name], textInputAction: TextInputAction.next, enabled: !_loading),

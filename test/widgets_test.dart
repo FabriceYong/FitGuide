@@ -1,3 +1,4 @@
+import 'package:fitguide/src/features/auth/confirm_email_screen.dart';
 import 'package:fitguide/src/features/auth/login_screen.dart';
 import 'package:fitguide/src/features/dashboard/calculators_tab.dart';
 import 'package:fitguide/src/features/onboarding/onboarding_wizard.dart';
@@ -15,7 +16,7 @@ void main() {
 
   testWidgets('sign in needs an email and a password', (tester) async {
     var switched = false;
-    await pumpApp(tester, LoginScreen(onSwitchToRegister: () => switched = true));
+    await pumpApp(tester, LoginScreen(onSwitchToRegister: () => switched = true, onEmailNotConfirmed: (_, _) {}));
 
     expect(find.text('Welcome back. Sign in to continue your training.'), findsOneWidget);
     expect(find.text('Email: demo@fitguide.com'), findsOneWidget);
@@ -32,7 +33,7 @@ void main() {
   });
 
   testWidgets('forgot password carries the email over and confirms the request', (tester) async {
-    await pumpApp(tester, LoginScreen(onSwitchToRegister: () {}));
+    await pumpApp(tester, LoginScreen(onSwitchToRegister: () {}, onEmailNotConfirmed: (_, _) {}));
     await tester.enterText(find.byType(TextField).first, 'demo@fitguide.com');
     await tester.tap(find.text('Forgot password?'));
     await tester.pumpAndSettle();
@@ -46,6 +47,23 @@ void main() {
     await tester.tap(find.text('Back to sign in').first);
     await tester.pumpAndSettle();
     expect(find.text('Welcome back. Sign in to continue your training.'), findsOneWidget);
+  });
+
+  testWidgets('confirm your email: names the address, waits a minute before resending, and goes back', (tester) async {
+    var back = false;
+    await pumpApp(tester, ConfirmEmailScreen(email: 'casey@example.com', password: 'secret1', onBack: () => back = true));
+    expect(find.textContaining("We've sent a link to casey@example.com."), findsOneWidget);
+    expect(find.text("I've confirmed it"), findsOneWidget);
+
+    InkWell resend() => tester.widget<InkWell>(find.ancestor(of: find.textContaining('Resend email'), matching: find.byType(InkWell)).first);
+    expect(find.text('Resend email (60 s)'), findsOneWidget);
+    expect(resend().onTap, isNull);
+    await tester.pump(const Duration(seconds: 60));
+    expect(find.text('Resend email'), findsOneWidget);
+    expect(resend().onTap, isNotNull);
+
+    await tester.tap(find.text('Back to sign in').first);
+    expect(back, isTrue);
   });
 
   testWidgets('sign-up walks through the steps and can continue as a guest', (tester) async {

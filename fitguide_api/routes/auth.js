@@ -11,6 +11,7 @@ const { signToken, setAuthCookie, setRefreshCookies, clearSessionCookies, REFRES
 const authTokens = require('../services/authTokens');
 const accounts = require('../services/accounts');
 const passwordReset = require('../services/passwordReset');
+const emailVerification = require('../services/emailVerification');
 const { isForeignOriginWrite } = require('../utils/config');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
@@ -72,7 +73,15 @@ const rejectInvalid = (req, res, next) => {
   return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
 };
 
+const emailRule = () => body('email').trim().notEmpty().withMessage('Email is required').isEmail().withMessage('Please provide a valid email address').normalizeEmail();
+
+/** Email a confirmation link; a failure is logged, and the user can ask again. */
+const sendConfirmation = (user) => emailVerification.sendLink(user)
+  .catch((err) => console.error('[auth] could not send a confirmation link:', err.message));
+
 // ─── POST /api/auth/register ──────────────────────────────────────────────────
+// Creates the account and emails a link to confirm the address. No session
+// yet: signing in works once the email is confirmed.
 router.post(
   '/register',
   [
@@ -88,7 +97,13 @@ router.post(
         return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
       }
       const user = await userStore.create(req.body);
-      return startSession(req, res, 201, 'Account created successfully!', user);
+      await sendConfirmation(user);
+      return res.status(201).json({
+        success: true,
+        verificationRequired: true,
+        email: user.email,
+        message: 'Account created. Check your inbox for a link to confirm your email.',
+      });
     } catch (err) {
       next(err);
     }
@@ -109,6 +124,17 @@ router.post(
       const isMatch = record && await bcrypt.compare(req.body.password, record.passwordHash);
       if (!isMatch) {
         return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+      }
+      // Only told with the right password, so it reveals nothing to others.
+      // A fresh link goes out (at most one a minute), in case the last expired.
+      if (!record.user.emailVerified) {
+        await sendConfirmation(record.user);
+        return res.status(403).json({
+          success: false,
+          code: 'EMAIL_NOT_VERIFIED',
+          email: record.user.email,
+          message: `Confirm your email first: we've sent a link to ${record.user.email}.`,
+        });
       }
       return startSession(req, res, 200, 'Login successful!', record.user);
     } catch (err) {
@@ -200,6 +226,31 @@ router.put(
     }
   }
 );
+
+// ─── POST /api/auth/verify-email ──────────────────────────────────────────────
+// Confirm the email from the emailed link, then start a session.
+router.post(
+  '/verify-email',
+  [body('token').isString().notEmpty().withMessage('The link is incomplete')],
+  rejectInvalid,
+  async (req, res, next) => {
+    try {
+      const user = await emailVerification.confirm(req.body.token);
+      return startSession(req, res, 200, 'Email confirmed.', user);
+    } catch (err) {
+      if (err instanceof emailVerification.VerificationError) return res.status(err.status).json({ success: false, code: err.code, message: err.message });
+      next(err);
+    }
+  }
+);
+
+// ─── POST /api/auth/resend-verification ───────────────────────────────────────
+// Send the confirmation link again. The same answer whatever the email, sent
+// before the lookup finishes, so it doesn't reveal who has an account.
+router.post('/resend-verification', [emailRule()], rejectInvalid, (req, res) => {
+  emailVerification.resend(req.body.email).catch((err) => console.error('[auth] could not resend a confirmation link:', err.message));
+  res.status(200).json({ success: true, message: "If that email has an account waiting to be confirmed, we've sent a new link." });
+});
 
 // ─── POST /api/auth/forgot-password ───────────────────────────────────────────
 // Email a reset link if an account uses this address. The answer is the same

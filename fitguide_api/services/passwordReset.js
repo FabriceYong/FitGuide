@@ -11,7 +11,6 @@ const { prisma } = require('../db/prisma');
 const userStore = require('../stores/userStore');
 const authTokens = require('./authTokens');
 const mailer = require('./mailer');
-const { getCorsOrigins } = require('../utils/config');
 
 const LINK_TTL_MS = 60 * 60 * 1000;
 // A second request this soon after the last one sends nothing, so the form
@@ -19,9 +18,6 @@ const LINK_TTL_MS = 60 * 60 * 1000;
 const RESEND_AFTER_MS = 60 * 1000;
 
 const hash = (token) => crypto.createHash('sha256').update(token).digest('hex');
-const webBase = () => (process.env.WEB_APP_URL || getCorsOrigins()[0] || 'http://localhost:3000').replace(/\/+$/, '');
-
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 class ResetError extends Error {
   constructor(message, status = 400, code = 'RESET_LINK_INVALID') {
@@ -31,28 +27,14 @@ class ResetError extends Error {
   }
 }
 
-function resetEmail(name, link) {
-  const firstName = String(name || '').trim().split(/\s+/)[0] || 'there';
-  const text = [
-    `Hi ${firstName},`,
-    '',
-    'Someone (hopefully you) asked to reset the password for your FitGuide account. Choose a new password here:',
-    '',
-    link,
-    '',
-    'The link works once and expires in 1 hour. If you didn\'t ask for this, you can ignore this email: your password won\'t change.',
-    '',
-    'FitGuide',
-  ].join('\n');
-  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#111">
-<p>Hi ${escapeHtml(firstName)},</p>
-<p>Someone (hopefully you) asked to reset the password for your FitGuide account.</p>
-<p><a href="${escapeHtml(link)}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#00C4B4;color:#0b0b0f;font-weight:bold;text-decoration:none">Choose a new password</a></p>
-<p style="color:#555;font-size:13px">Or paste this link into your browser:<br>${escapeHtml(link)}</p>
-<p style="color:#555;font-size:13px">The link works once and expires in 1 hour. If you didn't ask for this, you can ignore this email: your password won't change.</p>
-</div>`;
-  return { subject: 'Reset your FitGuide password', text, html };
-}
+const resetEmail = (name, link) => mailer.actionEmail({
+  name,
+  subject: 'Reset your FitGuide password',
+  intro: 'Someone (hopefully you) asked to reset the password for your FitGuide account.',
+  button: 'Choose a new password',
+  link,
+  note: "The link works once and expires in 1 hour. If you didn't ask for this, you can ignore this email: your password won't change.",
+});
 
 /**
  * Email a reset link if an account uses this address. Does nothing (and
@@ -72,7 +54,7 @@ async function requestReset(email) {
     prisma.passwordReset.deleteMany({ where: { userId: user.id } }),
     prisma.passwordReset.create({ data: { userId: user.id, tokenHash: hash(token), expiresAt: new Date(Date.now() + LINK_TTL_MS) } }),
   ]);
-  const link = `${webBase()}/reset-password?token=${encodeURIComponent(token)}`;
+  const link = `${mailer.webBase()}/reset-password?token=${encodeURIComponent(token)}`;
   await mailer.send({ to: user.email, ...resetEmail(user.name, link) });
 }
 
@@ -93,6 +75,8 @@ async function resetPassword(token, password) {
   if (!count) throw new ResetError('This reset link has expired or was already used. Ask for a new one.');
 
   await userStore.setPassword(row.userId, password);
+  // The link reached their inbox, so the email is confirmed too.
+  await prisma.user.updateMany({ where: { id: row.userId, emailVerifiedAt: null }, data: { emailVerifiedAt: new Date() } });
   await Promise.all([cancelLinks(row.userId), authTokens.revokeAll(row.userId)]);
   return userStore.findById(row.userId);
 }

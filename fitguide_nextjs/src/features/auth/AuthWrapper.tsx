@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { LoginPage } from './LoginPage';
 import { ForgotPasswordPage } from './ForgotPasswordPage';
+import { CheckEmailPage } from './CheckEmailPage';
 import { OnboardingWizard } from '../onboarding/OnboardingWizard';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { useAuth, type AuthUser } from '../../contexts/AuthContext';
@@ -21,7 +22,8 @@ export const useStartSignUp = () => useContext(SignUpContext);
 /**
  * Shows the sign-in page, the sign-up wizard or the app. Linking to
  * /?signup=1 opens the wizard straight away, guests included, and /?forgot=1
- * the "forgot password" page for signed-out visitors.
+ * the "forgot password" page for signed-out visitors. A new account first
+ * confirms its email: "Check your inbox" until the emailed link is used.
  */
 export function AuthWrapper({ children }: { children: ReactNode }) {
   const { ready, isAuthenticated, login: signIn, startGuestSession } = useAuth();
@@ -33,6 +35,9 @@ export function AuthWrapper({ children }: { children: ReactNode }) {
   const [forgotEmail, setForgotEmail] = useState<string | null>(
     () => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('forgot') ? '' : null),
   );
+
+  // The address waiting to be confirmed, while "Check your inbox" shows.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   const closeForgot = () => {
     setForgotEmail(null);
@@ -52,11 +57,11 @@ export function AuthWrapper({ children }: { children: ReactNode }) {
   if (showRegister) {
     return (
       <OnboardingWizard
-        onFinish={(user: AuthUser | null, options?: { registered?: boolean }) => {
-          if (user && options?.registered) {
-            // Registered account: the API already set the session cookie
+        onFinish={(user: AuthUser | null, options?: { registered?: boolean; email?: string }) => {
+          if (options?.registered) {
+            // Registered: the account works once its email is confirmed.
             track('signup');
-            login(user);
+            setPendingEmail(options.email ?? '');
           } else if (user) {
             // Skipped account creation: browse as a guest
             startGuestSession(user);
@@ -70,6 +75,7 @@ export function AuthWrapper({ children }: { children: ReactNode }) {
   if (isAuthenticated) {
     return <SignUpContext.Provider value={() => setShowRegister(true)}>{children}</SignUpContext.Provider>;
   }
+  if (pendingEmail !== null) return <CheckEmailPage email={pendingEmail} onBackToLogin={() => setPendingEmail(null)} />;
   if (forgotEmail !== null) return <ForgotPasswordPage initialEmail={forgotEmail} onBackToLogin={closeForgot} />;
-  return <LoginPage onLoginSuccess={login} onSwitchToRegister={() => setShowRegister(true)} onForgotPassword={setForgotEmail} />;
+  return <LoginPage onLoginSuccess={login} onSwitchToRegister={() => setShowRegister(true)} onForgotPassword={setForgotEmail} onEmailNotConfirmed={setPendingEmail} />;
 }

@@ -7,6 +7,7 @@ import '../../core/api/api_client.dart';
 import '../../core/images.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/json.dart';
 import '../../state/auth_controller.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/ui.dart';
@@ -15,8 +16,11 @@ import 'forgot_password_screen.dart';
 
 /// Sign in (features/auth/LoginPage.js).
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.onSwitchToRegister});
+  const LoginScreen({super.key, required this.onSwitchToRegister, required this.onEmailNotConfirmed});
   final VoidCallback onSwitchToRegister;
+
+  /// The right password, but the email isn't confirmed yet (a new link is on its way).
+  final void Function(String email, String password) onEmailNotConfirmed;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -55,7 +59,12 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       await context.read<AuthController>().login(data);
     } catch (err) {
-      if (mounted) setState(() => _error = err is ApiError ? err.message : 'Login failed. Please check your credentials.');
+      if (!mounted) return;
+      if (err is ApiError && err.code == 'EMAIL_NOT_VERIFIED') {
+        widget.onEmailNotConfirmed(asString(err.data?['email']) ?? _email.text.trim(), _password.text);
+      } else {
+        setState(() => _error = err is ApiError ? err.message : 'Login failed. Please check your credentials.');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

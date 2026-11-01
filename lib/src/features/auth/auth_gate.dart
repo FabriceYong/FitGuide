@@ -9,9 +9,11 @@ import '../../state/dashboard_controller.dart';
 import '../common/brand.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../onboarding/onboarding_wizard.dart';
+import 'confirm_email_screen.dart';
 import 'login_screen.dart';
 
-/// Shows the sign-in page, the sign-up wizard or the app (AuthWrapper).
+/// Shows the sign-in page, the sign-up wizard or the app (AuthWrapper). A new
+/// account first confirms its email: "Confirm your email" until it has.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -22,6 +24,8 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool? _wasSignedIn;
   bool _wasRegistering = false;
+  // The account waiting for its email to be confirmed.
+  ({String email, String password})? _pending;
 
   /// Signing out or opening sign-up leaves whatever page was on top.
   void _closePagesOnTransition(AuthController auth) {
@@ -46,9 +50,9 @@ class _AuthGateState extends State<AuthGate> {
       return OnboardingWizard(
         onFinish: (Json? response, {bool registered = false}) async {
           if (response != null && registered) {
-            // Registered account: the response carries the session tokens.
+            // Registered: the account works once its email is confirmed.
             track('signup', path: '/');
-            await auth.login(response);
+            setState(() => _pending = (email: asString(response['email']) ?? '', password: asString(response['password']) ?? ''));
           } else if (response != null) {
             // Skipped account creation: browse as a guest.
             auth.startGuestSession(response);
@@ -59,6 +63,13 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
     if (auth.isAuthenticated) return const DashboardScreen();
-    return LoginScreen(onSwitchToRegister: auth.startSignUp);
+    final pending = _pending;
+    if (pending != null) {
+      return ConfirmEmailScreen(email: pending.email, password: pending.password, onBack: () => setState(() => _pending = null));
+    }
+    return LoginScreen(
+      onSwitchToRegister: auth.startSignUp,
+      onEmailNotConfirmed: (email, password) => setState(() => _pending = (email: email, password: password)),
+    );
   }
 }

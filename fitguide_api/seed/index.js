@@ -18,6 +18,7 @@ async function seedDemoUser() {
       email,
       name: 'Demo User',
       passwordHash: await bcrypt.hash('demo123', 12),
+      emailVerifiedAt: new Date(),
       gender: 'Male',
       height: 178,
       weight: 75,

@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { API, MAILBOX, newAccount, signUpAndSignIn } from './helpers';
+import { API, emailedLink, newAccount, registerConfirmed, signUpAndSignIn } from './helpers';
 
 const openProfile = (page: Page) => page.getByRole('navigation', { name: 'Dashboard' }).first().getByRole('button', { name: 'Profile' }).click();
 const NEW_PASSWORD = 'e2e-new-password-456';
@@ -35,9 +35,37 @@ test('changing the password keeps you signed in', async ({ page }) => {
   expect((await login(NEW_PASSWORD)).status()).toBe(200);
 });
 
+test('a new account confirms its email before it can sign in', async ({ page }) => {
+  const account = newAccount('Confirm Tester');
+  expect((await page.request.post(`${API}/auth/register`, { data: account })).status()).toBe(201);
+  await page.goto('/');
+  await page.getByLabel('Email').fill(account.email);
+  await page.getByLabel('Password', { exact: true }).fill(account.password);
+  await page.getByRole('button', { name: /sign in/i }).click();
+
+  // The right password, but not confirmed yet: check your inbox.
+  await expect(page.getByRole('heading', { name: 'Confirm your email' })).toBeVisible();
+  await expect(page.getByText(`We've sent a link to ${account.email}.`)).toBeVisible();
+  await expect(page.getByRole('button', { name: /Resend email \(\d+ s\)/ })).toBeDisabled();
+  const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+
+  // The emailed link confirms the email and signs in.
+  const link = await emailedLink(page, account.email, '/verify-email?token=');
+  await page.goto(link);
+  await expect(page.getByRole('navigation', { name: 'Dashboard' }).first()).toBeVisible();
+
+  // It works once; a used link offers a new one.
+  await page.goto(link);
+  await expect(page.getByRole('heading', { name: 'This link has expired' })).toBeVisible();
+  await page.getByLabel('Email').fill(account.email);
+  await page.getByRole('button', { name: 'Send a new link' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /new link/ })).toBeVisible();
+});
+
 test('a forgotten password can be reset from the emailed link', async ({ page }) => {
   const account = newAccount('Reset Tester');
-  expect((await page.request.post(`${API}/auth/register`, { data: account })).status()).toBe(201);
+  await registerConfirmed(page, account);
   await page.context().clearCookies();
   await page.goto('/');
   await page.getByLabel('Email').fill(account.email);
@@ -49,13 +77,7 @@ test('a forgotten password can be reset from the emailed link', async ({ page })
   await page.getByRole('button', { name: 'Send reset link' }).click();
   await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
 
-  let link = '';
-  await expect.poll(async () => {
-    const res = await page.request.get(`${MAILBOX}/?to=${encodeURIComponent(account.email)}`);
-    link = res.ok() ? (await res.json()).text.match(/https?:\/\/\S+/)?.[0] ?? '' : '';
-    return link;
-  }).toContain('/reset-password?token=');
-
+  const link = await emailedLink(page, account.email, '/reset-password?token=');
   await page.goto(link);
   await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
   const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();

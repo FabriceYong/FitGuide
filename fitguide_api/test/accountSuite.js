@@ -25,23 +25,32 @@ async function uploadAvatar(agent) {
   return res.body.avatarUrl;
 }
 
+// Subjects of the emails the API sends.
+const RESET = /Reset your FitGuide password/;
+const CONFIRM = /Confirm your email/;
+
 /**
- * Collect sent emails instead of sending them. nextMail() resolves with the
- * next one, since the forgot-password route answers before it sends.
+ * Collect sent emails instead of sending them. nextMail(subject) resolves
+ * with the next one whose subject matches, since some routes answer before
+ * they send; count(subject) is how many are waiting unread.
  */
 function captureMail() {
   const inbox = [];
   const waiting = [];
   mailer.setTransport({
     sendMail: async (message) => {
-      const resolve = waiting.shift();
-      if (resolve) resolve(message);
-      else inbox.push(message);
+      const i = waiting.findIndex((w) => w.subject.test(message.subject));
+      if (i === -1) inbox.push(message);
+      else waiting.splice(i, 1)[0].resolve(message);
     },
   });
   return {
-    nextMail: () => (inbox.length ? Promise.resolve(inbox.shift()) : new Promise((resolve) => { waiting.push(resolve); })),
-    count: () => inbox.length,
+    nextMail: (subject) => {
+      const i = inbox.findIndex((m) => subject.test(m.subject));
+      if (i !== -1) return Promise.resolve(inbox.splice(i, 1)[0]);
+      return new Promise((resolve) => { waiting.push({ subject, resolve }); });
+    },
+    count: (subject) => inbox.filter((m) => subject.test(m.subject)).length,
   };
 }
 const tokenFrom = (mail) => new URL(mail.text.match(/https?:\/\/\S+/)[0]).searchParams.get('token');
@@ -103,6 +112,102 @@ function defineAccountSuite(ctx) {
     });
   });
 
+  describe('confirming the email', () => {
+    let mail;
+    before(() => { mail = captureMail(); });
+    after(() => mailer.setTransport(null));
+
+    const register = async (name) => {
+      const creds = { name, email: `${slug('confirm')}@example.com`, password: 'a-good-passphrase' };
+      await request(ctx().app).post('/api/auth/register').send(creds).expect(201);
+      return creds;
+    };
+    const login = (creds, transport = request(ctx().app)) => transport.post('/api/auth/login').send({ email: creds.email, password: creds.password });
+
+    it('emails a link at sign-up, and signing in waits for it', async () => {
+      const creds = await register('Casey Confirm');
+      const message = await mail.nextMail(CONFIRM);
+      assert.equal(message.to, creds.email);
+      assert.match(message.text, /^Hi Casey,/);
+      assert.ok(message.text.includes('http://localhost:3000/verify-email?token='));
+
+      // The right password is told to confirm first; a wrong one learns nothing.
+      const early = await login(creds).expect(403);
+      assert.equal(early.body.code, 'EMAIL_NOT_VERIFIED');
+      assert.equal(early.body.email, creds.email);
+      assert.ok(!(early.headers['set-cookie'] || []).some((c) => c.startsWith('fitguide_token=')), 'no session');
+      await request(ctx().app).post('/api/auth/login').send({ email: creds.email, password: 'wrong-password' }).expect(401);
+
+      // The link confirms the email and signs this browser in.
+      const token = tokenFrom(message);
+      await request(ctx().app).post('/api/auth/verify-email').send({ token: 'made-up' }).expect(400);
+      const browser = request.agent(ctx().app);
+      const confirmed = await browser.post('/api/auth/verify-email').send({ token }).expect(200);
+      assert.equal(confirmed.body.user.email, creds.email);
+      assert.equal(confirmed.body.user.emailVerified, true);
+      await browser.get('/api/auth/me').expect(200);
+
+      // It works once; signing in works from now on.
+      const again = await request(ctx().app).post('/api/auth/verify-email').send({ token }).expect(400);
+      assert.equal(again.body.code, 'VERIFY_LINK_INVALID');
+      await login(creds).expect(200);
+    });
+
+    it('gives the app its tokens when it confirms', async () => {
+      const creds = await register('Mobile Confirm');
+      const token = tokenFrom(await mail.nextMail(CONFIRM));
+      const res = await request(ctx().app).post('/api/auth/verify-email').set('X-Auth-Transport', 'bearer').send({ token }).expect(200);
+      assert.ok(res.body.token && res.body.refreshToken);
+      assert.equal(res.body.user.email, creds.email);
+    });
+
+    it('sends a new link on request, at most one a minute, and only to accounts waiting for one', async () => {
+      const { app } = ctx();
+      const creds = await register('Riley Resend');
+      const first = tokenFrom(await mail.nextMail(CONFIRM));
+
+      // Within a minute of the last one: the same answer, but no email.
+      const res = await request(app).post('/api/auth/resend-verification').send({ email: creds.email }).expect(200);
+      const unknown = await request(app).post('/api/auth/resend-verification').send({ email: `${slug('nobody')}@example.com` }).expect(200);
+      assert.equal(unknown.body.message, res.body.message);
+      await request(app).post('/api/auth/resend-verification').send({ email: 'not-an-email' }).expect(400);
+      await login(creds).expect(403);
+      assert.equal(mail.count(CONFIRM), 0);
+
+      // Later, signing in or asking sends a new link, which replaces the first.
+      const user = await prisma.user.findUnique({ where: { email: creds.email } });
+      await prisma.emailVerification.updateMany({ where: { userId: user.id }, data: { createdAt: new Date(Date.now() - 2 * 60 * 1000) } });
+      await request(app).post('/api/auth/resend-verification').send({ email: creds.email }).expect(200);
+      const second = tokenFrom(await mail.nextMail(CONFIRM));
+      await request(app).post('/api/auth/verify-email').send({ token: first }).expect(400);
+      await request(app).post('/api/auth/verify-email').send({ token: second }).expect(200);
+
+      // Confirmed accounts get no more links.
+      await prisma.emailVerification.deleteMany({ where: { userId: user.id } });
+      await require('../services/emailVerification').resend(creds.email);
+      assert.equal(mail.count(CONFIRM), 0);
+    });
+
+    it('refuses expired links', async () => {
+      const creds = await register('Late Confirm');
+      const token = tokenFrom(await mail.nextMail(CONFIRM));
+      const user = await prisma.user.findUnique({ where: { email: creds.email } });
+      await prisma.emailVerification.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+      await request(ctx().app).post('/api/auth/verify-email').send({ token }).expect(400);
+      await login(creds).expect(403);
+    });
+
+    it('a password reset link also confirms the email', async () => {
+      const creds = await register('Reset Confirm');
+      await mail.nextMail(CONFIRM);
+      await passwordReset.requestReset(creds.email);
+      const token = tokenFrom(await mail.nextMail(RESET));
+      const res = await request(ctx().app).post('/api/auth/reset-password').send({ token, password: NEW_PASSWORD }).expect(200);
+      assert.equal(res.body.user.emailVerified, true);
+      await request(ctx().app).post('/api/auth/login').send({ email: creds.email, password: NEW_PASSWORD }).expect(200);
+    });
+  });
+
   describe('forgot password', () => {
     let mail;
     before(() => { mail = captureMail(); });
@@ -114,9 +219,9 @@ function defineAccountSuite(ctx) {
       const known = await request(app).post('/api/auth/forgot-password').send({ email: creds.email }).expect(200);
       const unknown = await request(app).post('/api/auth/forgot-password').send({ email: `nobody-${slug('x')}@example.com` }).expect(200);
       assert.equal(unknown.body.message, known.body.message);
-      await mail.nextMail();
+      await mail.nextMail(RESET);
       await passwordReset.requestReset(`nobody-${slug('y')}@example.com`);
-      assert.equal(mail.count(), 0);
+      assert.equal(mail.count(RESET), 0);
       await request(app).post('/api/auth/forgot-password').send({ email: 'not-an-email' }).expect(400);
     });
 
@@ -124,7 +229,7 @@ function defineAccountSuite(ctx) {
       const { app } = ctx();
       const { agent, creds } = await ctx().signUp('Reset Me');
       await request(app).post('/api/auth/forgot-password').send({ email: creds.email.toUpperCase() }).expect(200);
-      const message = await mail.nextMail();
+      const message = await mail.nextMail(RESET);
       assert.equal(message.to, creds.email);
       assert.match(message.text, /^Hi Reset,/);
       assert.ok(message.text.includes('http://localhost:3000/reset-password?token='));
@@ -150,7 +255,7 @@ function defineAccountSuite(ctx) {
       const { app } = ctx();
       const { creds } = await ctx().signUp('Reset Mobile');
       await request(app).post('/api/auth/forgot-password').set('X-Auth-Transport', 'bearer').send({ email: creds.email }).expect(200);
-      const token = tokenFrom(await mail.nextMail());
+      const token = tokenFrom(await mail.nextMail(RESET));
       const res = await request(app).post('/api/auth/reset-password').set('X-Auth-Transport', 'bearer').send({ token, password: NEW_PASSWORD }).expect(200);
       assert.ok(res.body.token && res.body.refreshToken);
     });
@@ -159,13 +264,13 @@ function defineAccountSuite(ctx) {
       const { app } = ctx();
       const { user, creds } = await ctx().signUp('Reset Twice');
       await passwordReset.requestReset(creds.email);
-      const first = tokenFrom(await mail.nextMail());
+      const first = tokenFrom(await mail.nextMail(RESET));
       await passwordReset.requestReset(creds.email);
-      assert.equal(mail.count(), 0, 'no second email within a minute');
+      assert.equal(mail.count(RESET), 0, 'no second email within a minute');
 
       await prisma.passwordReset.updateMany({ where: { userId: user.id }, data: { createdAt: new Date(Date.now() - 2 * 60 * 1000) } });
       await passwordReset.requestReset(creds.email);
-      const second = tokenFrom(await mail.nextMail());
+      const second = tokenFrom(await mail.nextMail(RESET));
       await request(app).post('/api/auth/reset-password').send({ token: first, password: NEW_PASSWORD }).expect(400);
       await request(app).post('/api/auth/reset-password').send({ token: second, password: NEW_PASSWORD }).expect(200);
     });
@@ -174,12 +279,12 @@ function defineAccountSuite(ctx) {
       const { app } = ctx();
       const { agent, user, creds } = await ctx().signUp('Reset Late');
       await passwordReset.requestReset(creds.email);
-      const expired = tokenFrom(await mail.nextMail());
+      const expired = tokenFrom(await mail.nextMail(RESET));
       await prisma.passwordReset.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(Date.now() - 1000), createdAt: new Date(Date.now() - 2 * 60 * 1000) } });
       await request(app).post('/api/auth/reset-password').send({ token: expired, password: NEW_PASSWORD }).expect(400);
 
       await passwordReset.requestReset(creds.email);
-      const pending = tokenFrom(await mail.nextMail());
+      const pending = tokenFrom(await mail.nextMail(RESET));
       await agent.put('/api/auth/password').send({ currentPassword: creds.password, newPassword: NEW_PASSWORD }).expect(200);
       await request(app).post('/api/auth/reset-password').send({ token: pending, password: 'someone-elses-choice' }).expect(400);
     });

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { API, newAccount } from './helpers';
+import { API, emailedLink, newAccount, registerConfirmed } from './helpers';
 
 /** The sticky button at the bottom of the sign-up wizard (last in the page). */
 const next = (page: Page, name: RegExp = /^continue$/i) => page.getByRole('button', { name }).last().click();
@@ -43,6 +43,9 @@ test('sign-up answers tailor the home recommendations', async ({ page }) => {
   await page.getByLabel('Email').fill(account.email);
   await page.getByLabel('Password', { exact: true }).fill(account.password);
   await page.getByRole('button', { name: 'Create account' }).click();
+  // The account works once the email is confirmed: the emailed link signs in.
+  await expect(page.getByRole('heading', { name: 'Confirm your email' })).toBeVisible();
+  await page.goto(await emailedLink(page, account.email, '/verify-email'));
 
   // The account holds the answers.
   await expect(page.getByText('Recommended for you')).toBeVisible();
@@ -71,7 +74,7 @@ test('sign-up answers tailor the home recommendations', async ({ page }) => {
 
 test('changing training preferences in the profile changes the picks', async ({ page }) => {
   const account = { ...newAccount('Gym Goer'), focusAreas: ['Chest', 'Back'], equipment: ['none'], fitnessLevel: 'Intermediate' };
-  expect((await page.request.post(`${API}/auth/register`, { data: account })).status()).toBe(201);
+  await registerConfirmed(page, account);
   await page.context().clearCookies();
   await page.goto('/');
   await page.getByLabel('Email').fill(account.email);

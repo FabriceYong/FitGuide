@@ -43,6 +43,7 @@ function toPublicUser(u) {
     id: u.id,
     name: u.name,
     email: u.email,
+    emailVerified: Boolean(u.emailVerifiedAt),
     ...Object.fromEntries(Object.entries(PROFILE_DEFAULTS).map(([k, def]) => [k, u[k] ?? def])),
     favoriteWorkouts: (u.favorites || []).map((f) => f.workoutSlug),
     role: u.role || 'user',

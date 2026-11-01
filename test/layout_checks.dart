@@ -1,3 +1,4 @@
+import 'package:fitguide/src/features/auth/confirm_email_screen.dart';
 import 'package:fitguide/src/features/auth/login_screen.dart';
 import 'package:fitguide/src/features/dashboard/calculators_tab.dart';
 import 'package:fitguide/src/features/dashboard/dashboard_screen.dart';
@@ -45,7 +46,11 @@ void layoutChecks({required Size size, required double textScale}) {
   }
 
   testWidgets('sign in', (tester) async {
-    await expectNoOverflow(() => pump(tester, LoginScreen(onSwitchToRegister: () {})));
+    await expectNoOverflow(() => pump(tester, LoginScreen(onSwitchToRegister: () {}, onEmailNotConfirmed: (_, _) {})));
+  });
+
+  testWidgets('confirm your email', (tester) async {
+    await expectNoOverflow(() => pump(tester, ConfirmEmailScreen(email: 'someone.with.a.long.address@example.com', password: 'x', onBack: () {})));
   });
 
   testWidgets('every sign-up step', (tester) async {

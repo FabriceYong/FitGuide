@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { createApp, createAppWith, useDatabase } = require('./helpers/setup');
+const { prisma } = require('../db/prisma');
 const { defineTrainingSuite } = require('./trainingSuite');
 const { definePlanCoachSuite } = require('./planCoachSuite');
 const { defineNutritionSuite } = require('./nutritionSuite');
@@ -49,12 +50,28 @@ function defineApiSuite() {
     let alice;
     let bob;
 
-    /** Register an account and return { agent, user, creds }. */
+    /** Register an account and confirm its email (as its link would), without signing in. */
+    async function registerConfirmed(creds, target = app) {
+      await request(target).post('/api/auth/register').send(creds).expect(201);
+      await prisma.user.update({ where: { email: creds.email }, data: { emailVerifiedAt: new Date() } });
+    }
+
+    /** A new account with its email confirmed, signed in: { agent, user, creds }. */
     async function signUp(name) {
       const creds = newAccount(name);
+      await registerConfirmed(creds);
       const agent = request.agent(app);
-      const res = await agent.post('/api/auth/register').send(creds).expect(201);
+      const res = await agent.post('/api/auth/login').send({ email: creds.email, password: creds.password }).expect(200);
       return { agent, user: res.body.user, creds };
+    }
+
+    /** Sign a new confirmed account in; `bearer` asks for the tokens in the body. */
+    async function signIn({ bearer = false, name } = {}) {
+      const creds = newAccount(name);
+      await registerConfirmed(creds);
+      const req = request(app).post('/api/auth/login');
+      if (bearer) req.set('X-Auth-Transport', 'bearer');
+      return req.send({ email: creds.email, password: creds.password }).expect(200);
     }
 
     before(async () => {
@@ -111,8 +128,17 @@ function defineApiSuite() {
     });
 
     describe('auth', () => {
-      it('register sets an httpOnly SameSite cookie and keeps the token out of the body', async () => {
-        const res = await request(app).post('/api/auth/register').send(newAccount()).expect(201);
+      it('register starts no session: the email must be confirmed first', async () => {
+        const res = await request(app).post('/api/auth/register').send(newAccount('Newcomer')).expect(201);
+        assert.equal(res.body.verificationRequired, true);
+        assert.equal(res.body.user, undefined);
+        assert.equal(res.body.token, undefined);
+        assert.equal(authCookie(res), null);
+        assert.equal(refreshCookie(res), null);
+      });
+
+      it('sign-in sets an httpOnly SameSite cookie and keeps the token out of the body', async () => {
+        const res = await signIn();
         const cookie = authCookie(res);
         assert.ok(cookie?.value, 'auth cookie set');
         assert.ok(cookie.attrs.includes('httponly'));
@@ -124,11 +150,7 @@ function defineApiSuite() {
       });
 
       it('returns the token in the body for bearer clients that ask for it', async () => {
-        const res = await request(app)
-          .post('/api/auth/register')
-          .set('X-Auth-Transport', 'bearer')
-          .send(newAccount('Mobile'))
-          .expect(201);
+        const res = await signIn({ bearer: true, name: 'Mobile' });
         assert.ok(res.body.token);
         const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${res.body.token}`).expect(200);
         assert.equal(me.body.user.name, 'Mobile');
@@ -174,7 +196,7 @@ function defineApiSuite() {
       });
 
       it('issues a refresh token limited to the auth routes, plus a session hint', async () => {
-        const res = await request(app).post('/api/auth/register').send(newAccount()).expect(201);
+        const res = await signIn();
         const refresh = refreshCookie(res);
         assert.ok(refresh?.value);
         assert.ok(refresh.attrs.includes('httponly'));
@@ -195,8 +217,7 @@ function defineApiSuite() {
       });
 
       it('a replayed refresh token ends the whole session', async () => {
-        const creds = newAccount('Victim');
-        const res = await request(app).post('/api/auth/register').send(creds).expect(201);
+        const res = await signIn({ name: 'Victim' });
         const stolen = refreshCookie(res).value;
         const victim = await request(app).post('/api/auth/refresh').set('Cookie', `fitguide_refresh=${stolen}`).expect(200);
         const current = refreshCookie(victim).value;
@@ -216,7 +237,7 @@ function defineApiSuite() {
       });
 
       it('bearer clients refresh with the token in the body', async () => {
-        const login = await request(app).post('/api/auth/register').set('X-Auth-Transport', 'bearer').send(newAccount('App')).expect(201);
+        const login = await signIn({ bearer: true, name: 'App' });
         assert.ok(login.body.refreshToken);
         const res = await request(app)
           .post('/api/auth/refresh')
@@ -273,8 +294,9 @@ function defineApiSuite() {
 
       it('stores training preferences from sign-up and profile edits', async () => {
         const creds = { ...newAccount('Prefs'), gender: 'Female', focusAreas: ['Glutes', 'Core', 'Glutes'], equipment: ['none'], limitations: ['knees'], workoutMinutes: 30, daysPerWeek: 3 };
+        await registerConfirmed(creds);
         const agent = request.agent(app);
-        const { user } = (await agent.post('/api/auth/register').send(creds).expect(201)).body;
+        const { user } = (await agent.post('/api/auth/login').send({ email: creds.email, password: creds.password }).expect(200)).body;
         assert.deepEqual(user.focusAreas, ['Glutes', 'Core']);
         assert.deepEqual(user.equipment, ['none']);
         assert.deepEqual(user.limitations, ['knees']);
@@ -554,7 +576,8 @@ function defineApiSuite() {
         const limited = createAppWith({ LOGIN_RATE_LIMIT_MAX: '2' });
         const agent = request.agent(limited);
         const creds = newAccount('Guesser');
-        await agent.post('/api/auth/register').send(creds).expect(201);
+        await registerConfirmed(creds, limited);
+        await agent.post('/api/auth/login').send({ email: creds.email, password: creds.password }).expect(200);
         await agent.put('/api/auth/password').send({ currentPassword: 'guess-1', newPassword: 'whatever-new' }).expect(403);
         await agent.delete('/api/auth/account').send({ password: 'guess-2' }).expect(403);
         await agent.put('/api/auth/password').send({ currentPassword: creds.password, newPassword: 'whatever-new' }).expect(429);

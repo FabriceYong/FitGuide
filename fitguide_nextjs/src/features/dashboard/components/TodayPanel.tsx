@@ -124,8 +124,8 @@ export function TodayPanel({ summary, suggestion }: { summary: ProgressSummary |
             <span className="text-5xl font-black text-white tabular-nums leading-none">{streak?.current ?? '–'}</span>
             <span className="text-sm text-white-70 pb-1">{streak?.current === 1 ? 'day' : 'days'}</span>
           </span>
-          {/* The last seven days, a dot each. */}
-          <span className="flex gap-1.5" aria-label={summary ? `Trained on ${summary.days.slice(-7).filter((d) => d.sessions > 0).length} of the last 7 days` : undefined}>
+          {/* The last seven days, a dot each; read out as one picture with its label. */}
+          <span className="flex gap-1.5" role={summary ? 'img' : undefined} aria-label={summary ? `Trained on ${summary.days.slice(-7).filter((d) => d.sessions > 0).length} of the last 7 days` : undefined}>
             {(summary?.days.slice(-7) || Array.from({ length: 7 }, () => null)).map((d, i) => (
               <span key={i} className={`flex-1 h-2 rounded-full ${d && d.sessions > 0 ? 'bg-orange-400' : 'bg-white/10'}`} aria-hidden="true" />
             ))}

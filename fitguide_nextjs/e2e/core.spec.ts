@@ -38,8 +38,8 @@ test('log food and see the day total', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText('Banana', { exact: false }).first()).toBeVisible();
-  // The day total (eaten / target) includes the banana.
-  await expect(page.getByText(/^105 \/ \d+ kcal$/)).toBeVisible();
+  // The day total (eaten of target, in the calorie ring) includes the banana.
+  await expect(page.getByRole('group', { name: /^Eaten 105 of \d+ kcal$/ })).toBeVisible();
 });
 
 test('progress shows logged health data', async ({ page }) => {

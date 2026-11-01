@@ -37,7 +37,7 @@ test('leaving a personal-plan workout goes back to the plan', async ({ page }) =
 
   // Finish and save a day: Done returns to /plan, which shows the day as done.
   await page.goto(playUrl(plan.schedule[0]));
-  await page.getByRole('button', { name: 'Mark Complete' }).click();
+  await page.getByRole('button', { name: 'Finish workout' }).click();
   await page.getByRole('button', { name: 'Save session' }).click();
   await expect(page.getByText('Saved to your progress')).toBeVisible();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
@@ -55,7 +55,7 @@ test('a workout finished offline syncs only to the account that finished it', as
   await page.goto('/workouts/morning-yoga-flow/play');
   // The save can't reach the API, as if the connection dropped.
   await page.route(`${API}/sessions`, (route) => route.abort('internetdisconnected'));
-  await page.getByRole('button', { name: 'Mark Complete' }).click();
+  await page.getByRole('button', { name: 'Finish workout' }).click();
   await page.getByRole('button', { name: 'Save session' }).click();
   await expect(page.getByText(/saved on this device/)).toBeVisible();
   expect(await readQueue(page)).toHaveLength(1);

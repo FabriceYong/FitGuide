@@ -269,7 +269,8 @@ function WeeklyChart({ days, previous }: { days: ActivityDay[]; previous: Activi
                 onFocus={() => setActive(i)}
                 onBlur={() => setActive(null)}
                 onClick={() => setActive(i)}
-                aria-label={`${formatDay(d.date)}: ${d.minutes ? `${d.minutes} minutes, ${workoutsLabel(d.sessions)}` : 'rest day'}`}
+                // The name starts with the button's text ("Today" for today), for voice control.
+                aria-label={`${isToday ? 'Today, ' : ''}${formatDay(d.date)}: ${d.minutes ? `${d.minutes} minutes, ${workoutsLabel(d.sessions)}` : 'rest day'}`}
                 className={`py-1 text-[11px] rounded-md ${isToday ? 'text-white font-bold' : 'text-white-70'} ${active === i ? 'bg-white/5' : ''}`}
               >
                 {isToday ? 'Today' : formatDay(d.date, { weekday: 'short' })}

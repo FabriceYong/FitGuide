@@ -12,6 +12,7 @@ const authTokens = require('../services/authTokens');
 const accounts = require('../services/accounts');
 const passwordReset = require('../services/passwordReset');
 const emailVerification = require('../services/emailVerification');
+const dataExport = require('../services/dataExport');
 const { isForeignOriginWrite } = require('../utils/config');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
@@ -310,5 +311,41 @@ router.delete(
     }
   }
 );
+
+// ─── GET /api/auth/export ─────────────────────────────────────────────────────
+// "Download my data": everything kept about the account, as a JSON file
+// (services/dataExport.js). /export/workouts.csv and /export/body-metrics.csv
+// are the same logs as spreadsheets.
+const sendDownload = (res, filename, type, body) => {
+  res.set({ 'Content-Type': type, 'Content-Disposition': `attachment; filename="${filename}"`, 'Cache-Control': 'no-store' });
+  res.send(body);
+};
+const stamp = () => new Date().toISOString().slice(0, 10);
+
+router.get('/export', authMiddleware, async (req, res, next) => {
+  try {
+    const data = await dataExport.everything(req.user.id);
+    if (!data) return res.status(404).json({ success: false, message: 'User not found.' });
+    sendDownload(res, `fitguide-data-${stamp()}.json`, 'application/json; charset=utf-8', JSON.stringify(data, null, 2));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/export/workouts.csv', authMiddleware, async (req, res, next) => {
+  try {
+    sendDownload(res, `fitguide-workouts-${stamp()}.csv`, 'text/csv; charset=utf-8', await dataExport.workoutsCsv(req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/export/body-metrics.csv', authMiddleware, async (req, res, next) => {
+  try {
+    sendDownload(res, `fitguide-body-${stamp()}.csv`, 'text/csv; charset=utf-8', await dataExport.bodyMetricsCsv(req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
 
 module.exports = router;

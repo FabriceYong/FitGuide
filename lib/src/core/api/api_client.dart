@@ -144,6 +144,34 @@ class ApiClient {
     Map<String, String>? fields,
     Duration timeout = const Duration(seconds: 30),
   }) async {
+    final response = await _call(path, method: method, body: body, query: query, auth: auth, files: files, fields: fields, timeout: timeout);
+    return _json(response) ?? <String, dynamic>{};
+  }
+
+  /// A file the API sends (a data export), as bytes. Needs a signed-in account.
+  Future<Uint8List> download(String path, {Duration timeout = const Duration(seconds: 60)}) async =>
+      (await _call(path, auth: true, timeout: timeout)).bodyBytes;
+
+  static Map<String, dynamic>? _json(http.Response response) {
+    try {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {
+      // non-JSON response
+    }
+    return null;
+  }
+
+  Future<http.Response> _call(
+    String path, {
+    String method = 'GET',
+    Object? body,
+    Map<String, Object?>? query,
+    bool auth = false,
+    List<UploadFile>? files,
+    Map<String, String>? fields,
+    required Duration timeout,
+  }) async {
     final params = <String, String>{};
     query?.forEach((key, value) {
       if (value != null && value != '') params[key] = '$value';
@@ -182,15 +210,8 @@ class ApiClient {
       throw ApiError('Could not reach the FitGuide server. Check your connection and try again.', 0);
     }
 
-    Map<String, dynamic>? data;
-    try {
-      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-      if (decoded is Map<String, dynamic>) data = decoded;
-    } catch (_) {
-      // non-JSON response
-    }
-
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      final data = _json(response);
       if (response.statusCode == 401 && auth) onUnauthorized?.call();
       final errors = data?['errors'];
       final validation = errors is List ? errors.map((e) => e is Map ? e['msg'] : '$e').join('. ') : null;
@@ -200,7 +221,7 @@ class ApiClient {
         data,
       );
     }
-    return data ?? <String, dynamic>{};
+    return response;
   }
 
   static MediaType? _mediaType(String? type) => type == null ? null : MediaType.parse(type);

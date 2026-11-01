@@ -111,6 +111,12 @@ function createApp() {
     'Too many attempts. Please wait 15 minutes and try again.',
     { skipSuccessfulRequests: true },
   ));
+  // Exports read everything an account has: a handful per quarter-hour.
+  app.use('/api/auth/export', limiter(
+    FIFTEEN_MINUTES,
+    intFromEnv('EXPORT_RATE_LIMIT_MAX', 10),
+    'Too many downloads. Please wait 15 minutes and try again.',
+  ));
   app.use('/api/auth/register', limiter(
     60 * 60 * 1000,
     intFromEnv('REGISTER_RATE_LIMIT_MAX', 10),

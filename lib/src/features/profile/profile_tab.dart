@@ -20,6 +20,7 @@ import '../../widgets/ui.dart';
 import '../coaches/become_coach.dart';
 import '../common/brand.dart';
 import '../common/parq_modal.dart';
+import 'data_export.dart';
 import 'reminders_form.dart';
 
 double? _bmiOf(double? weight, double? height) => weight != null && height != null && height > 0 ? (weight / ((height / 100) * (height / 100)) * 10).round() / 10 : null;
@@ -175,6 +176,7 @@ class ProfileTab extends StatelessWidget {
                   ]),
                 ),
                 if (!auth.isGuest) ...[
+                  _NavRow(LucideIcons.download, 'Download my data', () => showFgModal<void>(context, title: 'Download my data', maxWidth: 448, builder: (_) => const DataExport())),
                   _NavRow(LucideIcons.keyRound, 'Change password', () => showFgModal<void>(context, title: 'Change password', maxWidth: 448, builder: (_) => const _ChangePassword())),
                   _NavRow(LucideIcons.trash2, 'Delete account', () => _confirmDelete(context, user!), danger: true),
                 ],

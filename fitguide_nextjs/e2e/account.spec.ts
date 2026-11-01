@@ -214,3 +214,25 @@ test('weights and heights follow the units chosen in the profile', async ({ page
   const { metrics } = await (await page.request.get(`${API}/body-metrics`)).json();
   expect(Math.round(metrics[0].weightKg * 10) / 10).toBe(68);
 });
+
+test('your data downloads as JSON and CSV files', async ({ page }) => {
+  const account = await signUpAndSignIn(page, 'Export Tester');
+  expect((await page.request.post(`${API}/body-metrics`, { data: { weightKg: 72.5 } })).status()).toBe(201);
+  await openProfile(page);
+  await page.getByRole('button', { name: 'Download my data' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Download my data' });
+
+  const axe = await new AxeBuilder({ page }).include('dialog').withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+
+  const [json] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download Everything (JSON)' }).click()]);
+  expect(json.suggestedFilename()).toMatch(/^fitguide-data-\d{4}-\d{2}-\d{2}\.json$/);
+  const data = JSON.parse(await (await import('node:fs/promises')).readFile(await json.path(), 'utf8'));
+  expect(data.profile.email).toBe(account.email);
+  expect(data.bodyMetrics[0].weightKg).toBe(72.5);
+  await expect(dialog.getByRole('status')).toHaveText(`Saved ${json.suggestedFilename()}.`);
+
+  const [csv] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download Body measurements (CSV)' }).click()]);
+  expect(csv.suggestedFilename()).toMatch(/^fitguide-body-.*\.csv$/);
+  expect(await (await import('node:fs/promises')).readFile(await csv.path(), 'utf8')).toContain(',72.5,');
+});

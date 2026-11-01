@@ -290,6 +290,41 @@ function defineAccountSuite(ctx) {
     });
   });
 
+  describe('download my data', () => {
+    it('gives everything as JSON, and workouts and measurements as CSV, without secrets', async () => {
+      const { app } = ctx();
+      await request(app).get('/api/auth/export').expect(401);
+      const { agent, creds } = await ctx().signUp('Data Owner');
+      const minutesAgo = (n) => new Date(Date.now() - n * 60 * 1000).toISOString();
+      await agent.post('/api/sessions').send({
+        workoutSlug: 'core-power-blast',
+        startedAt: minutesAgo(40),
+        completedAt: minutesAgo(5),
+        durationSec: 30 * 60,
+        notes: 'Felt strong, "great" day',
+        sets: [{ exerciseName: 'Barbell Back Squat', setNumber: 1, reps: 8, weightKg: 70 }],
+      }).expect(201);
+      await agent.post('/api/body-metrics').send({ weightKg: 71.5, waistCm: 82 }).expect(201);
+
+      const json = await agent.get('/api/auth/export').expect(200);
+      assert.match(json.headers['content-disposition'], /^attachment; filename="fitguide-data-\d{4}-\d{2}-\d{2}\.json"$/);
+      const data = JSON.parse(json.text);
+      assert.equal(data.profile.email, creds.email);
+      assert.equal(data.workoutSessions[0].sets[0].weightKg, 70);
+      assert.equal(data.bodyMetrics[0].waistCm, 82);
+      for (const secret of ['passwordHash', 'accessToken', 'refreshToken', 'tokenHash']) assert.ok(!json.text.includes(secret), secret);
+
+      const workouts = await agent.get('/api/auth/export/workouts.csv').expect(200);
+      assert.match(workouts.headers['content-type'], /^text\/csv/);
+      const [header, row] = workouts.text.trim().split(/\r\n/);
+      assert.match(header, /^completed_at,workout,status,minutes,calories,effort_1_10,notes,exercise,set,reps,weight_kg,seconds,distance_m$/);
+      assert.match(row, /,"Felt strong, ""great"" day",Barbell Back Squat,1,8,70,,$/);
+
+      const body = await agent.get('/api/auth/export/body-metrics.csv').expect(200);
+      assert.match(body.text.split(/\r\n/)[1],/^\d{4}-\d{2}-\d{2},71\.5,,82,/);
+    });
+  });
+
   describe('delete account', () => {
     it('requires a session and the password', async () => {
       const { app } = ctx();

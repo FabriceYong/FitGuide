@@ -3,7 +3,7 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  Activity, AlertCircle, AlertTriangle, Bell, Camera, CheckCircle2, ChevronRight, Clock, Crosshair, Crown, Dumbbell, Edit3, Globe, HeartPulse, KeyRound, Loader2, LogOut,
+  Activity, AlertCircle, AlertTriangle, Bell, Camera, Download, CheckCircle2, ChevronRight, Clock, Crosshair, Crown, Dumbbell, Edit3, Globe, HeartPulse, KeyRound, Loader2, LogOut,
   Megaphone, PenTool, Ruler, Scale, Shield, ShieldAlert, Target, Trash2, TrendingUp, User, Utensils, Watch, type LucideIcon,
 } from 'lucide-react';
 import { EQUIPMENT_KITS, LIMITATIONS, PROFILE, type EquipmentKit, type Limitation } from '@fitguide/shared';
@@ -19,6 +19,7 @@ import type { TabId } from '../../dashboard/tabs';
 import { BecomeCoach } from '../../coaches/BecomeCoach';
 import { CM_PER_INCH, heightText, kgFrom, useUnits, weightIn, weightText, weightUnit, type Units } from '../../../lib/units';
 import { Reminders } from './Reminders';
+import { DataExport } from './DataExport';
 
 const bmiOf = (weight?: number, height?: number) => (weight && height ? Math.round((weight / (height / 100) ** 2) * 10) / 10 : null);
 const bmiLabel = (bmi: number | null) => {
@@ -53,6 +54,7 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
   const [deleting, setDeleting] = useState(false);
   const [applying, setApplying] = useState(false);
   const [reminders, setReminders] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const bmi = bmiOf(user?.weight, user?.height);
   const bmiInfo = bmiLabel(bmi);
@@ -127,6 +129,7 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
         </div>
         {!isGuest && (
           <>
+            <NavRow icon={Download} title="Download my data" onClick={() => setExporting(true)} />
             <NavRow icon={KeyRound} title="Change password" onClick={() => setChangingPassword(true)} />
             <NavRow icon={Trash2} title="Delete account" onClick={() => setConfirmDelete(true)} danger />
           </>
@@ -145,6 +148,7 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
       {showParq && <ParqModal onClose={() => setShowParq(false)} />}
       {applying && <BecomeCoach onClose={() => setApplying(false)} />}
       {reminders && <Reminders onClose={() => setReminders(false)} />}
+      {exporting && <DataExport onClose={() => setExporting(false)} />}
       {changingPassword && <ChangePassword onClose={() => setChangingPassword(false)} />}
       {confirmDelete && (
         <ConfirmDialog

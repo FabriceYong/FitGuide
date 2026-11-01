@@ -112,3 +112,6 @@ export declare const NUTRITION: {
   readonly DIET_TAGS: Readonly<Record<string, string>>;
   readonly MAX_SERVINGS: number;
 };
+
+/** Body regions and the muscle names each covers. */
+export declare const MUSCLE_REGIONS: Readonly<Record<'Shoulders' | 'Chest' | 'Arms' | 'Core' | 'Back' | 'Legs', readonly string[]>>;

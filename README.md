@@ -133,6 +133,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | Dashboard: home, explore (workouts and exercise library), programs, favorites, progress, reviews, calculators, profile | the routes above, `favorites.js`, `reviews.js`, `articles.js` | `/` (`components/Dashboard.tsx`, `features/dashboard/`) |
 | kg or lb (and cm or ft/in): chosen at sign-up or in the profile; weights, heights, measurements and next-weight suggestions follow it, and everything is stored in metric | `stores/userStore.js` (`units`), `services/progress.js` | `lib/units.ts`; app: `core/units.dart` |
 | Sessions, program enrollments, body metrics, progress | `routes/sessions.js`, `enrollments.js`, `bodyMetrics.js`, `progress.js` | player, `/progress` |
+| Achievements (badges for workouts, streaks, minutes, records, finished programs) and the muscle map of the last 7 days, on Progress | `services/achievements.js`, `services/progress.js` (`muscleRegions`) | `/progress`; app: progress view |
 | Build your own workout: exercises with sets of reps or time, supersets; private, and played and logged like any workout | `services/myWorkouts.js`, `routes/myWorkouts.js` | Explore → My workouts (`features/workout/MyWorkouts.tsx`, `WorkoutBuilder.tsx`); app: `features/workout/my_workouts.dart` |
 | Personal plan generator and rules-based adaptation | `services/planGenerator.js`, `routes/plan.js` | `/plan` |
 | AI coach (Claude) with plan tools | `services/coach.js`, `routes/coach.js` | `/plan` |

@@ -3,6 +3,8 @@
  * personal records and program schedules. No I/O, so they are easy to test.
  */
 const { localDate, addDays, daysBetween } = require('../utils/dates');
+const { MUSCLE_REGIONS } = require('@fitguide/shared');
+const { achievements } = require('./achievements');
 
 const ACTIVITY_DAYS = 84; // 12 weeks, for the activity calendar
 
@@ -152,6 +154,28 @@ function describeEnrollment(enrollment, program, todayYmd) {
 }
 
 /**
+ * How many of the last 7 days' workouts worked each body region: from the
+ * workout's target muscles and the library exercises of its logged sets.
+ * "Full Body" counts for every region.
+ * @param {object[]} sessions  Already only this week's
+ * @param {Map<string, string[]>} workoutMuscles  workout slug → target muscles
+ * @param {Map<string, object>} exercisesBySlug
+ */
+function muscleRegions(sessions, workoutMuscles, exercisesBySlug) {
+  const regions = Object.fromEntries(Object.keys(MUSCLE_REGIONS).map((r) => [r, 0]));
+  for (const s of sessions) {
+    const muscles = new Set([
+      ...(workoutMuscles.get(s.workoutSlug) || []),
+      ...(s.sets || []).flatMap((set) => exercisesBySlug.get(set.exerciseSlug)?.primaryMuscles || []),
+    ]);
+    for (const [region, names] of Object.entries(MUSCLE_REGIONS)) {
+      if (muscles.has('Full Body') || names.some((m) => muscles.has(m))) regions[region] += 1;
+    }
+  }
+  return regions;
+}
+
+/**
  * Everything the Progress page shows.
  * @param {object} input
  * @param {object[]} input.sessions
@@ -162,9 +186,12 @@ function describeEnrollment(enrollment, program, todayYmd) {
  * @param {string} input.todayYmd
  * @param {object[]} [input.externalActivities]  From connected services; they
  *   count toward activity and streaks (with completedAt, durationSec, calories)
+ * @param {Map<string, string[]>} [input.workoutMuscles]  workout slug → target muscles
  */
-function buildSummary({ sessions, bodyMetrics, enrollments, exercisesBySlug, tzOffset, todayYmd, externalActivities = [] }) {
+function buildSummary({ sessions, bodyMetrics, enrollments, exercisesBySlug, tzOffset, todayYmd, externalActivities = [], workoutMuscles = new Map() }) {
   const byDate = activityByDate([...sessions, ...externalActivities], tzOffset);
+  const streak = streaks(new Set(byDate.keys()), todayYmd);
+  const records = personalRecords(sessions, exercisesBySlug);
   const days = [];
   for (let i = ACTIVITY_DAYS - 1; i >= 0; i -= 1) {
     const date = addDays(todayYmd, -i);
@@ -201,9 +228,11 @@ function buildSummary({ sessions, bodyMetrics, enrollments, exercisesBySlug, tzO
       calories: sum(lastWeek, 'calories'),
       activeDays: lastWeek.filter((d) => d.sessions > 0).length,
     },
-    streak: streaks(new Set(byDate.keys()), todayYmd),
+    streak,
     days,
-    personalRecords: personalRecords(sessions, exercisesBySlug),
+    personalRecords: records,
+    muscles: { regions: muscleRegions(sessions.filter((s) => localDate(s.completedAt, tzOffset) > addDays(todayYmd, -7)), workoutMuscles, exercisesBySlug) },
+    achievements: achievements({ sessions, activeDates: new Set(byDate.keys()), records, enrollments, longestStreak: streak.longest }),
     body: {
       latestWeight,
       weightChangeKg: latestWeight && baseline && baseline !== latestWeight
@@ -298,4 +327,4 @@ function previousSets(sessions, steps, keyOf, units = 'metric') {
   });
 }
 
-module.exports = { activityByDate, streaks, personalRecords, scheduledDate, describeEnrollment, buildSummary, repRange, suggestNext, previousSets };
+module.exports = { activityByDate, streaks, personalRecords, scheduledDate, describeEnrollment, buildSummary, muscleRegions, repRange, suggestNext, previousSets };

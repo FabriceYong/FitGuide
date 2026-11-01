@@ -4,19 +4,20 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import Link from 'next/link';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
-  Activity, AlertTriangle, CalendarDays, Clock, Dumbbell, Flame, Loader2, Play, Ruler, Scale, Trash2, TrendingDown, TrendingUp, Trophy, Zap, type LucideIcon,
+  Activity, AlertTriangle, Award, CalendarDays, PersonStanding, Clock, Dumbbell, Flame, Loader2, Lock, Play, Ruler, Scale, Trash2, TrendingDown, TrendingUp, Trophy, Zap, type LucideIcon,
 } from 'lucide-react';
 import type { MeasurementField } from '@fitguide/shared';
 import { useAuth, type AuthUser } from '../../contexts/AuthContext';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import {
   deleteBodyMetric, deleteSession, fetchBodyMetrics, fetchProgressSummary, localToday, logBodyMetric,
-  type ActivityDay, type BodyMetric, type PersonalRecord, type ProgressSummary, type SessionRecord,
+  type Achievement, type ActivityDay, type BodyMetric, type PersonalRecord, type ProgressSummary, type SessionRecord,
 } from '../../services/trainingService';
 import type { Plan } from '../../services/planService';
 import { playHref } from '../programs/ProgramDetail';
 import { useStartSignUp } from '../auth/AuthWrapper';
 import { formatDateTime, formatDay, formatRecord, scheduleHref } from './format';
+import { MusclesThisWeek } from './MusclesThisWeek';
 import { measureFrom, measureText, measureUnit, useUnits, weightIn, weightText, weightUnit } from '../../lib/units';
 
 const ACCENT = '#00C4B4';
@@ -109,6 +110,11 @@ export function ProgressView() {
       </div>
 
       <ActivityCalendar days={summary.days} />
+
+      <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
+        <Panel title="Muscles this week" icon={PersonStanding}><MusclesThisWeek counts={summary.muscles?.regions || {}} /></Panel>
+        {summary.achievements?.length > 0 && <Achievements badges={summary.achievements} />}
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <PersonalRecords records={summary.personalRecords} />
@@ -360,6 +366,34 @@ function ActivityCalendar({ days }: { days: ActivityDay[] }) {
         {['rgba(255,255,255,0.06)', `${ACCENT}66`, `${ACCENT}AA`, ACCENT].map((c) => <span key={c} className="w-3 h-3 rounded-[3px]" style={{ backgroundColor: c }} />)}
         <span>More</span>
       </div>
+    </Panel>
+  );
+}
+
+/** Badges earned (with when), then the rest with how far along you are. */
+function Achievements({ badges }: { badges: Achievement[] }) {
+  const earned = badges.filter((b) => b.earned);
+  const ordered = [...earned, ...badges.filter((b) => !b.earned)];
+  return (
+    <Panel title="Achievements" icon={Award} action={<span className="text-xs text-white-70">{earned.length} of {badges.length}</span>}>
+      <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        {ordered.map((b) => (
+          <li key={b.id} className={`rounded-2xl p-3 border ${b.earned ? 'bg-amber-300/10 border-amber-300/40' : 'bg-noir-eclipse/60 border-white-30/10'}`}>
+            {b.earned ? <Award className="w-5 h-5 text-amber-300" aria-hidden="true" /> : <Lock className="w-5 h-5 text-white-70" aria-hidden="true" />}
+            <p className={`mt-2 text-sm font-bold ${b.earned ? 'text-white' : 'text-white-70'}`}>{b.title}</p>
+            {b.earned ? (
+              <p className="text-[11px] text-amber-300 mt-1">Earned {formatDay(b.earnedAt!.slice(0, 10))}</p>
+            ) : (
+              <>
+                <p className="text-[11px] text-white-70 mt-1">{b.description}</p>
+                <div className="mt-2 h-1 rounded-full bg-white/10" role="progressbar" aria-label={`${b.title}: ${b.progress.value} of ${b.progress.goal}`} aria-valuenow={b.progress.value} aria-valuemin={0} aria-valuemax={b.progress.goal}>
+                  <div className="h-full rounded-full bg-amber-300" style={{ width: `${(b.progress.value / b.progress.goal) * 100}%` }} />
+                </div>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
     </Panel>
   );
 }

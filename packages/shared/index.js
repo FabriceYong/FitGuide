@@ -73,4 +73,15 @@ const NUTRITION = {
   MAX_SERVINGS: 20,
 };
 
-module.exports = { PROFILE, CATALOG, TRAINING, NUTRITION, ...tailoring };
+// Body regions (the muscle filter and the muscle map) and the muscle names
+// in workouts and exercises each one covers. "Full Body" covers them all.
+const MUSCLE_REGIONS = {
+  Shoulders: ['Shoulders'],
+  Chest: ['Chest'],
+  Arms: ['Arms', 'Biceps', 'Triceps'],
+  Core: ['Core', 'Abs', 'Obliques', 'Hip Flexors'],
+  Back: ['Back', 'Upper Back', 'Lower Back', 'Spine', 'Posterior Chain'],
+  Legs: ['Legs', 'Glutes', 'Quads', 'Hamstrings', 'Calves', 'Hips'],
+};
+
+module.exports = { PROFILE, CATALOG, TRAINING, NUTRITION, MUSCLE_REGIONS, ...tailoring };

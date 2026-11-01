@@ -226,3 +226,52 @@ describe('exercise matching', () => {
     assert.equal(match(''), null);
   });
 });
+
+describe('achievements', () => {
+  const { achievements } = require('../services/achievements');
+  const day = (n) => `2026-10-${String(n).padStart(2, '0')}`;
+  const session = (n, minutes = 30) => ({ completedAt: `${day(n)}T18:00:00Z`, durationSec: minutes * 60 });
+
+  it('dates each badge when it was earned, and shows progress on the rest', () => {
+    // Ten workouts on 1–10 October, the last one long.
+    const sessions = Array.from({ length: 10 }, (_, i) => session(i + 1, i === 9 ? 800 : 30));
+    const list = achievements({
+      sessions,
+      activeDates: new Set(sessions.map((s) => s.completedAt.slice(0, 10))),
+      records: [{ achievedAt: `${day(3)}T18:00:00Z` }],
+      enrollments: [{ status: 'completed', endedAt: `${day(9)}T19:00:00Z` }, { status: 'active', endedAt: null }],
+      longestStreak: 10,
+    });
+    const byId = Object.fromEntries(list.map((b) => [b.id, b]));
+    assert.equal(byId['first-workout'].earnedAt, `${day(1)}T18:00:00.000Z`);
+    assert.equal(byId['workouts-10'].earnedAt, `${day(10)}T18:00:00.000Z`);
+    assert.deepEqual([byId['workouts-50'].earned, byId['workouts-50'].progress], [false, { value: 10, goal: 50 }]);
+    // Seven days in a row were first reached on the 7th.
+    assert.equal(byId['streak-7'].earnedAt, `${day(7)}T12:00:00.000Z`);
+    assert.deepEqual(byId['streak-30'].progress, { value: 10, goal: 30 });
+    // 9 × 30 + 800 minutes passes 1,000 on the 10th.
+    assert.equal(byId['minutes-1000'].earnedAt, `${day(10)}T18:00:00.000Z`);
+    assert.equal(byId['first-record'].earned, true);
+    assert.deepEqual(byId['records-10'].progress, { value: 1, goal: 10 });
+    assert.equal(byId['program-done'].earnedAt, `${day(9)}T19:00:00.000Z`);
+  });
+
+  it('starts with nothing earned', () => {
+    const list = achievements({ sessions: [], activeDates: new Set(), records: [], enrollments: [], longestStreak: 0 });
+    assert.ok(list.every((b) => !b.earned && b.progress.value === 0));
+  });
+});
+
+describe('muscle map', () => {
+  const { muscleRegions } = require('../services/progress');
+  it("counts each region a week's workouts worked, from the workout and its logged sets", () => {
+    const workoutMuscles = new Map([['leg-day', ['Quads', 'Glutes']], ['full-body', ['Full Body']], ['curls', []]]);
+    const exercises = new Map([['barbell-curl', { primaryMuscles: ['Biceps'] }]]);
+    const regions = muscleRegions([
+      { workoutSlug: 'leg-day', sets: [] },
+      { workoutSlug: 'curls', sets: [{ exerciseSlug: 'barbell-curl' }, { exerciseSlug: 'barbell-curl' }] },
+      { workoutSlug: 'full-body', sets: [] },
+    ], workoutMuscles, exercises);
+    assert.deepEqual(regions, { Shoulders: 1, Chest: 1, Arms: 2, Core: 1, Back: 1, Legs: 2 });
+  });
+});

@@ -163,6 +163,8 @@ class ProgressSummary {
         days = asJsonList(j['days']).map(ActivityDay.new).toList(),
         personalRecords = asJsonList(j['personalRecords']).map(PersonalRecord.new).toList(),
         body = BodySummary(asJson(j['body'])),
+        achievements = asJsonList(j['achievements']).map(Achievement.new).toList(),
+        muscleRegions = asJson(asJson(j['muscles'])['regions']).map((k, v) => MapEntry(k, asInt(v) ?? 0)),
         activeEnrollment = Plan.maybe(j['activeEnrollment']);
 
   final String today;
@@ -174,10 +176,33 @@ class ProgressSummary {
   final List<ActivityDay> days;
   final List<PersonalRecord> personalRecords;
   final BodySummary body;
+  final List<Achievement> achievements;
+
+  /// Workouts in the last 7 days that worked each body region (Shoulders, Chest, …).
+  final Map<String, int> muscleRegions;
   final Plan? activeEnrollment;
 
   int total(String key) => asInt(totals[key]) ?? 0;
   int week(String key) => asInt(thisWeek[key]) ?? 0;
+}
+
+/// A badge for real progress (the API's services/achievements.js).
+class Achievement {
+  Achievement(Json j)
+      : id = asString(j['id']) ?? '',
+        title = asString(j['title']) ?? '',
+        description = asString(j['description']) ?? '',
+        earnedAt = asString(j['earnedAt']),
+        value = asInt(asJson(j['progress'])['value']) ?? 0,
+        goal = asInt(asJson(j['progress'])['goal']) ?? 1;
+  final String id;
+  final String title;
+  final String description;
+  final String? earnedAt;
+  final int value;
+  final int goal;
+
+  bool get earned => earnedAt != null;
 }
 
 class BodyMetric {

@@ -14,6 +14,7 @@ import '../../navigation.dart';
 import '../../services/training_service.dart';
 import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
+import '../../widgets/body_map.dart';
 import '../../widgets/charts.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/modal.dart';
@@ -156,6 +157,10 @@ class _ProgressViewState extends State<ProgressView> {
               previous: summary.days.sublist(math.max(0, summary.days.length - 14), math.max(0, summary.days.length - 7)),
             ), _ProgramPanel(enrollment: summary.activeEnrollment)),
         if (summary.days.isNotEmpty) _ActivityCalendar(days: summary.days),
+        if (summary.achievements.isNotEmpty)
+          ...pairs(context, _MusclesThisWeek(counts: summary.muscleRegions), _Achievements(badges: summary.achievements))
+        else
+          _MusclesThisWeek(counts: summary.muscleRegions),
         ...pairs(context, _PersonalRecords(records: summary.personalRecords), _RecentSessions(sessions: data.recentSessions, onDelete: _deleteSession)),
         _BodyMetrics(
           body: summary.body,
@@ -643,6 +648,86 @@ class _ActivityCalendar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Which body regions this week's workouts worked, on a figure, with the
+/// ones not trained yet (MusclesThisWeek in ProgressView.tsx).
+class _MusclesThisWeek extends StatelessWidget {
+  const _MusclesThisWeek({required this.counts});
+  final Map<String, int> counts;
+
+  @override
+  Widget build(BuildContext context) {
+    final trained = [for (final r in regions) if ((counts[r] ?? 0) > 0) r];
+    final missed = [for (final r in regions) if ((counts[r] ?? 0) == 0) r];
+    return Panel(
+      title: 'Muscles this week',
+      icon: LucideIcons.personStanding,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        MuscleHeatMap(counts: counts),
+        const SizedBox(height: 12),
+        if (trained.isEmpty)
+          Text('Nothing logged in the last 7 days yet.', style: fg(size: 14, color: AppColors.white70))
+        else ...[
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final r in trained)
+              Pill('$r · ${counts[r]} workout${counts[r] == 1 ? '' : 's'}', color: AppColors.limeLight),
+          ]),
+          if (missed.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('Not trained this week: ${missed.join(', ')}.', style: fg(size: 12, color: AppColors.white70)),
+          ],
+        ],
+      ]),
+    );
+  }
+}
+
+/// Badges earned (with when), then the rest with how far along you are
+/// (ProgressView.tsx Achievements).
+class _Achievements extends StatelessWidget {
+  const _Achievements({required this.badges});
+  final List<Achievement> badges;
+
+  @override
+  Widget build(BuildContext context) {
+    final earned = badges.where((b) => b.earned).length;
+    final ordered = [...badges.where((b) => b.earned), ...badges.where((b) => !b.earned)];
+    return Panel(
+      title: 'Achievements',
+      icon: LucideIcons.award,
+      action: Text('$earned of ${badges.length}', style: fg(size: 12, color: AppColors.white70)),
+      child: FgGrid(columns: 2, sm: 3, lg: 5, gap: 8, children: [
+        for (final b in ordered)
+          Semantics(
+            container: true,
+            label: '${b.title}. ${b.earned ? 'Earned ${formatDate(b.earnedAt!)}' : '${b.description} ${b.value} of ${b.goal}'}',
+            excludeSemantics: true,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: b.earned ? AppColors.amber300.withValues(alpha: 0.1) : AppColors.noirEclipse.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: b.earned ? AppColors.amber300.withValues(alpha: 0.4) : AppColors.white30A(0.1)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(b.earned ? LucideIcons.award : LucideIcons.lock, size: 18, color: b.earned ? AppColors.amber300 : AppColors.white70),
+                const SizedBox(height: 8),
+                Text(b.title, style: fg(size: 13, weight: FontWeight.w700, color: b.earned ? AppColors.white : AppColors.white70)),
+                const SizedBox(height: 4),
+                if (b.earned)
+                  Text(formatDate(b.earnedAt!), style: fg(size: 11, color: AppColors.amber300))
+                else ...[
+                  Text(b.description, style: fg(size: 11, color: AppColors.white70)),
+                  const SizedBox(height: 6),
+                  FgProgressBar(percent: b.value / b.goal * 100, height: 4, color: AppColors.amber300),
+                ],
+              ]),
+            ),
+          ),
+      ]),
     );
   }
 }

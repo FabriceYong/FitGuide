@@ -1,5 +1,6 @@
 const express = require('express');
 const { sessionStore, bodyMetricStore, exerciseStore } = require('../stores/records');
+const workoutStore = require('../stores/workoutStore');
 const { describeAll } = require('../services/enrollments');
 const { buildSummary } = require('../services/progress');
 const { authMiddleware } = require('../middleware/authMiddleware');
@@ -31,7 +32,11 @@ router.get('/summary', async (req, res, next) => {
       durationSec: a.durationSec,
       calories: a.calories || 0,
     }));
+    // Target muscles of the workouts done this week (the muscle map).
+    const weekSlugs = [...new Set(sessions.filter((s) => Date.now() - new Date(s.completedAt) < 8 * 24 * 60 * 60 * 1000).map((s) => s.workoutSlug))];
+    const workoutMuscles = new Map((await workoutStore.getManyBySlugs(weekSlugs, { ownerId: req.user.id })).map((w) => [w.slug, w.targetMuscles || []]));
     const summary = buildSummary({
+      workoutMuscles,
       sessions,
       bodyMetrics,
       enrollments,

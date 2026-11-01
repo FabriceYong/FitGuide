@@ -184,3 +184,40 @@ class _BodyMapState extends State<BodyMap> {
     );
   }
 }
+
+/// The body, front and back, shaded by how often each region was trained
+/// ([counts]: region → workouts). Read-only (progress/MusclesThisWeek.tsx).
+class MuscleHeatMap extends StatelessWidget {
+  const MuscleHeatMap({super.key, required this.counts});
+  final Map<String, int> counts;
+
+  /// Lighter for one workout, full colour from three.
+  static double _strength(int n) => n <= 0 ? 0 : (n >= 3 ? 1 : 0.35 + 0.3 * (n - 1));
+
+  String _svg(List<(String, String)> paths) {
+    const outline = 'fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.18)" stroke-width="1"';
+    final buffer = StringBuffer('<svg viewBox="0 0 200 320" xmlns="http://www.w3.org/2000/svg">')
+      ..write('<circle cx="100" cy="30" r="16" $outline/>')
+      ..write('<path d="M92,46 L108,46 L106,58 L94,58 Z" $outline/>');
+    for (final (region, d) in paths) {
+      final s = _strength(counts[region] ?? 0);
+      buffer.write(s > 0
+          ? '<path d="$d" fill="#00C4B4" fill-opacity="$s" stroke="#0A0C10" stroke-width="1.5"/>'
+          : '<path d="$d" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>');
+    }
+    buffer.write('</svg>');
+    return buffer.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget figure(String label, List<(String, String)> paths) => Column(children: [
+          SizedBox(width: 120, height: 192, child: SvgPicture.string(_svg(paths), key: ValueKey('$label${counts.entries.join()}'))),
+          const SizedBox(height: 4),
+          Text(label, style: fg(size: 11, color: AppColors.white70)),
+        ]);
+    return ExcludeSemantics(
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [figure('Front', _front), const SizedBox(width: 12), figure('Back', _back)]),
+    );
+  }
+}

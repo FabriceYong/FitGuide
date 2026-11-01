@@ -54,6 +54,16 @@ export interface SessionRecord {
   programDay?: number | null;
 }
 
+/** A badge for real progress (the API's services/achievements.js). */
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  earned: boolean;
+  earnedAt: string | null;
+  progress: { value: number; goal: number };
+}
+
 export interface ProgressSummary {
   today: string;
   totals: { sessions: number; minutes: number; calories: number; externalActivities: number };
@@ -62,6 +72,9 @@ export interface ProgressSummary {
   /** The last 12 weeks, oldest first. */
   days: ActivityDay[];
   personalRecords: PersonalRecord[];
+  achievements: Achievement[];
+  /** Workouts in the last 7 days that worked each body region. */
+  muscles: { regions: Record<string, number> };
   body: {
     latestWeight: { date: string; weightKg: number } | null;
     weightChangeKg: number | null;

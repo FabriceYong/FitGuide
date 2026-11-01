@@ -4,7 +4,7 @@ import { useState, type CSSProperties } from 'react';
 import { RotateCcw, Target } from 'lucide-react';
 import { REGIONS, type Region } from '../muscles';
 
-const FRONT: [Region, string][] = [
+export const FRONT: [Region, string][] = [
   ['Shoulders', 'M74,58 C66,62 60,70 60,78 L72,82 L76,64 Z'],
   ['Shoulders', 'M126,58 C134,62 140,70 140,78 L128,82 L124,64 Z'],
   ['Chest', 'M78,64 L122,64 C122,64 124,84 120,94 L80,94 C76,84 78,64 78,64 Z'],
@@ -18,7 +18,7 @@ const FRONT: [Region, string][] = [
   ['Legs', 'M115,142 L101,142 L103,215 L122,215 Z'],
   ['Legs', 'M121,222 L105,222 L109,285 C109,285 120,287 123,290 Z'],
 ];
-const BACK: [Region, string][] = [
+export const BACK: [Region, string][] = [
   ['Shoulders', 'M74,58 C66,62 60,70 60,78 L72,82 L76,64 Z'],
   ['Shoulders', 'M126,58 C134,62 140,70 140,78 L128,82 L124,64 Z'],
   ['Back', 'M78,64 L122,64 C122,64 126,88 116,108 L84,108 C74,88 78,64 78,64 Z'],
@@ -34,7 +34,7 @@ const BACK: [Region, string][] = [
   ['Legs', 'M121,228 L105,228 L109,285 C109,285 120,287 123,290 Z'],
 ];
 
-const outline: CSSProperties = { fill: 'rgba(255,255,255,0.08)', stroke: 'rgba(255,255,255,0.18)', strokeWidth: 1 };
+export const outline: CSSProperties = { fill: 'rgba(255,255,255,0.08)', stroke: 'rgba(255,255,255,0.18)', strokeWidth: 1 };
 const regionStyle = (on: boolean): CSSProperties => ({
   fill: on ? '#00C4B4' : 'rgba(255,255,255,0.12)',
   stroke: on ? '#0A0C10' : 'rgba(255,255,255,0.25)',

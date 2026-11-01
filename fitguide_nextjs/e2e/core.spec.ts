@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { API, signUpAndSignIn } from './helpers';
 
 test('private pages send signed-out visitors to sign in and back', async ({ page }) => {
@@ -77,6 +77,29 @@ test('water is counted a glass at a time on the home page', async ({ page }) => 
   await expect(page.getByText('250 ml of 2.5 l')).toBeVisible();
   await page.reload();
   await expect(page.getByText('250 ml of 2.5 l')).toBeVisible();
+});
+
+test('progress shows achievements and the muscles trained this week', async ({ page }) => {
+  await signUpAndSignIn(page, 'Badge Tester');
+  const now = Date.now();
+  expect((await page.request.post(`${API}/sessions`, { data: {
+    workoutSlug: 'core-power-blast',
+    startedAt: new Date(now - 40 * 60_000).toISOString(),
+    completedAt: new Date(now - 60_000).toISOString(),
+    durationSec: 30 * 60,
+    sets: [{ exerciseName: 'Barbell Back Squat', reps: 5, weightKg: 80 }],
+  } })).status()).toBe(201);
+  await page.goto('/progress');
+
+  const badges = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Achievements' }) });
+  // The squat set is a personal record too.
+  await expect(badges.getByText(/^2 of \d+$/)).toBeVisible();
+  await expect(badges.getByRole('listitem').filter({ hasText: 'First workout' })).toContainText('Earned');
+  await expect(badges.getByRole('listitem').filter({ hasText: 'First record' })).toContainText('Earned');
+  await expect(badges.getByRole('progressbar', { name: '10 workouts: 1 of 10' })).toBeVisible();
+
+  const muscles = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Muscles this week' }) });
+  await expect(muscles.getByText(/^Legs · 1 workout$/)).toBeVisible();
 });
 
 test('progress shows logged health data', async ({ page }) => {

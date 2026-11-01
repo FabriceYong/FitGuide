@@ -141,6 +141,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | Videos inside articles (uploaded MP4/WebM/MOV up to 100 MB, or a link to a video file; start muted as the reader scrolls to them, with a transcript) | `POST /api/creator/articles/video`, `utils/uploads.js` | `features/articles/ArticleVideo.tsx`; app: `features/dashboard/article_video.dart` |
 | Confirm the email at sign-up: a link by email (expires in a day); accounts can't sign in before | `services/emailVerification.js`, `services/mailer.js` | `/verify-email`, "Confirm your email" after sign-up; app: `features/auth/confirm_email_screen.dart` (the link opens the website) |
 | Forgot password: a one-time link by email (expires in an hour, signs out every device) | `services/passwordReset.js`, `services/mailer.js` | `/reset-password`, "Forgot password?" on sign-in; app: `features/auth/forgot_password_screen.dart` (the link opens the website) |
+| Reminders: chosen workout days and time, and an 8 pm nudge when a streak would end; none on days already trained | `services/reminders.js`, `routes/reminders.js` | Profile tab, `features/profile/components/Reminders.tsx`, `public/sw.js` (browser push); app: `services/reminders.dart` (scheduled on the phone) |
 | PLUS subscriptions (Stripe) | `services/billing.js`, `routes/billing.js` | `/plus` |
 | Analytics (first-party, cookie-free) | `routes/events.js` | `lib/analytics.ts`, admin Analytics tab |
 | Offline player, install to home screen | | `public/sw.js`, `app/manifest.ts` |
@@ -158,6 +159,10 @@ keys are set, and show as unavailable otherwise:
   `SMTP_URL=smtps://resend:<API key>@smtp.resend.com:465`. Without them the
   API prints each email to its console (development) or sends nothing
   (production), and new accounts can't be confirmed.
+- **Browser reminders:** `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and
+  `VAPID_SUBJECT`. Make the keys once with `npm run vapid-keys` in
+  `fitguide_api` and keep them. Without them the website says browser
+  reminders aren't set up; the app's reminders don't need them.
 - **AI coach:** `ANTHROPIC_API_KEY` (model `claude-opus-5-5` by default).
 - **Strava / Fitbit:** client id and secret per service; register
   `<API_PUBLIC_URL>/api/integrations/<service>/callback` with them.

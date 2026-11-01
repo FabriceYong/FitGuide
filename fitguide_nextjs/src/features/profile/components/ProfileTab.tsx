@@ -3,7 +3,7 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  Activity, AlertCircle, AlertTriangle, Camera, CheckCircle2, ChevronRight, Clock, Crosshair, Crown, Dumbbell, Edit3, Globe, HeartPulse, KeyRound, Loader2, LogOut,
+  Activity, AlertCircle, AlertTriangle, Bell, Camera, CheckCircle2, ChevronRight, Clock, Crosshair, Crown, Dumbbell, Edit3, Globe, HeartPulse, KeyRound, Loader2, LogOut,
   Megaphone, PenTool, Ruler, Scale, Shield, ShieldAlert, Target, Trash2, TrendingUp, User, Utensils, Watch, type LucideIcon,
 } from 'lucide-react';
 import { EQUIPMENT_KITS, LIMITATIONS, PROFILE, type EquipmentKit, type Limitation } from '@fitguide/shared';
@@ -17,6 +17,7 @@ import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { useStartSignUp } from '../../auth/AuthWrapper';
 import type { TabId } from '../../dashboard/tabs';
 import { BecomeCoach } from '../../coaches/BecomeCoach';
+import { Reminders } from './Reminders';
 
 const bmiOf = (weight?: number, height?: number) => (weight && height ? Math.round((weight / (height / 100) ** 2) * 10) / 10 : null);
 const bmiLabel = (bmi: number | null) => {
@@ -50,6 +51,7 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [reminders, setReminders] = useState(false);
 
   const bmi = bmiOf(user?.weight, user?.height);
   const bmiInfo = bmiLabel(bmi);
@@ -111,6 +113,7 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
       <section aria-labelledby="profile-account" className="space-y-2">
         <h2 id="profile-account" className="text-xs font-extrabold tracking-widest text-white-70 uppercase mb-3">Account</h2>
         <NavRow icon={Crown} title={user?.plan === 'plus' ? 'Your PLUS subscription' : 'FitGuide PLUS'} href="/plus" />
+        {!isGuest && <NavRow icon={Bell} title="Reminders" onClick={() => setReminders(true)} />}
         <NavRow icon={Watch} title="Connected apps and health data" onClick={() => onNavigate('progress')} />
         <NavRow icon={HeartPulse} title="Health check (PAR-Q)" onClick={() => setShowParq(true)} />
         {(user?.role === 'creator' || user?.role === 'admin') && <NavRow icon={PenTool} title="Coach studio" href="/studio" />}
@@ -139,6 +142,7 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
       {editing && user && <EditProfile user={user} onClose={() => setEditing(false)} />}
       {showParq && <ParqModal onClose={() => setShowParq(false)} />}
       {applying && <BecomeCoach onClose={() => setApplying(false)} />}
+      {reminders && <Reminders onClose={() => setReminders(false)} />}
       {changingPassword && <ChangePassword onClose={() => setChangingPassword(false)} />}
       {confirmDelete && (
         <ConfirmDialog

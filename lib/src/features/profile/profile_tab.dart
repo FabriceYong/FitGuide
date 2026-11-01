@@ -19,6 +19,7 @@ import '../../widgets/ui.dart';
 import '../coaches/become_coach.dart';
 import '../common/brand.dart';
 import '../common/parq_modal.dart';
+import 'reminders_form.dart';
 
 double? _bmiOf(double? weight, double? height) => weight != null && height != null && height > 0 ? (weight / ((height / 100) * (height / 100)) * 10).round() / 10 : null;
 
@@ -155,6 +156,7 @@ class ProfileTab extends StatelessWidget {
               const _Heading('Account'),
               ...spaced([
                 _NavRow(LucideIcons.crown, user?.isPlus ?? false ? 'Your PLUS subscription' : 'FitGuide PLUS', () => openHref(context, '/plus')),
+                if (!auth.isGuest) _NavRow(LucideIcons.bell, 'Reminders', () => showFgModal<void>(context, title: 'Reminders', maxWidth: 448, builder: (_) => const RemindersForm())),
                 _NavRow(LucideIcons.watch, 'Connected apps and health data', () => dashboard.setTab(DashboardTab.progress)),
                 _NavRow(LucideIcons.heartPulse, 'Health check (PAR-Q)', () => showParqModal(context)),
                 if (user?.isCreator ?? false) _NavRow(LucideIcons.penTool, 'Coach studio', () => openWebPage('/studio')),

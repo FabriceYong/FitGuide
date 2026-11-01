@@ -14,7 +14,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "node seed/index.js",
     "assign-gifs": "node scripts/assignExerciseGifs.js",
-    "make-admin": "node seed/makeAdmin.js"
+    "make-admin": "node seed/makeAdmin.js",
+    "vapid-keys": "web-push generate-vapid-keys"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",
@@ -34,6 +35,7 @@
     "nodemailer": "10.1.1",
     "prisma": "6.19.3",
     "stripe": "23.0.0",
+    "web-push": "3.6.7",
     "zod": "4.1.12"
   },
   "devDependencies": {

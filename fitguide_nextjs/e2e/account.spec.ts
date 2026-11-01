@@ -35,6 +35,54 @@ test('changing the password keeps you signed in', async ({ page }) => {
   expect((await login(NEW_PASSWORD)).status()).toBe(200);
 });
 
+test('reminders are saved and turned on in this browser', async ({ page }) => {
+  // Headless Chromium has no push service, so the browser's side is faked.
+  await page.addInitScript(() => {
+    let current: object | null = null;
+    const endpoint = `https://fcm.googleapis.com/fcm/send/e2e-${Date.now()}`;
+    const fake = {
+      endpoint,
+      toJSON: () => ({ endpoint, keys: { p256dh: 'BKey', auth: 'secret' } }),
+      unsubscribe: async () => { current = null; return true; },
+    };
+    Object.defineProperty(Notification, 'permission', { get: () => 'granted' });
+    Notification.requestPermission = async () => 'granted';
+    PushManager.prototype.getSubscription = async () => current as PushSubscription | null;
+    PushManager.prototype.subscribe = async () => (current = fake) as unknown as PushSubscription;
+  });
+  await signUpAndSignIn(page, 'Reminder Tester');
+  await openProfile(page);
+  await page.getByRole('button', { name: 'Reminders' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Reminders' });
+  await expect(dialog.getByText('Off in this browser.')).toBeVisible();
+
+  const axe = await new AxeBuilder({ page }).include('dialog').withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+
+  await dialog.getByRole('button', { name: 'Monday' }).click();
+  await dialog.getByRole('button', { name: 'Thursday' }).click();
+  await expect(dialog.getByRole('button', { name: 'Thursday' })).toHaveAttribute('aria-pressed', 'true');
+  await dialog.getByLabel('Time').fill('07:15');
+  await dialog.getByRole('checkbox', { name: /Keep my streak going/ }).check();
+  await dialog.getByRole('button', { name: 'Save reminders' }).click();
+  await expect(dialog.getByRole('button', { name: 'Saved' })).toBeVisible();
+
+  const subscribed = page.waitForResponse((r) => r.url().endsWith('/api/reminders/push') && r.request().method() === 'POST');
+  await dialog.getByRole('button', { name: 'Turn on in this browser' }).click();
+  expect((await subscribed).status()).toBe(201);
+  await expect(dialog.getByText('On in this browser.')).toBeVisible();
+
+  const { settings, upcoming } = await (await page.request.get(`${API}/reminders`)).json();
+  expect(settings).toMatchObject({ days: [1, 4], time: '07:15', streak: true });
+  expect(settings.timeZone).toBeTruthy();
+  expect(upcoming.length).toBeGreaterThanOrEqual(3);
+
+  const unsubscribed = page.waitForResponse((r) => r.url().endsWith('/api/reminders/push') && r.request().method() === 'DELETE');
+  await dialog.getByRole('button', { name: 'Turn off in this browser' }).click();
+  expect((await unsubscribed).status()).toBe(200);
+  await expect(dialog.getByText('Off in this browser.')).toBeVisible();
+});
+
 test('a new account confirms its email before it can sign in', async ({ page }) => {
   const account = newAccount('Confirm Tester');
   expect((await page.request.post(`${API}/auth/register`, { data: account })).status()).toBe(201);

@@ -4,6 +4,7 @@ import '../core/api/api_client.dart';
 import '../core/storage.dart';
 import '../models/json.dart';
 import '../models/user.dart';
+import '../services/reminders.dart';
 
 /// The signed-in user, a guest, or nobody (contexts/AuthContext.js on the
 /// website, plus the "show sign-up" switch from AuthWrapper).
@@ -85,6 +86,8 @@ class AuthController extends ChangeNotifier {
   /// Forget the session locally (the server says it is no longer valid).
   void clearSession() {
     _api.clearSession();
+    // This phone stops showing the account's reminders.
+    ReminderNotifications.clear();
     Storage.remove(_userKey);
     _user = null;
     notifyListeners();

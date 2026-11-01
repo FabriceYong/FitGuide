@@ -57,6 +57,10 @@ class TimerNotifications {
   static bool get supported => !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
   static bool get _isIOS => defaultTargetPlatform == TargetPlatform.iOS;
 
+  /// The plugin, set up (reminders share it).
+  static FlutterLocalNotificationsPlugin get plugin => _plugin;
+  static Future<bool> ready() => _init();
+
   static Future<bool> _init() => _ready ??= _plugin
       .initialize(
         settings: const InitializationSettings(

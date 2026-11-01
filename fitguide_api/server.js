@@ -14,6 +14,7 @@ const { createApp } = require('./app');
 const { prisma } = require('./db/prisma');
 const { seedCatalogIfEmpty } = require('./seed/catalog');
 const { promoteConfiguredAdmins } = require('./services/admins');
+const reminders = require('./services/reminders');
 
 const PORT = process.env.PORT || 5001;
 
@@ -34,6 +35,9 @@ async function start() {
   const server = createApp().listen(PORT, () => {
     console.log(`🚀 FitGuide API running on http://localhost:${PORT}`);
   });
+  // Browser reminders need VAPID keys; the app schedules its own either way.
+  if (reminders.isConfigured()) reminders.start();
+  else console.log('🔕 Browser reminders are off: set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY (npm run vapid-keys).');
 
   const shutdown = () => server.close(() => prisma.$disconnect().finally(() => process.exit(0)));
   process.on('SIGINT', shutdown);

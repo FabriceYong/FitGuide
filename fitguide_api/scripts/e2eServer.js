@@ -3,6 +3,7 @@
  * migrated and loaded with the catalog, then the API on E2E_API_PORT.
  * Never reads .env; everything it needs is set here. Emails aren't sent:
  * GET http://127.0.0.1:<E2E_MAIL_PORT>/?to=<address> returns the latest one.
+ * Browser reminders get a throwaway key pair and are never actually pushed.
  */
 const fs = require('fs');
 const http = require('http');
@@ -43,6 +44,9 @@ async function main() {
     REGISTER_RATE_LIMIT_MAX: '1000',
     API_RATE_LIMIT_MAX: '100000',
   });
+  const vapid = require('web-push').generateVAPIDKeys();
+  Object.assign(process.env, { VAPID_PUBLIC_KEY: vapid.publicKey, VAPID_PRIVATE_KEY: vapid.privateKey });
+  require('../services/reminders').setSender(async () => {});
   for (const key of ['STRIPE_SECRET_KEY', 'ANTHROPIC_API_KEY', 'STRAVA_CLIENT_ID', 'FITBIT_CLIENT_ID']) delete process.env[key];
 
   await require('../seed/catalog').seedCatalog();

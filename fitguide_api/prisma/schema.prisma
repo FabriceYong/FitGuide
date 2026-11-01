@@ -52,6 +52,16 @@ model User {
   planRenewsAt       DateTime?
   cancelAtPeriodEnd  Boolean   @default(false)
   avatarUrl          String?
+  // Reminders (services/reminders.js): weekdays (0 = Sunday … 6 = Saturday)
+  // and a local "HH:MM" for workouts, plus an evening nudge for the streak.
+  reminderDays       Int[]     @default([])
+  reminderTime       String    @default("18:00")
+  streakReminder     Boolean   @default(false)
+  // The browser's time zone (IANA name), for reminders the server sends.
+  timeZone           String?
+  // Local date of the last reminder of each kind, so none is sent twice.
+  workoutReminderOn  String?
+  streakReminderOn   String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -64,7 +74,7 @@ model User {
   enrollments            Enrollment[]
   bodyMetrics            BodyMetric[]
   refreshTokens          RefreshToken[]
-  ownPrograms            Program[]            @relation("ProgramOwner")
+  ownPrograms            Program[]              @relation("ProgramOwner")
   coachMessages          CoachMessage[]
   aiRequests             AiRequest[]
   foods                  Food[]
@@ -74,16 +84,17 @@ model User {
   externalActivities     ExternalActivity[]
   connections            Connection[]
   oauthStates            OAuthState[]
-  friendRequestsSent     Friendship[]         @relation("FriendshipRequester")
-  friendRequestsReceived Friendship[]         @relation("FriendshipAddressee")
+  friendRequestsSent     Friendship[]           @relation("FriendshipRequester")
+  friendRequestsReceived Friendship[]           @relation("FriendshipAddressee")
   challengesCreated      Challenge[]
   challengeMemberships   ChallengeMember[]
-  createdPrograms        Program[]            @relation("ProgramCreator")
-  createdWorkouts        Workout[]            @relation("WorkoutCreator")
+  createdPrograms        Program[]              @relation("ProgramCreator")
+  createdWorkouts        Workout[]              @relation("WorkoutCreator")
   coachProfile           CoachProfile?
-  articles               Article[]            @relation("ArticleAuthor")
+  articles               Article[]              @relation("ArticleAuthor")
   passwordResets         PasswordReset[]
   emailVerifications     EmailVerification[]
+  pushSubscriptions      PushSubscription[]
 
   @@map("users")
 }
@@ -750,4 +761,19 @@ model AiRequest {
 
   @@index([userId, kind, createdAt])
   @@map("ai_requests")
+}
+
+/// A browser that turned on reminders (Web Push). Phones schedule their own.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }

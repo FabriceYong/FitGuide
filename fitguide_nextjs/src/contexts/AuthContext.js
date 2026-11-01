@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { apiRequest, ApiError, hasSession, setSession, UNAUTHORIZED_EVENT } from '../lib/api';
+import { forgetBrowserReminders } from '../services/reminderService';
 
 const USER_KEY = 'fitguide_user';
 // Keys written by older builds (fake/mock tokens). Cleared on startup.
@@ -42,6 +43,7 @@ export const AuthProvider = ({ children }) => {
 
     /** Sign out: clear the httpOnly auth cookie on the server, then locally. */
     const logout = useCallback(() => {
+        forgetBrowserReminders();
         // Always ask the server, even if the local marker is gone: only it can
         // clear an httpOnly cookie.
         apiRequest('/auth/logout', { method: 'POST' }).catch((err) => {

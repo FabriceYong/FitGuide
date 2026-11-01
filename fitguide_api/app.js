@@ -33,6 +33,7 @@ const creatorRoutes = require('./routes/creator');
 const coachesRoutes = require('./routes/coaches');
 const billingRoutes = require('./routes/billing');
 const eventsRoutes = require('./routes/events');
+const remindersRoutes = require('./routes/reminders');
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -148,6 +149,7 @@ function createApp() {
   app.use('/api/coaches', coachesRoutes);
   app.use('/api/billing', billingRoutes);
   app.use('/api/events', eventsRoutes);
+  app.use('/api/reminders', remindersRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

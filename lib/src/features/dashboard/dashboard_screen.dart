@@ -7,6 +7,7 @@ import '../../core/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../navigation.dart';
+import '../../services/reminders.dart';
 import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
 import '../../state/workouts_controller.dart';
@@ -66,6 +67,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     final workouts = context.read<WorkoutsController>();
     if (workouts.workouts.isEmpty) workouts.load();
+    // Schedule the next two weeks of reminders on this phone.
+    if (context.read<AuthController>().hasAccount) syncReminders();
   }
 
   Future<void> _confirmLogout() async {

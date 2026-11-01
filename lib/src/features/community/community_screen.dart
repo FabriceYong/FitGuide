@@ -8,6 +8,7 @@ import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/units.dart';
 import '../../services/social_service.dart';
 import '../../state/auth_controller.dart';
 import '../../widgets/forms.dart';
@@ -16,7 +17,14 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/ui.dart';
 import '../common/site_page.dart';
 
-const _metricOptions = [('minutes', 'Active minutes'), ('sessions', 'Workouts'), ('activeDays', 'Active days'), ('steps', 'Steps')];
+const _metricOptions = [
+  ('minutes', 'Active minutes'),
+  ('sessions', 'Workouts'),
+  ('activeDays', 'Active days'),
+  ('steps', 'Steps'),
+  ('volume', 'Weight lifted'),
+  ('foodDays', 'Days with food logged'),
+];
 
 /// /community: friends, the weekly friends leaderboard and challenges
 /// (features/community/CommunityView.tsx).
@@ -461,6 +469,10 @@ class _Board extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (rows.isEmpty) return Text('No scores yet.', style: fg(size: 14, color: AppColors.white70));
+    // Weight lifted is scored in kg; shown in the viewer's units.
+    final units = context.watch<AuthController>().user?.units ?? Units.metric;
+    String score(num value) => unit == 'kg' ? thousands(weightIn(value, units).round()) : thousands(value);
+    final shownUnit = unit == 'kg' ? units.weight : unit;
     return Column(
       children: spaced([
         for (final r in rows)
@@ -486,8 +498,8 @@ class _Board extends StatelessWidget {
                 ])),
               ),
               Text.rich(TextSpan(children: [
-                TextSpan(text: thousands(r.score), style: fg(size: 14, weight: FontWeight.w700)),
-                TextSpan(text: ' $unit', style: fg(size: 14, color: AppColors.white70)),
+                TextSpan(text: score(r.score), style: fg(size: 14, weight: FontWeight.w700)),
+                TextSpan(text: ' $shownUnit', style: fg(size: 14, color: AppColors.white70)),
               ])),
             ]),
           ),

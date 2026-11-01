@@ -159,6 +159,29 @@ function defineSocialSuite(ctx) {
       assert.deepEqual(board.map((r) => [r.name, r.score]), [['Cleo', 12000], ['Ana L.', 4000]]);
     });
 
+    it('scores weight lifted and days with food logged', async () => {
+      const lifting = (await ana.agent.post('/api/social/challenges').send(challenge({ title: 'Lift it', metric: 'volume', visibility: 'private' })).expect(201)).body.challenge;
+      assert.equal(lifting.unit, 'kg');
+      const eating = (await ana.agent.post('/api/social/challenges').send(challenge({ title: 'Log it', metric: 'foodDays', visibility: 'private' })).expect(201)).body.challenge;
+      await cleo.agent.post('/api/social/challenges/join').send({ code: lifting.joinCode }).expect(200);
+      await cleo.agent.post('/api/social/challenges/join').send({ code: eating.joinCode }).expect(200);
+
+      const now = Date.now();
+      await ana.agent.post('/api/sessions').send({
+        workoutSlug: 'core-power-blast', startedAt: new Date(now - 40 * 60000).toISOString(), completedAt: new Date(now - 60000).toISOString(), durationSec: 1800,
+        sets: [{ exerciseName: 'Squat', reps: 5, weightKg: 100 }, { exerciseName: 'Squat', reps: 5, weightKg: 100 }, { exerciseName: 'Plank', durationSec: 60 }],
+      }).expect(201);
+      const lifted = (await ana.agent.get(`/api/social/challenges/${lifting.id}`).expect(200)).body.challenge.leaderboard;
+      assert.deepEqual(lifted.map((r) => [r.name, r.score]), [['Ana L.', 1000], ['Cleo', 0]]);
+
+      for (const date of [today(), addDays(today(), -1)]) {
+        await cleo.agent.post('/api/nutrition/log').send({ date, meal: 'lunch', servings: 1, name: 'Soup', calories: 200, protein: 8, carbs: 20, fat: 6 }).expect(201);
+      }
+      await cleo.agent.post('/api/nutrition/log').send({ meal: 'dinner', servings: 1, name: 'Bread', calories: 150, protein: 5, carbs: 30, fat: 1 }).expect(201);
+      const logged = (await cleo.agent.get(`/api/social/challenges/${eating.id}`).expect(200)).body.challenge.leaderboard;
+      assert.deepEqual(logged.map((r) => [r.name, r.score]), [['Cleo', 2], ['Ana L.', 0]]);
+    });
+
     it('members can leave; only the creator can delete', async () => {
       await cleo.agent.delete(`/api/social/challenges/${privateChallenge.id}/membership`).expect(200);
       await cleo.agent.delete(`/api/social/challenges/${privateChallenge.id}/membership`).expect(404);

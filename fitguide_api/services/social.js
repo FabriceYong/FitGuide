@@ -17,6 +17,9 @@ const METRICS = {
   minutes: { label: 'Active minutes', unit: 'min' },
   activeDays: { label: 'Active days', unit: 'days' },
   steps: { label: 'Steps', unit: 'steps' },
+  // Reps × weight over every logged set.
+  volume: { label: 'Weight lifted', unit: 'kg' },
+  foodDays: { label: 'Days with food logged', unit: 'days' },
 };
 const VISIBILITIES = ['public', 'friends', 'private'];
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I
@@ -130,7 +133,22 @@ async function scores(userIds, metric, startYmd, endYmd) {
     return result;
   }
 
+  if (metric === 'foodDays') {
+    const days = await prisma.foodLog.groupBy({ by: ['userId', 'date'], where: { userId: { in: userIds }, date: { gte: startYmd, lte: endYmd } } });
+    for (const d of days) result.set(d.userId, result.get(d.userId) + 1);
+    return result;
+  }
+
   const range = { gte: dayStart(startYmd), lte: dayEnd(endYmd) };
+  if (metric === 'volume') {
+    const sets = await prisma.setLog.findMany({
+      where: { session: { userId: { in: userIds }, completedAt: range }, reps: { gt: 0 }, weightKg: { gt: 0 } },
+      select: { reps: true, weightKg: true, session: { select: { userId: true } } },
+    });
+    for (const s of sets) result.set(s.session.userId, result.get(s.session.userId) + s.reps * s.weightKg);
+    for (const [id, kg] of result) result.set(id, Math.round(kg));
+    return result;
+  }
   const [sessions, external] = await Promise.all([
     prisma.workoutSession.findMany({ where: { userId: { in: userIds }, completedAt: range }, select: { userId: true, completedAt: true, durationSec: true } }),
     prisma.externalActivity.findMany({ where: { userId: { in: userIds }, startedAt: range }, select: { userId: true, startedAt: true, durationSec: true } }),

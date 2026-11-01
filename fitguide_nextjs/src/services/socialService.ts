@@ -5,7 +5,7 @@ import { apiRequest } from '../lib/api';
 
 const tz = () => ({ tzOffset: new Date().getTimezoneOffset() });
 
-export type Metric = 'sessions' | 'minutes' | 'activeDays' | 'steps';
+export type Metric = 'sessions' | 'minutes' | 'activeDays' | 'steps' | 'volume' | 'foodDays';
 
 export interface Person {
   id: string;

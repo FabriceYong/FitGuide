@@ -12,25 +12,31 @@ import {
   type Challenge, type Friends, type LeaderboardRow, type Metric, type NewChallenge,
 } from '../../services/socialService';
 import { track } from '../../lib/analytics';
+import { useUnits, weightIn, weightUnit } from '../../lib/units';
 
 const METRIC_OPTIONS: { value: Metric; label: string }[] = [
   { value: 'minutes', label: 'Active minutes' },
   { value: 'sessions', label: 'Workouts' },
   { value: 'activeDays', label: 'Active days' },
   { value: 'steps', label: 'Steps' },
+  { value: 'volume', label: 'Weight lifted' },
+  { value: 'foodDays', label: 'Days with food logged' },
 ];
 const card = 'bg-obsidian-wave border border-white-30/10 rounded-2xl p-5';
 const field = 'w-full bg-noir-eclipse border border-white-30/20 rounded-xl px-3 py-2 text-sm text-white [color-scheme:dark]';
 
 function Board({ rows, unit }: { rows: LeaderboardRow[]; unit: string }) {
+  // Weight lifted is scored in kg; shown in the viewer's units.
+  const units = useUnits();
   if (!rows.length) return <p className="text-sm text-white-70">No scores yet.</p>;
+  const score = (value: number) => (unit === 'kg' ? Math.round(weightIn(value, units)) : value).toLocaleString();
   return (
     <ol className="space-y-1.5">
       {rows.map((r) => (
         <li key={r.id} className={`flex items-center gap-3 rounded-xl px-3 py-2 ${r.isYou ? 'bg-lime-light/10 border border-lime-light/30' : 'bg-noir-eclipse/60'}`}>
           <span className="w-6 text-center font-extrabold text-sm">{r.rank <= 3 ? <Medal className={`w-4 h-4 inline ${['text-yellow-300', 'text-gray-300', 'text-amber-600'][r.rank - 1]}`} aria-label={`Rank ${r.rank}`} /> : r.rank}</span>
           <span className="flex-1 text-sm font-semibold">{r.name}{r.isYou && <span className="text-white-70 font-normal"> (you)</span>}</span>
-          <span className="text-sm font-bold">{r.score.toLocaleString()} <span className="text-white-70 font-normal">{unit}</span></span>
+          <span className="text-sm font-bold">{score(r.score)} <span className="text-white-70 font-normal">{unit === 'kg' ? weightUnit(units) : unit}</span></span>
         </li>
       ))}
     </ol>

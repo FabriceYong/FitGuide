@@ -5,6 +5,7 @@ const { it, before } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { today, addDays } = require('../utils/dates');
+const barcode = require('../services/barcode');
 
 function defineNutritionSuite(ctx) {
   let app;
@@ -78,6 +79,63 @@ function defineNutritionSuite(ctx) {
     const entry = (await eater.agent.get('/api/nutrition/log').expect(200)).body.meals.dinner[0];
     await other.agent.delete(`/api/nutrition/log/${entry.id}`).expect(404);
     await eater.agent.delete(`/api/nutrition/log/${entry.id}`).expect(200);
+  });
+
+  it('counts water drunk, never below none', async () => {
+    const drinker = await ctx().signUp('Drinker');
+    await drinker.agent.put('/api/auth/profile').send({ weight: 80 }).expect(200);
+    await request(app).post('/api/nutrition/water').send({ ml: 250 }).expect(401);
+    await drinker.agent.post('/api/nutrition/water').send({ ml: 'lots' }).expect(400);
+    await drinker.agent.post('/api/nutrition/water').send({ ml: 250, date: addDays(today(), 2) }).expect(400);
+
+    assert.deepEqual((await drinker.agent.get('/api/nutrition/log').expect(200)).body.water, { ml: 0 });
+    await drinker.agent.post('/api/nutrition/water').send({ ml: 250 }).expect(200);
+    const added = await drinker.agent.post('/api/nutrition/water').send({ ml: 500 }).expect(200);
+    assert.equal(added.body.water.ml, 750);
+    const day = (await drinker.agent.get('/api/nutrition/log').expect(200)).body;
+    assert.equal(day.water.ml, 750);
+    // 80 kg × 35 ml = 2.8 l, in whole glasses.
+    assert.equal(day.targets.waterMl, 2750);
+
+    const undone = await drinker.agent.post('/api/nutrition/water').send({ ml: -1000 }).expect(200);
+    assert.equal(undone.body.water.ml, 0);
+    // Other days and other people are separate.
+    const yesterday = await drinker.agent.post('/api/nutrition/water').send({ ml: 250, date: addDays(today(), -1) }).expect(200);
+    assert.equal(yesterday.body.water.ml, 250);
+    assert.equal((await eater.agent.get('/api/nutrition/log').expect(200)).body.water.ml, 0);
+  });
+
+  it('looks up packaged food by barcode', async () => {
+    const asked = [];
+    barcode.setFetch(async (url, options) => {
+      asked.push({ url, agent: options.headers['User-Agent'] });
+      if (url.includes('/3017620422003.')) {
+        return new Response(JSON.stringify({ status: 1, product: {
+          product_name: 'Hazelnut spread', brands: 'Nutella, Ferrero', serving_size: '15 g',
+          nutriments: { 'energy-kcal_100g': 539, proteins_100g: 6.3, carbohydrates_100g: 57.5, fat_100g: 30.9, 'energy-kcal_serving': 80.9, proteins_serving: 0.9, carbohydrates_serving: 8.6, fat_serving: 4.6 },
+        } }), { status: 200 });
+      }
+      if (url.includes('/5000000000000.')) return new Response('', { status: 500 });
+      return new Response(JSON.stringify({ status: 0 }), { status: 200 });
+    });
+    try {
+      await request(app).get('/api/nutrition/barcode/3017620422003').expect(401);
+      await eater.agent.get('/api/nutrition/barcode/12ab').expect(400);
+      const found = await eater.agent.get('/api/nutrition/barcode/3017620422003').expect(200);
+      assert.deepEqual(found.body.product, {
+        code: '3017620422003', name: 'Hazelnut spread', brand: 'Nutella', serving: '15 g',
+        per100g: { calories: 539, protein: 6.3, carbs: 57.5, fat: 30.9 },
+        perServing: { calories: 80.9, protein: 0.9, carbs: 8.6, fat: 4.6 },
+      });
+      assert.match(asked[0].agent, /^FitGuide\//);
+      // Asked once a day per product.
+      await eater.agent.get('/api/nutrition/barcode/3017620422003').expect(200);
+      assert.equal(asked.length, 1);
+      await eater.agent.get('/api/nutrition/barcode/4000000000000').expect(404);
+      await eater.agent.get('/api/nutrition/barcode/5000000000000').expect(503);
+    } finally {
+      barcode.setFetch(null);
+    }
   });
 
   it('suggests a meal plan near the target', async () => {

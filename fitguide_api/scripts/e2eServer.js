@@ -4,6 +4,8 @@
  * Never reads .env; everything it needs is set here. Emails aren't sent:
  * GET http://127.0.0.1:<E2E_MAIL_PORT>/?to=<address> returns the latest one.
  * Browser reminders get a throwaway key pair and are never actually pushed.
+ * Barcode lookups go to a stand-in for Open Food Facts on the same port,
+ * which knows one product (OFF_PRODUCT).
  */
 const fs = require('fs');
 const http = require('http');
@@ -15,11 +17,25 @@ const API_PORT = Number(process.env.E2E_API_PORT) || 5055;
 const WEB_ORIGIN = process.env.E2E_WEB_ORIGIN || 'http://localhost:3055';
 const MAIL_PORT = Number(process.env.E2E_MAIL_PORT) || 5056;
 
-/** Keep emails in memory and serve the latest one per recipient. */
+const OFF_PRODUCT = {
+  code: '3017620422003',
+  product_name: 'Hazelnut spread',
+  brands: 'Nutella',
+  serving_size: '15 g',
+  nutriments: { 'energy-kcal_100g': 539, proteins_100g: 6.3, carbohydrates_100g: 57.5, fat_100g: 30.9, 'energy-kcal_serving': 81, proteins_serving: 0.9, carbohydrates_serving: 8.6, fat_serving: 4.6 },
+};
+
+/** Keep emails in memory and serve the latest one per recipient; and the Open Food Facts stand-in. */
 function startMailbox() {
   const sent = [];
   require('../services/mailer').setTransport({ sendMail: async (message) => { sent.push(message); } });
   http.createServer((req, res) => {
+    const product = /^\/off\/api\/v2\/product\/(\d+)\.json/.exec(req.url);
+    if (product) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(product[1] === OFF_PRODUCT.code ? { status: 1, product: OFF_PRODUCT } : { status: 0 }));
+      return;
+    }
     const to = new URL(req.url, 'http://mailbox').searchParams.get('to');
     const mail = sent.filter((m) => m.to === to).at(-1);
     res.writeHead(mail ? 200 : 404, { 'Content-Type': 'application/json' });
@@ -43,6 +59,7 @@ async function main() {
     LOGIN_RATE_LIMIT_MAX: '1000',
     REGISTER_RATE_LIMIT_MAX: '1000',
     API_RATE_LIMIT_MAX: '100000',
+    OFF_API_BASE: `http://127.0.0.1:${MAIL_PORT}/off`,
   });
   const vapid = require('web-push').generateVAPIDKeys();
   Object.assign(process.env, { VAPID_PUBLIC_KEY: vapid.publicKey, VAPID_PRIVATE_KEY: vapid.privateKey });

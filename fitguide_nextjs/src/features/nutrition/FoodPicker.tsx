@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Loader2, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { Loader2, ScanBarcode, Search, X } from 'lucide-react';
 import type { Meal } from '@fitguide/shared';
-import { logFood, searchFoods, type Food } from '../../services/nutritionService';
+import { logFood, lookupBarcode, searchFoods, type BarcodeProduct, type Food } from '../../services/nutritionService';
+import { BarcodeCamera, canScanBarcodes } from './BarcodeCamera';
 import { track } from '../../lib/analytics';
 
 interface Props {
@@ -13,14 +14,23 @@ interface Props {
   onAdded: () => void;
 }
 
-/** Dialog to log a food: search the catalog, or enter a one-off item. */
+/**
+ * Dialog to log a food: search the catalog, look up a packaged food by its
+ * barcode (read by the camera where the browser can, or typed), or enter a
+ * one-off item. A found product fills in the manual form, to check and add.
+ */
 export function FoodPicker({ meal, date, onClose, onAdded }: Props) {
   const [search, setSearch] = useState('');
   const [foods, setFoods] = useState<Food[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Food | null>(null);
   const [servings, setServings] = useState(1);
-  const [custom, setCustom] = useState(false);
+  const [mode, setMode] = useState<'search' | 'barcode' | 'manual'>('search');
+  const custom = mode === 'manual';
+  const [code, setCode] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [product, setProduct] = useState<BarcodeProduct | null>(null);
+  const [perServing, setPerServing] = useState(true);
   const [manual, setManual] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +53,36 @@ export function FoodPicker({ meal, date, onClose, onAdded }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // The product's numbers per serving or per 100 g, in the manual form.
+  const fill = (p: BarcodeProduct, serving: boolean) => {
+    const m = (serving ? p.perServing : p.per100g)!;
+    setPerServing(serving);
+    setManual({
+      name: `${[p.brand, p.name].filter(Boolean).join(' ')} (${serving ? p.serving || '1 serving' : '100 g'})`,
+      calories: String(m.calories), protein: String(m.protein), carbs: String(m.carbs), fat: String(m.fat),
+    });
+  };
+
+  const findBarcode = useCallback(async (value: string) => {
+    setScanning(false);
+    if (!/^(\d{8}|\d{12,14})$/.test(value)) return setError('A barcode is 8, 12, 13 or 14 digits.');
+    setBusy(true);
+    setError(null);
+    try {
+      const found = await lookupBarcode(value);
+      if (!found) return setError('We couldn’t find that product. Enter it manually instead.');
+      setProduct(found);
+      fill(found, Boolean(found.perServing));
+      setMode('manual');
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+  const onCode = useCallback((value: string) => { setCode(value); findBarcode(value); }, [findBarcode]);
+  const onCameraError = useCallback((message: string) => { setScanning(false); setError(message); }, []);
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
@@ -54,7 +94,7 @@ export function FoodPicker({ meal, date, onClose, onAdded }: Props) {
       } else if (selected) {
         await logFood({ date, meal, servings, foodSlug: selected.slug });
       }
-      track('food_logged', { custom });
+      track('food_logged', { custom, barcode: Boolean(product) });
       onAdded();
     } catch (err) {
       setError((err as Error).message);
@@ -81,13 +121,40 @@ export function FoodPicker({ meal, date, onClose, onAdded }: Props) {
           <button onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center"><X className="w-4 h-4" /></button>
         </div>
 
-        <div className="flex gap-2 text-xs font-bold">
-          <button type="button" aria-pressed={!custom} onClick={() => setCustom(false)} className={`px-3 py-2 rounded-lg ${!custom ? 'bg-lime-light text-noir-eclipse' : 'bg-white/10'}`}>Search foods</button>
-          <button type="button" aria-pressed={custom} onClick={() => setCustom(true)} className={`px-3 py-2 rounded-lg ${custom ? 'bg-lime-light text-noir-eclipse' : 'bg-white/10'}`}>Enter manually</button>
+        <div className="flex flex-wrap gap-2 text-xs font-bold">
+          {([['search', 'Search foods'], ['barcode', 'Barcode'], ['manual', 'Enter manually']] as const).map(([id, text]) => (
+            <button key={id} type="button" aria-pressed={mode === id} onClick={() => { setMode(id); setError(null); setScanning(false); }} className={`px-3 py-2 rounded-lg ${mode === id ? 'bg-lime-light text-noir-eclipse' : 'bg-white/10'}`}>{text}</button>
+          ))}
         </div>
 
+        {mode === 'barcode' && (
+          <div className="space-y-3">
+            {scanning ? (
+              <>
+                <BarcodeCamera onCode={onCode} onError={onCameraError} />
+                <button type="button" onClick={() => setScanning(false)} className="text-xs font-bold text-white-70 underline">Stop the camera</button>
+              </>
+            ) : canScanBarcodes() && (
+              <button type="button" onClick={() => { setError(null); setScanning(true); }} className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-lime-light text-noir-eclipse font-bold text-sm">
+                <ScanBarcode className="w-4 h-4" aria-hidden="true" /> Scan with the camera
+              </button>
+            )}
+            <form onSubmit={(e) => { e.preventDefault(); findBarcode(code.trim()); }} className="flex items-end gap-2">
+              <label className="flex-1 block text-xs font-bold text-white-70">{canScanBarcodes() ? 'Or type the barcode' : 'Barcode number'}
+                <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} inputMode="numeric" maxLength={14} placeholder="e.g. 3017620422003" className={`${field} mt-1`} />
+              </label>
+              <button type="submit" disabled={busy || !code} className="h-10 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-bold flex items-center gap-2 disabled:opacity-50">
+                {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Look up
+              </button>
+            </form>
+            <p className="text-xs text-white-70">Product details from <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer" className="underline">Open Food Facts</a>.</p>
+            {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+          </div>
+        )}
+
+        {mode !== 'barcode' && (
         <form onSubmit={submit} className="flex flex-col gap-3 min-h-0">
-          {!custom ? (
+          {mode === 'search' ? (
             <>
               <label className="relative block">
                 <span className="sr-only">Search foods</span>
@@ -114,6 +181,17 @@ export function FoodPicker({ meal, date, onClose, onAdded }: Props) {
             </>
           ) : (
             <div className="grid grid-cols-2 gap-3">
+              {product && (
+                <div className="col-span-2 space-y-2">
+                  <p className="text-xs text-white-70">From Open Food Facts. Check the numbers against the pack.</p>
+                  {product.perServing && product.per100g && (
+                    <div className="flex gap-2 text-xs font-bold" role="group" aria-label="Numbers for">
+                      <button type="button" aria-pressed={perServing} onClick={() => fill(product, true)} className={`px-3 py-2 rounded-lg ${perServing ? 'bg-lime-light/15 border border-lime-light' : 'bg-white/10'}`}>Per serving{product.serving ? ` (${product.serving})` : ''}</button>
+                      <button type="button" aria-pressed={!perServing} onClick={() => fill(product, false)} className={`px-3 py-2 rounded-lg ${!perServing ? 'bg-lime-light/15 border border-lime-light' : 'bg-white/10'}`}>Per 100 g</button>
+                    </div>
+                  )}
+                </div>
+              )}
               <label className="col-span-2 block text-xs font-bold text-white-70">Name
                 <input required value={manual.name} onChange={(e) => setManual({ ...manual, name: e.target.value })} maxLength={120} className={`${field} mt-1`} />
               </label>
@@ -133,6 +211,7 @@ export function FoodPicker({ meal, date, onClose, onAdded }: Props) {
             {busy && <Loader2 className="w-4 h-4 animate-spin" />} Add
           </button>
         </form>
+        )}
       </div>
     </div>
   );

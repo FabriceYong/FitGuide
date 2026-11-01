@@ -42,6 +42,43 @@ test('log food and see the day total', async ({ page }) => {
   await expect(page.getByRole('group', { name: /^Eaten 105 of \d+ kcal$/ })).toBeVisible();
 });
 
+test('a barcode fills in a packaged food to check and log', async ({ page }) => {
+  await signUpAndSignIn(page, 'Barcode Tester');
+  await page.goto('/nutrition');
+  await page.getByRole('button', { name: 'Add food' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Barcode' }).click();
+  // The e2e API's Open Food Facts stand-in knows only this product.
+  await dialog.getByLabel(/barcode/i).fill('4000000000000');
+  await dialog.getByRole('button', { name: 'Look up' }).click();
+  await expect(dialog.getByRole('alert')).toHaveText('We couldn’t find that product. Enter it manually instead.');
+
+  await dialog.getByLabel(/barcode/i).fill('3017620422003');
+  await dialog.getByRole('button', { name: 'Look up' }).click();
+  await expect(dialog.getByLabel('Name')).toHaveValue('Nutella Hazelnut spread (15 g)');
+  await expect(dialog.getByLabel(/^calories/i)).toHaveValue('81');
+  await dialog.getByRole('button', { name: 'Per 100 g' }).click();
+  await expect(dialog.getByLabel(/^calories/i)).toHaveValue('539');
+  await dialog.getByRole('button', { name: /^Per serving/ }).click();
+  await dialog.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText('Nutella Hazelnut spread (15 g)').first()).toBeVisible();
+});
+
+test('water is counted a glass at a time on the home page', async ({ page }) => {
+  await signUpAndSignIn(page, 'Water Tester');
+  const add = page.getByRole('button', { name: 'Add a glass of water (250 ml)' });
+  await expect(add).toBeEnabled();
+  await add.click();
+  await expect(page.getByText('250 ml of 2.5 l')).toBeVisible();
+  await add.click();
+  await expect(page.getByText('500 ml of 2.5 l')).toBeVisible();
+  await page.getByRole('button', { name: 'Remove a glass of water' }).click();
+  await expect(page.getByText('250 ml of 2.5 l')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('250 ml of 2.5 l')).toBeVisible();
+});
+
 test('progress shows logged health data', async ({ page }) => {
   await signUpAndSignIn(page, 'Steps Tester');
   await page.goto('/progress');

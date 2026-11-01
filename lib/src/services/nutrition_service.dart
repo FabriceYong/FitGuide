@@ -26,8 +26,11 @@ class Targets extends Macros {
       : ageIsEstimate = asBool(j['ageIsEstimate']),
         diet = asString(j['diet']) ?? '',
         goal = asString(j['goal']) ?? '',
-        notes = asStrings(j['notes']);
+        notes = asStrings(j['notes']),
+        waterMl = asInt(j['waterMl']) ?? 2000;
   final bool ageIsEstimate;
+  /// Water to drink a day, in ml.
+  final int waterMl;
   final String diet;
   final String goal;
   final List<String> notes;
@@ -59,10 +62,14 @@ class DayLog {
   DayLog(Json j)
       : meals = asJson(j['meals']).map((meal, entries) => MapEntry(meal, asJsonList(entries).map(LogEntry.new).toList())),
         totals = Macros(asJson(j['totals'])),
-        targets = Targets(asJson(j['targets']));
+        targets = Targets(asJson(j['targets'])),
+        waterMl = asInt(asJson(j['water'])['ml']) ?? 0;
   final Map<String, List<LogEntry>> meals;
   final Macros totals;
   final Targets targets;
+
+  /// Water drunk that day, in ml.
+  final int waterMl;
 }
 
 class MealPlanItem extends Macros {
@@ -101,6 +108,38 @@ class HistoryDay extends Macros {
 }
 
 Future<DayLog> fetchDayLog(String date) async => DayLog(await _api.request('/nutrition/log', auth: true, query: {'date': date, ..._tz()}));
+
+/// A packaged food found by its barcode (Open Food Facts).
+class BarcodeProduct {
+  BarcodeProduct(Json j)
+      : code = asString(j['code']) ?? '',
+        name = asString(j['name']) ?? '',
+        brand = asString(j['brand']),
+        serving = asString(j['serving']),
+        per100g = j['per100g'] == null ? null : Macros(asJson(j['per100g'])),
+        perServing = j['perServing'] == null ? null : Macros(asJson(j['perServing']));
+  final String code;
+  final String name;
+  final String? brand;
+
+  /// The serving printed on the pack, like "15 g".
+  final String? serving;
+  final Macros? per100g;
+  final Macros? perServing;
+}
+
+/// The product with this barcode; null if Open Food Facts doesn't know it.
+Future<BarcodeProduct?> lookupBarcode(String code) async {
+  try {
+    return BarcodeProduct(asJson((await _api.request('/nutrition/barcode/$code', auth: true))['product']));
+  } on ApiError catch (err) {
+    if (err.status == 404) return null;
+    rethrow;
+  }
+}
+
+/// Add [ml] of water to today (negative takes it away); the day's new total.
+Future<int> addWater(int ml) async => asInt(asJson((await _api.request('/nutrition/water', method: 'POST', auth: true, query: _tz(), body: {'ml': ml}))['water'])['ml']) ?? 0;
 
 Future<List<Food>> searchFoods(String search) async =>
     asJsonList((await _api.request('/nutrition/foods', auth: true, query: {'search': search}))['foods']).map(Food.new).toList();

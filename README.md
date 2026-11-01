@@ -136,7 +136,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | Build your own workout: exercises with sets of reps or time, supersets; private, and played and logged like any workout | `services/myWorkouts.js`, `routes/myWorkouts.js` | Explore → My workouts (`features/workout/MyWorkouts.tsx`, `WorkoutBuilder.tsx`); app: `features/workout/my_workouts.dart` |
 | Personal plan generator and rules-based adaptation | `services/planGenerator.js`, `routes/plan.js` | `/plan` |
 | AI coach (Claude) with plan tools | `services/coach.js`, `routes/coach.js` | `/plan` |
-| Nutrition: targets, food log, meal plans | `services/nutrition.js`, `routes/nutrition.js` | `/nutrition` |
+| Nutrition: targets, food log, meal plans; packaged food by barcode (Open Food Facts, scanned with the camera or typed); water, a glass at a time against a goal from body weight | `services/nutrition.js`, `services/barcode.js`, `routes/nutrition.js` | `/nutrition`, Today on the home page; app: `features/nutrition/barcode_scanner.dart` |
 | Health data: steps, active calories, sleep, resting heart rate, blood pressure; Apple Health / Health Connect (synced by the mobile app), Strava, Fitbit, CSV | `services/integrations.js`, `healthData.js` | `/progress`; app: `services/phone_health.dart`, `state/phone_health_controller.dart` |
 | Friends, challenges, leaderboards, verified reviews | `services/social.js`, `routes/social.js` | `/community` |
 | Admin CMS, coach applications and the coach studio (dashboard, workouts, programs, review) | `routes/admin.js`, `creator.js`, `coaches.js` | `/admin`, `/studio`, `/coaches/[id]` |

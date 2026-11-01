@@ -15,7 +15,7 @@ async function everything(userId) {
   const id = String(userId);
   const [
     user, sessions, bodyMetrics, enrollments, plans, ownWorkouts, favorites, reviews, foods, foodLogs,
-    dailyMetrics, bloodPressure, activities, connections, friendships, challenges, coachMessages,
+    dailyMetrics, bloodPressure, activities, connections, friendships, challenges, coachMessages, water,
   ] = await Promise.all([
     prisma.user.findUnique({ where: { id } }),
     prisma.workoutSession.findMany({ where: { userId: id }, orderBy: { completedAt: 'desc' }, include: { sets: { orderBy: { position: 'asc' } } } }),
@@ -37,6 +37,7 @@ async function everything(userId) {
     }),
     prisma.challengeMember.findMany({ where: { userId: id }, include: { challenge: { select: { title: true, metric: true, startDate: true, endDate: true } } } }),
     prisma.coachMessage.findMany({ where: { userId: id, role: { in: ['user', 'assistant'] } }, orderBy: { createdAt: 'asc' }, select: { role: true, display: true, content: true, createdAt: true } }),
+    prisma.waterIntake.findMany({ where: { userId: id }, orderBy: { date: 'desc' }, select: { date: true, ml: true } }),
   ]);
   if (!user) return null;
 
@@ -57,6 +58,7 @@ async function everything(userId) {
     reviews: withoutIds(reviews),
     foods: withoutIds(foods, ['ownerId']),
     foodLog: withoutIds(foodLogs),
+    water,
     dailyHealth: withoutIds(dailyMetrics),
     bloodPressure: withoutIds(bloodPressure),
     connectedActivities: withoutIds(activities),

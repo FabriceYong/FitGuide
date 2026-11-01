@@ -57,6 +57,8 @@ function targets(profile, year = new Date().getFullYear()) {
 
   return {
     calories,
+    // About 35 ml a kg of body weight, in whole glasses of 250 ml.
+    waterMl: Math.min(4000, Math.max(1500, round(((profile.weight || 70) * 35) / 250) * 250)),
     protein: round(protein),
     carbs: round(carbs),
     fat: round(fat),

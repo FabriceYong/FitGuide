@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/analytics.dart';
 import '../../core/api/api_client.dart';
@@ -10,9 +12,12 @@ import '../../models/json.dart';
 import '../../services/nutrition_service.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/ui.dart';
+import '../../navigation.dart';
 import '../dashboard/explore_tab.dart';
+import 'barcode_scanner.dart';
 
-/// Log a food: search the catalog, or enter a one-off item
+/// Log a food: search the catalog, look up a packaged food by its barcode
+/// (scanned with the camera, or typed), or enter a one-off item
 /// (features/nutrition/FoodPicker.tsx). Pops true when something was added.
 class FoodPicker extends StatefulWidget {
   const FoodPicker({super.key, required this.meal, required this.date});
@@ -32,6 +37,10 @@ class _FoodPickerState extends State<FoodPicker> {
   bool _loading = true;
   Food? _selected;
   bool _custom = false;
+  bool _barcode = false;
+  final _code = TextEditingController();
+  BarcodeProduct? _product;
+  bool _perServing = true;
   bool _busy = false;
   String? _error;
   Timer? _debounce;
@@ -48,7 +57,7 @@ class _FoodPickerState extends State<FoodPicker> {
   @override
   void dispose() {
     _debounce?.cancel();
-    for (final c in [_search, _servings, _name, ..._macros.values]) {
+    for (final c in [_search, _servings, _name, _code, ..._macros.values]) {
       c.dispose();
     }
     super.dispose();
@@ -71,6 +80,54 @@ class _FoodPickerState extends State<FoodPicker> {
     }
   }
 
+  Future<void> _scan() async {
+    final code = await Navigator.of(context).push<String>(pageRoute(const BarcodeScannerScreen()));
+    if (code == null || !mounted) return;
+    _code.text = code;
+    await _lookupBarcode();
+  }
+
+  /// Find the barcode's product and fill in the manual form with it, to check and add.
+  Future<void> _lookupBarcode() async {
+    final code = _code.text.trim();
+    if (!RegExp(r'^(\d{8}|\d{12,14})$').hasMatch(code)) return setState(() => _error = 'A barcode is 8, 12, 13 or 14 digits.');
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final product = await lookupBarcode(code);
+      if (!mounted) return;
+      if (product == null) {
+        setState(() => _error = 'We couldn’t find that product. Enter it manually instead.');
+        return;
+      }
+      setState(() {
+        _product = product;
+        _barcode = false;
+        _custom = true;
+      });
+      _fill(product.perServing != null);
+    } catch (err) {
+      if (mounted) setState(() => _error = err is ApiError ? err.message : '$err');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// The product's numbers per serving or per 100 g, in the manual form.
+  void _fill(bool perServing) {
+    final p = _product!;
+    final m = perServing ? p.perServing! : p.per100g!;
+    final title = [if (p.brand != null) p.brand!, p.name].join(' ');
+    setState(() => _perServing = perServing);
+    _name.text = '$title (${perServing ? p.serving ?? '1 serving' : '100 g'})';
+    _macros['calories']!.text = numText(m.calories);
+    _macros['protein']!.text = numText(m.protein);
+    _macros['carbs']!.text = numText(m.carbs);
+    _macros['fat']!.text = numText(m.fat);
+  }
+
   Future<void> _submit() async {
     final servings = double.tryParse(_servings.text) ?? 1;
     setState(() {
@@ -88,7 +145,7 @@ class _FoodPickerState extends State<FoodPicker> {
             }
           : {'date': widget.date, 'meal': widget.meal, 'servings': servings, 'foodSlug': _selected!.slug};
       await logFood(entry);
-      track('food_logged', path: '/nutrition', props: {'custom': _custom});
+      track('food_logged', path: '/nutrition', props: {'custom': _custom, 'barcode': _product != null});
       if (mounted) Navigator.of(context).pop(true);
     } catch (err) {
       if (mounted) setState(() => _error = err is ApiError ? err.message : '$err');
@@ -118,13 +175,48 @@ class _FoodPickerState extends State<FoodPicker> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(children: [
-          _tab('Search foods', !_custom, () => setState(() => _custom = false)),
-          const SizedBox(width: 8),
-          _tab('Enter manually', _custom, () => setState(() => _custom = true)),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          _tab('Search foods', !_custom && !_barcode, () => setState(() => _custom = _barcode = false)),
+          _tab('Barcode', _barcode, () => setState(() {
+            _barcode = true;
+            _custom = false;
+          })),
+          _tab('Enter manually', _custom, () => setState(() {
+            _custom = true;
+            _barcode = false;
+          })),
         ]),
         const SizedBox(height: 16),
-        if (!_custom) ...[
+        if (_barcode) ...[
+          if (canScanBarcodes) ...[
+            FgButton(label: 'Scan with the camera', icon: LucideIcons.scanBarcode, expand: true, radius: 12, height: 48, onPressed: _busy ? null : _scan),
+            const SizedBox(height: 12),
+          ],
+          _labelled(
+            'Or type the barcode',
+            Row(children: [
+              Expanded(
+                child: FgTextField(
+                  controller: _code,
+                  hint: 'e.g. 3017620422003',
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  maxLength: 14,
+                  fontSize: 14,
+                  radius: 12,
+                  border: AppColors.white30A(0.2),
+                  semanticLabel: 'Barcode',
+                  onSubmitted: (_) => _lookupBarcode(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FgButton(label: 'Look up', loading: _busy, radius: 12, height: 48, style: FgButtonStyle.secondary, onPressed: _busy ? null : _lookupBarcode),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          Text('Product details from Open Food Facts.', style: fg(size: 12, color: AppColors.white70)),
+          if (_error != null) ...[const SizedBox(height: 12), ErrorLine(_error!)],
+        ] else if (!_custom) ...[
           SearchField(controller: _search, hint: 'Search, e.g. oats, salmon', radius: 12, onChanged: _onSearch),
           const SizedBox(height: 8),
           ConstrainedBox(
@@ -169,6 +261,19 @@ class _FoodPickerState extends State<FoodPicker> {
                       ),
           ),
         ] else ...[
+          if (_product != null) ...[
+            Text('From Open Food Facts. Check the numbers against the pack.', style: fg(size: 12, color: AppColors.white70)),
+            const SizedBox(height: 8),
+            if (_product!.perServing != null && _product!.per100g != null) ...[
+              Segmented<bool>(
+                options: [(true, 'Per serving${_product!.serving != null ? ' (${_product!.serving})' : ''}'), (false, 'Per 100 g')],
+                value: _perServing,
+                expand: true,
+                onChanged: _fill,
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
           _labelled('Name', FgTextField(controller: _name, maxLength: 120, fontSize: 14, radius: 12, border: AppColors.white30A(0.2))),
           const SizedBox(height: 12),
           FgGrid(columns: 2, gap: 12, children: [
@@ -176,11 +281,13 @@ class _FoodPickerState extends State<FoodPicker> {
               _labelled('${k[0].toUpperCase()}${k.substring(1)}${k == 'calories' ? ' (kcal)' : ' (g)'} per serving', NumberField(controller: _macros[k]!, border: AppColors.white30A(0.2))),
           ]),
         ],
-        const SizedBox(height: 12),
-        _labelled('Servings', NumberField(controller: _servings, border: AppColors.white30A(0.2))),
-        if (_error != null) ...[const SizedBox(height: 12), ErrorLine(_error!)],
-        const SizedBox(height: 16),
-        FgButton(label: 'Add', loading: _busy, radius: 12, fontSize: 14, fontWeight: FontWeight.w700, height: 48, onPressed: _busy || !valid ? null : _submit),
+        if (!_barcode) ...[
+          const SizedBox(height: 12),
+          _labelled('Servings', NumberField(controller: _servings, border: AppColors.white30A(0.2))),
+          if (_error != null) ...[const SizedBox(height: 12), ErrorLine(_error!)],
+          const SizedBox(height: 16),
+          FgButton(label: 'Add', loading: _busy, radius: 12, fontSize: 14, fontWeight: FontWeight.w700, height: 48, onPressed: _busy || !valid ? null : _submit),
+        ],
       ],
     );
   }

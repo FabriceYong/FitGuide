@@ -21,6 +21,8 @@ export interface Targets extends Macros {
   diet: string;
   goal: string;
   notes: string[];
+  /** Water to drink a day, in ml. */
+  waterMl: number;
 }
 
 export interface Food extends Macros {
@@ -47,6 +49,19 @@ export interface DayLog {
   meals: Record<Meal, LogEntry[]>;
   totals: Macros;
   targets: Targets;
+  /** Water drunk that day, in ml. */
+  water: { ml: number };
+}
+
+/** A packaged food found by its barcode (Open Food Facts). */
+export interface BarcodeProduct {
+  code: string;
+  name: string;
+  brand: string | null;
+  /** The serving printed on the pack, like "15 g". */
+  serving: string | null;
+  per100g: Macros | null;
+  perServing: Macros | null;
 }
 
 export interface MealPlanItem extends Macros {
@@ -68,6 +83,20 @@ export type NewEntry =
   | ({ date: string; meal: Meal; servings: number; name: string } & Macros);
 
 export const fetchDayLog = (date: string): Promise<DayLog> => apiRequest('/nutrition/log', { auth: true, query: { date, ...tz() } });
+
+/** Add `ml` of water to today (negative takes it away); the day's new total. */
+export const addWater = async (ml: number): Promise<number> =>
+  (await apiRequest('/nutrition/water', { method: 'POST', auth: true, query: tz(), body: { ml } })).water.ml;
+
+/** The product with this barcode; null if Open Food Facts doesn't know it. */
+export async function lookupBarcode(code: string): Promise<BarcodeProduct | null> {
+  try {
+    return (await apiRequest(`/nutrition/barcode/${encodeURIComponent(code)}`, { auth: true })).product;
+  } catch (err) {
+    if ((err as { status?: number }).status === 404) return null;
+    throw err;
+  }
+}
 
 export const searchFoods = async (search: string): Promise<Food[]> =>
   (await apiRequest('/nutrition/foods', { auth: true, query: { search } })).foods;

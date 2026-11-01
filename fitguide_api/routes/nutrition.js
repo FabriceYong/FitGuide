@@ -8,6 +8,7 @@ const { rateLimit } = require('express-rate-limit');
 const Anthropic = require('@anthropic-ai/sdk');
 const nutrition = require('../services/nutrition');
 const mealRecognition = require('../services/mealRecognition');
+const barcode = require('../services/barcode');
 const { hasImageSignature } = require('../utils/uploads');
 const { intFromEnv } = require('../utils/config');
 const { authMiddleware } = require('../middleware/authMiddleware');
@@ -53,6 +54,23 @@ router.get(
 const nutrientRules = (prefix = '') => ['calories', 'protein', 'carbs', 'fat'].map((f) => body(`${prefix}${f}`)
   .isFloat({ min: 0, max: f === 'calories' ? 5000 : 500 }).withMessage(`${f} must be a number`).toFloat());
 
+// ─── GET /api/nutrition/barcode/:code ─────────────────────────────────────────
+// A packaged food by its barcode, from Open Food Facts: { product: { code,
+// name, brand, serving, per100g, perServing } }, or 404 if it isn't known.
+// Log it as a one-off entry (POST /log with its name and numbers).
+router.get('/barcode/:code', async (req, res, next) => {
+  const { code } = req.params;
+  if (!barcode.isBarcode(code)) return res.status(400).json({ success: false, message: 'A barcode is 8, 12, 13 or 14 digits.' });
+  try {
+    const product = await barcode.lookup(code);
+    if (!product) return res.status(404).json({ success: false, message: 'We couldn’t find that product. Enter it yourself instead.' });
+    res.json({ success: true, product, source: 'Open Food Facts' });
+  } catch (err) {
+    console.warn('[barcode]', err.message);
+    res.status(503).json({ success: false, message: 'Product lookup isn’t available right now. Enter it yourself instead.' });
+  }
+});
+
 // ─── POST /api/nutrition/foods ────────────────────────────────────────────────
 // Body: { name, servingLabel, calories, protein, carbs, fat } — a food only this user sees.
 router.post(
@@ -93,9 +111,13 @@ router.post(
 router.get('/log', async (req, res, next) => {
   try {
     const date = dateFrom(req);
-    const entries = (await prisma.foodLog.findMany({ where: { userId: req.user.id, date }, orderBy: { createdAt: 'asc' } })).map(publicEntry);
+    const [logged, water] = await Promise.all([
+      prisma.foodLog.findMany({ where: { userId: req.user.id, date }, orderBy: { createdAt: 'asc' } }),
+      prisma.waterIntake.findUnique({ where: { userId_date: { userId: req.user.id, date } } }),
+    ]);
+    const entries = logged.map(publicEntry);
     const meals = Object.fromEntries(NUTRITION.MEALS.map((m) => [m, entries.filter((e) => e.meal === m)]));
-    res.json({ success: true, date, meals, totals: nutrition.totals(entries), targets: nutrition.targets(req.user) });
+    res.json({ success: true, date, meals, totals: nutrition.totals(entries), targets: nutrition.targets(req.user), water: { ml: water?.ml ?? 0 } });
   } catch (err) {
     next(err);
   }
@@ -138,6 +160,36 @@ router.post(
         data: { userId: req.user.id, date, meal: req.body.meal, servings: req.body.servings, ...item },
       });
       res.status(201).json({ success: true, entry: publicEntry(entry) });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ─── POST /api/nutrition/water?tzOffset= ──────────────────────────────────────
+// Body: { date?, ml } — add (or, negative, take away) water drunk that day.
+// Never below 0. Returns the day's total.
+router.post(
+  '/water',
+  [
+    body('date').optional().custom(isValidYmd).withMessage('date must be a date (YYYY-MM-DD)'),
+    body('ml').isInt({ min: -5000, max: 5000 }).withMessage('ml must be a whole number of millilitres').toInt(),
+  ],
+  rejectInvalid,
+  async (req, res, next) => {
+    try {
+      const todayYmd = today(tzOffsetFrom(req));
+      const date = req.body.date || todayYmd;
+      if (date > todayYmd) return res.status(400).json({ success: false, message: 'Date cannot be in the future.' });
+      const where = { userId_date: { userId: req.user.id, date } };
+      // One statement, so taps from two devices add up.
+      const row = await prisma.waterIntake.upsert({
+        where,
+        create: { userId: req.user.id, date, ml: Math.max(0, req.body.ml) },
+        update: { ml: { increment: req.body.ml } },
+      });
+      const water = row.ml < 0 ? await prisma.waterIntake.update({ where, data: { ml: 0 } }) : row;
+      res.json({ success: true, date, water: { ml: water.ml } });
     } catch (err) {
       next(err);
     }

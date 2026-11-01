@@ -50,3 +50,11 @@ export const measureUnit = (key: string, units: Units) => (key.endsWith('Kg') ? 
 export const measureIn = (key: string, value: number, units: Units) => (key.endsWith('Kg') ? weightIn(value, units) : key.endsWith('Cm') ? lengthIn(value, units) : value);
 export const measureFrom = (key: string, value: number, units: Units) => (key.endsWith('Kg') ? kgFrom(value, units) : key.endsWith('Cm') ? cmFrom(value, units) : value);
 export const measureText = (key: string, value: number, units: Units) => `${measureIn(key, value, units)} ${measureUnit(key, units)}`;
+
+export const ML_PER_FL_OZ = 29.5735;
+
+/** A volume of water: "750 ml", "1.25 l" or "25 fl oz". */
+export function volumeText(ml: number, units: Units) {
+  if (units === 'imperial') return `${Math.round(ml / ML_PER_FL_OZ)} fl oz`;
+  return ml < 1000 ? `${Math.round(ml)} ml` : `${Math.round(ml / 10) / 100} l`;
+}

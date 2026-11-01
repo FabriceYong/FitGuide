@@ -5,11 +5,13 @@ import 'package:provider/provider.dart';
 import '../../core/format.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/units.dart';
 import '../../models/catalog.dart';
 import '../../models/training.dart';
 import '../../navigation.dart';
 import '../../services/health_service.dart';
 import '../../services/nutrition_service.dart';
+import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
 import '../../widgets/progress_ring.dart';
 import '../../widgets/ui.dart';
@@ -17,9 +19,12 @@ import '../../widgets/ui.dart';
 /// A common daily target; FitGuide doesn't ask for a personal one yet.
 const stepGoal = 10000;
 
+/// One tap on the water card.
+const glassMl = 250;
+
 /// "Today" on the home tab (dashboard/components/TodayPanel.tsx): the next
-/// workout, food logged against the day's target, steps from the phone or a
-/// wearable, and the streak, each a tap from where to act on it.
+/// workout, food logged against the day's target, water, steps from the
+/// phone or a wearable, and the streak, each a tap from where to act on it.
 class TodayPanel extends StatefulWidget {
   const TodayPanel({super.key, required this.summary, required this.suggestion});
   final ProgressSummary? summary;
@@ -32,6 +37,28 @@ class TodayPanel extends StatefulWidget {
 class _TodayPanelState extends State<TodayPanel> {
   DayLog? _food;
   HealthSummary? _health;
+  int? _water;
+  bool _waterFailed = false;
+
+  /// Add (or take away) a glass, showing it straight away.
+  Future<void> _drink(int ml) async {
+    final before = _water ?? _food?.waterMl ?? 0;
+    setState(() {
+      _water = (before + ml).clamp(0, 20000);
+      _waterFailed = false;
+    });
+    try {
+      final total = await addWater(ml);
+      if (mounted) setState(() => _water = total);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _water = before;
+          _waterFailed = true;
+        });
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -54,6 +81,9 @@ class _TodayPanelState extends State<TodayPanel> {
     final food = _food;
     final eaten = food?.totals.calories.round();
     final target = food?.targets.calories.round();
+    final water = _water ?? food?.waterMl;
+    final waterGoal = food?.targets.waterMl ?? 2000;
+    final units = context.watch<AuthController>().user?.units ?? Units.metric;
     final lastWeek = summary == null ? const <ActivityDay>[] : summary.days.sublist(summary.days.length > 7 ? summary.days.length - 7 : 0);
 
     return Column(
@@ -61,7 +91,7 @@ class _TodayPanelState extends State<TodayPanel> {
       children: [
         const SectionHeader('Today'),
         const SizedBox(height: 14),
-        FgGrid(columns: 1, sm: 2, lg: 4, gap: 12, children: [
+        FgGrid(columns: 1, sm: 2, lg: 3, gap: 12, children: [
           // Next workout
           _TodayCard(
             icon: LucideIcons.calendarDays,
@@ -104,6 +134,49 @@ class _TodayPanelState extends State<TodayPanel> {
               title: food == null ? null : (target! - eaten! > 0 ? '${target - eaten} kcal left' : 'Target reached'),
               detail: food == null ? 'Log a meal to see how today adds up.' : 'of $target today · ${food.totals.protein.round()} / ${food.targets.protein.round()} g protein',
             ),
+          ),
+          // Water
+          _TodayCard(
+            icon: LucideIcons.glassWater,
+            color: AppColors.blue400,
+            label: 'Water',
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              _RingRow(
+                ring: ProgressRing(
+                  value: (water ?? 0).toDouble(),
+                  goal: waterGoal.toDouble(),
+                  color: AppColors.blue400,
+                  size: 80,
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(water == null ? '–' : '${(water / glassMl).floor()}', style: fg(size: 18, weight: FontWeight.w800)),
+                    Text('glasses', style: fg(size: 10, color: AppColors.white70)),
+                  ]),
+                ),
+                title: water == null ? null : (water >= waterGoal ? 'Goal reached' : '${volumeText(waterGoal - water, units)} to go'),
+                detail: food == null
+                    ? 'Tap + each time you drink a glass.'
+                    : _waterFailed
+                        ? 'Couldn’t save that. Check your connection.'
+                        : '${volumeText(water ?? 0, units)} of ${volumeText(waterGoal, units)}',
+              ),
+              const SizedBox(height: 12),
+              Row(children: [
+                IconButton.filledTonal(
+                  tooltip: 'Remove a glass of water',
+                  onPressed: food == null || (water ?? 0) <= 0 ? null : () => _drink(-glassMl),
+                  icon: const Icon(LucideIcons.minus, size: 16),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    label: 'Add a glass of water (${volumeText(glassMl, units)})',
+                    excludeSemantics: true,
+                    child: FgButton(label: 'Glass', icon: LucideIcons.plus, height: 40, color: AppColors.blue400, onPressed: food == null ? null : () => _drink(glassMl)),
+                  ),
+                ),
+              ]),
+            ]),
           ),
           // Steps
           _TodayCard(

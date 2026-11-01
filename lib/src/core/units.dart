@@ -56,3 +56,11 @@ String measureUnit(String key, Units units) => key.endsWith('Kg') ? units.weight
 double measureIn(String key, num value, Units units) => key.endsWith('Kg') ? weightIn(value, units) : (key.endsWith('Cm') ? lengthIn(value, units) : value.toDouble());
 double measureFrom(String key, num value, Units units) => key.endsWith('Kg') ? kgFrom(value, units) : (key.endsWith('Cm') ? cmFrom(value, units) : value.toDouble());
 String measureText(String key, num value, Units units) => '${numText(measureIn(key, value, units))} ${measureUnit(key, units)}';
+
+const mlPerFlOz = 29.5735;
+
+/// A volume of water: "750 ml", "1.25 l" or "25 fl oz".
+String volumeText(num ml, Units units) {
+  if (units.isImperial) return '${(ml / mlPerFlOz).round()} fl oz';
+  return ml < 1000 ? '${ml.round()} ml' : '${numText((ml / 10).round() / 100)} l';
+}

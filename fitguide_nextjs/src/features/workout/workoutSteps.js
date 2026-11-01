@@ -37,6 +37,23 @@ export function stepName(step) {
   return name || text;
 }
 
+/** The name a step's set is saved under (and looked up by for "last time"). */
+export const setName = (step, index) => String(step?.exerciseName || step?.instruction || `Step ${index + 1}`).slice(0, 200);
+
+const kg = (n) => `${Number(n.toFixed(1))} kg`;
+
+/** "10 reps × 40 kg", "12 reps" or "40 kg" for a logged or suggested set. */
+export function setLabel({ reps, weightKg }) {
+  return [reps > 0 && `${reps} reps`, weightKg > 0 && kg(weightKg)].filter(Boolean).join(' × ');
+}
+
+/** Why the player suggests a set (a suggestion from the API's previous-sets). */
+export function suggestionReason(suggestion) {
+  if (suggestion.reason === 'add_weight') return 'You hit the top of the range last time, so add weight.';
+  if (suggestion.reason === 'reach_range') return `Same weight. Aim for ${suggestion.reps} reps.`;
+  return suggestion.weightKg ? 'Same weight, one more rep.' : 'One more rep than last time.';
+}
+
 export function defaultSteps(workout) {
   const cat = (workout?.category || '').toLowerCase();
   const title = (workout?.title || '').toLowerCase();

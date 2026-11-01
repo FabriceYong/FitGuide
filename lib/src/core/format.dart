@@ -61,6 +61,13 @@ String formatDate(String iso) {
   return '${_months[d.month - 1]} ${d.day}, ${d.year}';
 }
 
+/// "Oct 14".
+String formatMonthDay(String iso) {
+  final d = DateTime.tryParse(iso)?.toLocal();
+  if (d == null) return iso;
+  return '${_months[d.month - 1]} ${d.day}';
+}
+
 /// "14/10/2026".
 String formatShortDate(String iso) {
   final d = DateTime.tryParse(iso)?.toLocal();

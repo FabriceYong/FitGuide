@@ -2,7 +2,7 @@
 require('./helpers/setup');
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { activityByDate, streaks, personalRecords, describeEnrollment } = require('../services/progress');
+const { activityByDate, streaks, personalRecords, describeEnrollment, repRange, suggestNext, previousSets } = require('../services/progress');
 const { localDate, addDays, isValidYmd } = require('../utils/dates');
 const { exerciseStore } = require('../stores/records');
 const exercisesData = require('../seed/exerciseSeeder');
@@ -83,6 +83,56 @@ describe('personal records', () => {
       ]),
     ], exercisesBySlug);
     assert.deepEqual(records.map((r) => r.exerciseName), ['Sled push']);
+  });
+});
+
+describe('last time and what to aim for', () => {
+  it('reads rep targets', () => {
+    assert.deepEqual(repRange('8–10'), { min: 8, max: 10 });
+    assert.deepEqual(repRange('12'), { min: 12, max: 12 });
+    assert.equal(repRange('10-8'), null);
+    assert.equal(repRange(undefined), null);
+  });
+
+  it('adds reps up to the top of the range, then weight', () => {
+    assert.deepEqual(suggestNext({ reps: 8, weightKg: 60 }, '8–10'), { reps: 9, weightKg: 60, reason: 'more_reps' });
+    assert.deepEqual(suggestNext({ reps: 10, weightKg: 60 }, '8–10'), { reps: 8, weightKg: 62.5, reason: 'add_weight' });
+    // Light dumbbells go up by 1 kg.
+    assert.deepEqual(suggestNext({ reps: 12, weightKg: 8 }, '10–12'), { reps: 10, weightKg: 9, reason: 'add_weight' });
+    assert.deepEqual(suggestNext({ reps: 6, weightKg: 60 }, '8–10'), { reps: 8, weightKg: 60, reason: 'reach_range' });
+    // Without a range or a weight: one more rep.
+    assert.deepEqual(suggestNext({ reps: 5, weightKg: 100 }), { reps: 6, weightKg: 100, reason: 'more_reps' });
+    assert.deepEqual(suggestNext({ reps: 15 }, '15'), { reps: 16, reason: 'more_reps' });
+    // Nothing to go on.
+    assert.equal(suggestNext({ weightKg: 60 }, '8–10'), null);
+    assert.equal(suggestNext(null, '8–10'), null);
+  });
+
+  it('pairs each step with the same set in the latest session that had it', () => {
+    const keyOf = (name) => (/squat/i.test(name) ? 'slug:back-squat' : `name:${name.toLowerCase()}`);
+    const sessions = [ // newest first
+      { completedAt: '2026-03-05T10:00:00Z', sets: [
+        { exerciseSlug: null, exerciseName: 'Burpees', reps: 10 },
+        { exerciseSlug: null, exerciseName: 'Burpees', durationSec: 60 }, // timed only: not a set to compare
+      ] },
+      { completedAt: '2026-03-03T10:00:00Z', sets: [
+        { exerciseSlug: 'back-squat', exerciseName: 'Squats set 1', reps: 10, weightKg: 60 },
+        { exerciseSlug: 'back-squat', exerciseName: 'Squats set 2', reps: 8, weightKg: 60 },
+      ] },
+      { completedAt: '2026-03-01T10:00:00Z', sets: [{ exerciseSlug: 'back-squat', exerciseName: 'Squats', reps: 5, weightKg: 50 }] },
+    ];
+    const result = previousSets(sessions, [
+      { name: 'Barbell Back Squats — Set 1', reps: '8–10' },
+      { name: 'Barbell Back Squats — Set 2', reps: '8–10' },
+      { name: 'Barbell Back Squats — Set 3', reps: '8–10' },
+      { name: 'Burpees', reps: '10' },
+      { name: 'Plank' },
+    ], keyOf);
+    assert.deepEqual(result.map((r) => r.last && [r.last.reps, r.last.weightKg, r.last.completedAt.slice(0, 10)]), [
+      [10, 60, '2026-03-03'], [8, 60, '2026-03-03'], [8, 60, '2026-03-03'], [10, null, '2026-03-05'], null,
+    ]);
+    assert.deepEqual(result.map((r) => r.suggestion?.reason ?? null), ['add_weight', 'more_reps', 'more_reps', 'more_reps', null]);
+    assert.equal(result[0].suggestion.weightKg, 62.5);
   });
 });
 

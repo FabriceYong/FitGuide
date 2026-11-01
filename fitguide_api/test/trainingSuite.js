@@ -255,6 +255,39 @@ function defineTrainingSuite(ctx) {
       await retrier.agent.post('/api/sessions').send(session('core-power-blast', { clientId: 'x'.repeat(65) })).expect(400);
     });
 
+    it('shows last time and what to aim for, per step', async () => {
+      const presser = await ctx().signUp('Presser');
+      const steps = [
+        { name: 'Overhead Barbell Press — Set 1 (8–10 reps)', reps: '8–10' },
+        { name: 'Overhead Barbell Press — Set 2 (8–10 reps)', reps: '8–10' },
+        { name: 'Cool Down: Stretch' },
+      ];
+      await request(app).post('/api/sessions/previous-sets').send({ steps }).expect(401);
+      await presser.agent.post('/api/sessions/previous-sets').send({ steps: [] }).expect(400);
+      await presser.agent.post('/api/sessions/previous-sets').send({ steps: [{ reps: '8' }] }).expect(400);
+
+      const before = await presser.agent.post('/api/sessions/previous-sets').send({ steps }).expect(200);
+      assert.deepEqual(before.body.steps, [{ last: null, suggestion: null }, { last: null, suggestion: null }, { last: null, suggestion: null }]);
+
+      await presser.agent.post('/api/sessions').send(session('core-power-blast', {
+        sets: [
+          { exerciseName: steps[0].name, reps: 10, weightKg: 40 },
+          { exerciseName: steps[1].name, reps: 9, weightKg: 40 },
+          { exerciseName: steps[2].name, durationSec: 120 },
+        ],
+      })).expect(201);
+      const res = await presser.agent.post('/api/sessions/previous-sets').send({ steps }).expect(200);
+      const [first, second, stretch] = res.body.steps;
+      assert.deepEqual([first.last.reps, first.last.weightKg], [10, 40]);
+      assert.deepEqual(first.suggestion, { reps: 8, weightKg: 42.5, reason: 'add_weight' });
+      assert.deepEqual(second.suggestion, { reps: 10, weightKg: 40, reason: 'more_reps' });
+      assert.deepEqual(stretch, { last: null, suggestion: null });
+
+      // Only the user's own sessions count.
+      const fresh = await other.agent.post('/api/sessions/previous-sets').send({ steps }).expect(200);
+      assert.equal(fresh.body.steps[0].last, null);
+    });
+
     it('filters by workout', async () => {
       const res = await lifter.agent.get('/api/sessions').query({ workoutSlug: 'morning-yoga-flow' }).expect(200);
       assert.equal(res.body.count, 1);

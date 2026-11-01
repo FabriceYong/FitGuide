@@ -123,6 +123,23 @@ Future<({int sent, int dropped})> flushQueuedSessions(String userId) {
   }();
 }
 
+/// The same set last time, and what to aim for now (fitguide_api/services/progress.js).
+class PreviousSet {
+  PreviousSet(Json j)
+      : last = j['last'] == null ? null : (reps: asInt(asJson(j['last'])['reps']), weightKg: asDouble(asJson(j['last'])['weightKg']), completedAt: asString(asJson(j['last'])['completedAt']) ?? ''),
+        suggestion = j['suggestion'] == null
+            ? null
+            : (reps: asInt(asJson(j['suggestion'])['reps']) ?? 0, weightKg: asDouble(asJson(j['suggestion'])['weightKg']), reason: asString(asJson(j['suggestion'])['reason']) ?? 'more_reps');
+  final ({int? reps, double? weightKg, String completedAt})? last;
+
+  /// [reason] is add_weight, reach_range or more_reps.
+  final ({int reps, double? weightKg, String reason})? suggestion;
+}
+
+/// For each step (its saved name and rep target), the same set last time; in step order.
+Future<List<PreviousSet>> fetchPreviousSets(List<Json> steps) async =>
+    asJsonList((await _api.request('/sessions/previous-sets', method: 'POST', auth: true, body: {'steps': steps}))['steps']).map(PreviousSet.new).toList();
+
 Future<Json> deleteSession(String id) => _api.request('/sessions/${Uri.encodeComponent(id)}', method: 'DELETE', auth: true);
 
 // ── Programs ──────────────────────────────────────────────────────────────────

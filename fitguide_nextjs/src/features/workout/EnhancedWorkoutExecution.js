@@ -3,8 +3,9 @@
 /**
  * The guided workout player: one step at a time with its demonstration, a
  * countdown (or a rep target for steps counted in reps), what comes next,
- * rests between steps and optional spoken cues. The app's player_screen.dart
- * works the same way.
+ * rests between steps and optional spoken cues. For accounts, each step
+ * shows the same set last time and what to aim for now. The app's
+ * player_screen.dart works the same way.
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { calorieFactor } from '@fitguide/shared';
@@ -12,11 +13,25 @@ import { useAuth } from '../../contexts/AuthContext';
 import { SessionSummary } from './SessionSummary';
 import { StepDemo } from './StepDemo';
 import { SwapExercise } from './SwapExercise';
-import { repTarget, stepClock, stepName, stepsFor, usesWeights } from './workoutSteps';
+import { repTarget, setLabel, setName, stepClock, stepName, stepsFor, suggestionReason, usesWeights } from './workoutSteps';
 import { fetchAiStatus } from '../../services/aiService';
+import { fetchPreviousSets } from '../../services/trainingService';
 import {
-  X, Play, Pause, ChevronLeft, ChevronRight, Check, Clock, Flame, AlertTriangle, Volume2, VolumeX, Info, ListOrdered, Plus, SkipForward, Shuffle,
+  X, Play, Pause, ChevronLeft, ChevronRight, Check, Clock, Flame, AlertTriangle, Volume2, VolumeX, Info, ListOrdered, Plus, Minus, SkipForward, Shuffle, History, TrendingUp,
 } from 'lucide-react';
+
+// Rest lengths picked on the rest screen, by workout: { [slug]: seconds }.
+const REST_KEY = 'fitguide_rest_seconds';
+const readRests = () => {
+  try { return JSON.parse(localStorage.getItem(REST_KEY) || '{}') || {}; } catch (_) { return {}; }
+};
+const saveRest = (slug, seconds) => {
+  try { localStorage.setItem(REST_KEY, JSON.stringify({ ...readRests(), [slug]: seconds })); } catch (_) { /* storage unavailable */ }
+};
+// How long a lift counted in reps rests when the workout sets no rest.
+const LIFT_REST_SEC = 90;
+
+const shortDate = (iso) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
@@ -109,6 +124,8 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
   const [summary, setSummary] = useState(null);
   // Optional reps/weight the user logged per step: { [stepIndex]: { reps, weightKg } }
   const [setInputs, setSetInputs] = useState({});
+  // Per step: { last, suggestion } from the API (accounts only).
+  const [previous, setPrevious] = useState([]);
   const startedAtRef = useRef(new Date().toISOString());
   const stepSecondsRef = useRef({}); // active seconds spent on each step
   const announced = useRef(-1);
@@ -131,6 +148,15 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
     if (!hasAccount) return;
     fetchAiStatus().then((s) => setCanSwap(s.available)).catch(() => setCanSwap(false));
   }, [hasAccount]);
+
+  // Last time and what to aim for, per step. Offline or signed out: nothing shown.
+  useEffect(() => {
+    if (!hasAccount) return undefined;
+    let live = true;
+    const targets = steps.map((step, i) => ({ name: setName(step, i), ...(repTarget(step) && { reps: repTarget(step).reps }) }));
+    fetchPreviousSets(targets).then((list) => { if (live) setPrevious(list); }).catch(() => {});
+    return () => { live = false; };
+  }, [hasAccount, steps]);
 
   /** Use a suggested exercise for the current step, keeping its length. */
   const applySwap = (swapped) => {
@@ -157,11 +183,15 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
     setSummary({ status: 'completed', completedAt: new Date().toISOString() });
   }, [currentStepIndex, soundEnabled]);
 
-  /** Finish the current step: rest first if the workout has rests, else straight to the next. */
+  /**
+   * Finish the current step: rest first if there's a rest, else straight to
+   * the next. The rest is the one picked for this workout on the rest
+   * screen, else the workout's, else LIFT_REST_SEC after a lift in reps.
+   */
   const completeStep = useCallback(() => {
     setCompletedSteps((prev) => new Set(prev).add(currentStepIndex));
     if (currentStepIndex >= totalSteps - 1) { handleWorkoutComplete(); return; }
-    const rest = workout?.restPeriod || 0;
+    const rest = readRests()[workout?.slug] || workout?.restPeriod || (weights && repTarget(currentStep) ? LIFT_REST_SEC : 0);
     if (rest > 0) {
       setIsResting(true);
       setRestTotal(rest);
@@ -171,7 +201,7 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
     } else {
       goToStep(currentStepIndex + 1);
     }
-  }, [currentStepIndex, totalSteps, workout, steps, cue, goToStep, handleWorkoutComplete]);
+  }, [currentStepIndex, currentStep, totalSteps, workout, weights, steps, cue, goToStep, handleWorkoutComplete]);
 
   // Announce each step as it starts.
   useEffect(() => {
@@ -215,6 +245,24 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
     setSummary({ status: 'partial', completedAt: new Date().toISOString() });
   };
 
+  /** Change the rest length by `delta` seconds, now and for this workout's later rests. */
+  const adjustRest = (delta) => {
+    const total = Math.max(15, restTotal + delta);
+    setTimeRemaining((t) => Math.max(1, t + total - restTotal));
+    setRestTotal(total);
+    if (workout?.slug) saveRest(workout.slug, total);
+  };
+
+  /** Fill this step's log with the suggested reps and weight. */
+  const applySuggestion = () => {
+    const suggestion = previous[currentStepIndex]?.suggestion;
+    if (!suggestion) return;
+    setSetInputs((prev) => ({
+      ...prev,
+      [currentStepIndex]: { ...prev[currentStepIndex], reps: String(suggestion.reps), ...(suggestion.weightKg && { weightKg: String(suggestion.weightKg) }) },
+    }));
+  };
+
   const updateSetInput = (field, value) => {
     setSetInputs((prev) => ({ ...prev, [currentStepIndex]: { ...prev[currentStepIndex], [field]: value } }));
   };
@@ -230,7 +278,7 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
       const weightKg = parse(input.weightKg, (v) => Math.max(0, parseFloat(v)));
       if (!completedSteps.has(idx) && !seconds && loggedReps === undefined && weightKg === undefined) return null;
       return {
-        exerciseName: String(step.exerciseName || step.instruction || `Step ${idx + 1}`).slice(0, 200),
+        exerciseName: setName(step, idx),
         reps: Number.isFinite(loggedReps) ? loggedReps : undefined,
         weightKg: Number.isFinite(weightKg) ? weightKg : undefined,
         durationSec: seconds || undefined,
@@ -258,6 +306,10 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
   const urgent = !counting && timeRemaining <= 5 ? '#f87171' : !counting && timeRemaining <= 10 ? '#fb923c' : color;
   const hasCues = currentStep && (currentStep.formCues?.length > 0 || currentStep.breathingPattern || currentStep.commonMistakes?.length > 0);
   const name = stepName(currentStep);
+  const prev = previous[currentStepIndex];
+  const nextSuggestion = previous[currentStepIndex + 1]?.suggestion;
+  // A weight box also for a lift logged with a weight before, whatever the workout lists.
+  const showWeight = weights || prev?.last?.weightKg > 0;
 
   const stepList = (
     <ol className="space-y-1.5">
@@ -331,17 +383,22 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
                   <span className="block text-[11px] font-bold uppercase tracking-wider text-white/50">Next up</span>
                   <span className="block font-extrabold text-lg leading-tight">{stepName(nextStep)}</span>
                   <span className="block text-sm text-white/60">{targetLabel(nextStep)}</span>
+                  {nextSuggestion && <span className="block text-sm font-bold mt-0.5" style={{ color }}>Today: {setLabel(nextSuggestion)}</span>}
                 </span>
               </div>
             )}
             <div className="flex gap-3">
-              <button type="button" onClick={() => { setTimeRemaining((t) => t + 15); setRestTotal((t) => t + 15); }} className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/15 flex items-center justify-center gap-1.5">
+              <button type="button" onClick={() => adjustRest(-15)} disabled={restTotal <= 15} aria-label="15 seconds less rest" className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/15 flex items-center justify-center gap-1.5 disabled:opacity-40">
+                <Minus className="w-4 h-4" aria-hidden="true" /> 15 s
+              </button>
+              <button type="button" onClick={() => adjustRest(15)} aria-label="15 seconds more rest" className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/15 flex items-center justify-center gap-1.5">
                 <Plus className="w-4 h-4" aria-hidden="true" /> 15 s
               </button>
               <button type="button" onClick={() => goToStep(currentStepIndex + 1)} className="flex-[2] py-3.5 rounded-xl font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-1.5" style={{ backgroundColor: color, color: '#0A0C10' }}>
                 <SkipForward className="w-4 h-4" aria-hidden="true" /> Skip rest
               </button>
             </div>
+            <p className="text-xs text-white/50">Rests in this workout: {stepClock(restTotal)}. Changes here are kept for next time.</p>
           </div>
         </div>
       )}
@@ -472,25 +529,41 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
 
           <div className="rounded-2xl bg-[#131921] border border-white/10 p-3">
             <p className="text-[11px] font-bold uppercase tracking-wider text-white/50 mb-2">Log this step (optional)</p>
-            <div className={`grid gap-2 ${weights ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {prev?.last && (
+              <p className="text-xs text-white/60 mb-2 flex items-center gap-1.5">
+                <History className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>Last time ({shortDate(prev.last.completedAt)}): <span className="font-bold text-white/85">{setLabel(prev.last)}</span></span>
+              </p>
+            )}
+            {prev?.suggestion && (
+              <div className="mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2" style={{ backgroundColor: `${color}14`, border: `1px solid ${color}40` }}>
+                <TrendingUp className="w-4 h-4 shrink-0" style={{ color }} aria-hidden="true" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-bold">Today: {setLabel(prev.suggestion)}</span>
+                  <span className="block text-[11px] text-white/60 leading-snug">{suggestionReason(prev.suggestion)}</span>
+                </span>
+                <button type="button" onClick={applySuggestion} aria-label={`Log ${setLabel(prev.suggestion)}`} className="shrink-0 text-xs font-extrabold px-3 py-2 rounded-md" style={{ backgroundColor: color, color: '#0A0C10' }}>Use</button>
+              </div>
+            )}
+            <div className={`grid gap-2 ${showWeight ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <label className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
                 <input
                   type="number" min="0" max="1000" inputMode="numeric" aria-label="Reps done"
                   value={setInputs[currentStepIndex]?.reps ?? ''}
                   onChange={(e) => updateSetInput('reps', e.target.value)}
                   className="w-full bg-transparent text-sm font-bold text-white outline-none"
-                  placeholder={reps ? reps.reps.split(/[–-]/)[0] : '0'}
+                  placeholder={String(prev?.suggestion?.reps ?? (reps ? reps.reps.split(/[–-]/)[0] : '0'))}
                 />
                 <span className="text-xs text-white/50">reps</span>
               </label>
-              {weights && (
+              {showWeight && (
                 <label className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
                   <input
                     type="number" min="0" max="1000" step="0.5" inputMode="decimal" aria-label="Weight in kilograms"
                     value={setInputs[currentStepIndex]?.weightKg ?? ''}
                     onChange={(e) => updateSetInput('weightKg', e.target.value)}
                     className="w-full bg-transparent text-sm font-bold text-white outline-none"
-                    placeholder="0"
+                    placeholder={String(prev?.suggestion?.weightKg ?? prev?.last?.weightKg ?? 0)}
                   />
                   <span className="text-xs text-white/50">kg</span>
                 </label>

@@ -196,6 +196,16 @@ export function flushQueuedSessions(userId: string): Promise<{ sent: number; dro
   flushing.set(userId, flush);
   return flush;
 }
+/** The same set last time, and what to aim for now (fitguide_api/services/progress.js). */
+export interface PreviousSet {
+  last: { reps: number | null; weightKg: number | null; completedAt: string } | null;
+  suggestion: { reps: number; weightKg?: number; reason: 'add_weight' | 'reach_range' | 'more_reps' } | null;
+}
+
+/** For each step (its saved name and rep target), the same set last time; in step order. */
+export const fetchPreviousSets = async (steps: { name: string; reps?: string }[]): Promise<PreviousSet[]> =>
+  (await apiRequest('/sessions/previous-sets', { method: 'POST', auth: true, body: { steps } })).steps;
+
 export const fetchSessions = (query: Record<string, string | number> = {}) => apiRequest('/sessions', { auth: true, query });
 export const deleteSession = (id: string) => apiRequest(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true });
 

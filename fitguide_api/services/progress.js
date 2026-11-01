@@ -217,4 +217,72 @@ function buildSummary({ sessions, bodyMetrics, enrollments, exercisesBySlug, tzO
   };
 }
 
-module.exports = { activityByDate, streaks, personalRecords, scheduledDate, describeEnrollment, buildSummary };
+/** A step's rep target as numbers: "8–10" → { min: 8, max: 10 }, "12" → { min: 12, max: 12 }; else null. */
+function repRange(target) {
+  const m = /^\s*(\d+)\s*(?:[–-]\s*(\d+))?\s*$/.exec(String(target ?? ''));
+  if (!m) return null;
+  const min = Number(m[1]);
+  const max = Number(m[2] ?? m[1]);
+  return min > 0 && max >= min ? { min, max } : null;
+}
+
+const roundToHalf = (kg) => Math.round(kg * 2) / 2;
+
+/**
+ * What to aim for this time, from the same set last time (double
+ * progression): add reps until the top of the step's rep range, then add
+ * weight (1 kg under 20 kg, else 2.5 kg) and start again from the bottom.
+ * @param {{ reps?: number, weightKg?: number }} last
+ * @param {string} [target]  The step's rep target, like "8–10"
+ * @returns {{ reps: number, weightKg?: number, reason: 'add_weight' | 'reach_range' | 'more_reps' } | null}
+ */
+function suggestNext(last, target) {
+  if (!last || !(last.reps > 0)) return null;
+  const range = repRange(target);
+  const weight = last.weightKg > 0 ? last.weightKg : null;
+  if (weight && range && last.reps >= range.max) {
+    return { reps: range.min, weightKg: roundToHalf(weight + (weight < 20 ? 1 : 2.5)), reason: 'add_weight' };
+  }
+  if (range && last.reps < range.min) {
+    return { reps: range.min, ...(weight && { weightKg: weight }), reason: 'reach_range' };
+  }
+  const reps = range && weight ? Math.min(last.reps + 1, range.max) : last.reps + 1;
+  return { reps, ...(weight && { weightKg: weight }), reason: 'more_reps' };
+}
+
+/**
+ * For each step of a workout about to be done: the same set in the latest
+ * session that had its exercise, and what to aim for now. A step's
+ * exercise is its library match, or its name when there is none. The 2nd
+ * step of an exercise pairs with the 2nd set of it last time (or the last
+ * one, if there were fewer). Only sets with reps or a weight count.
+ * @param {object[]} sessions  Newest first
+ * @param {{ name: string, reps?: string }[]} steps
+ * @param {(name: string) => string} keyOf  The exercise a step name refers to
+ */
+function previousSets(sessions, steps, keyOf) {
+  const setKey = (set) => (set.exerciseSlug ? `slug:${set.exerciseSlug}` : keyOf(set.exerciseName));
+  const latest = new Map(); // key → that exercise's sets in its latest session
+  const seen = new Map(); // key → steps of it so far
+  return steps.map((step) => {
+    const key = keyOf(step.name);
+    if (!latest.has(key)) {
+      let found = null;
+      for (const session of sessions) {
+        const sets = (session.sets || []).filter((s) => (s.reps > 0 || s.weightKg > 0) && setKey(s) === key);
+        if (sets.length) {
+          found = sets.map((s) => ({ reps: s.reps ?? null, weightKg: s.weightKg ?? null, completedAt: session.completedAt }));
+          break;
+        }
+      }
+      latest.set(key, found);
+    }
+    const index = seen.get(key) || 0;
+    seen.set(key, index + 1);
+    const sets = latest.get(key);
+    const last = sets ? sets[Math.min(index, sets.length - 1)] : null;
+    return { last, suggestion: suggestNext(last, step.reps) };
+  });
+}
+
+module.exports = { activityByDate, streaks, personalRecords, scheduledDate, describeEnrollment, buildSummary, repRange, suggestNext, previousSets };

@@ -10,6 +10,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../core/analytics.dart';
 import '../../core/format.dart';
 import '../../core/images.dart';
+import '../../core/storage.dart';
 import '../../core/shared/tailoring.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -74,6 +75,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 }
 
+// Rest lengths picked on the rest screen, by workout slug (the website's REST_KEY).
+const _restKey = 'fitguide_rest_seconds';
+// How long a lift counted in reps rests when the workout sets no rest.
+const _liftRestSec = 90;
+
+int? _savedRest(String slug) => asInt(asJson(Storage.getJson(_restKey))[slug]);
+Future<void> _saveRest(String slug, int seconds) => Storage.setJson(_restKey, {...asJson(Storage.getJson(_restKey)), slug: seconds});
+
 class _Player extends StatefulWidget {
   const _Player({required this.workout, this.program});
   final Workout workout;
@@ -94,6 +103,8 @@ class _PlayerState extends State<_Player> {
   final _stepSeconds = <int, int>{};
   final _completed = <int>{};
   final _setInputs = <int, ({String reps, String weight})>{};
+  // Per step: the same set last time and what to aim for (accounts only).
+  List<PreviousSet> _previous = const [];
   final _reps = TextEditingController();
   final _weight = TextEditingController();
   final _scroll = ScrollController();
@@ -131,8 +142,21 @@ class _PlayerState extends State<_Player> {
       fetchAiStatus().then((s) {
         if (mounted) setState(() => _canSwap = s.available);
       }).catchError((Object _) {});
+      _loadPrevious();
     }
   }
+
+  /// Last time and what to aim for, per step. Offline: nothing shown.
+  void _loadPrevious() {
+    final steps = [
+      for (final (i, step) in _steps.indexed) {'name': setName(step, i), if (repTarget(step) != null) 'reps': repTarget(step)!.reps},
+    ];
+    fetchPreviousSets(steps).then((list) {
+      if (mounted) setState(() => _previous = list);
+    }).catchError((Object _) {});
+  }
+
+  PreviousSet? _previousAt(int index) => index < _previous.length ? _previous[index] : null;
 
   Future<void> _swap() async {
     _setPlaying(false);
@@ -142,6 +166,7 @@ class _PlayerState extends State<_Player> {
       _steps[_current] = replacement;
       _announced = -1;
     });
+    _loadPrevious();
   }
 
   @override
@@ -253,14 +278,17 @@ class _PlayerState extends State<_Player> {
     }
   }
 
-  /// The current step is done: rest first if the workout has rests, else on to the next.
+  /// The current step is done: rest first if there's a rest, else on to the
+  /// next. The rest is the one picked for this workout on the rest screen,
+  /// else the workout's, else [_liftRestSec] after a lift in reps.
   void _finishStep() {
     _completed.add(_current);
     if (_current >= _total - 1) {
       _workoutComplete();
       return;
     }
-    final rest = widget.workout.restPeriod ?? 0;
+    final workoutRest = widget.workout.restPeriod ?? 0;
+    final rest = _savedRest(widget.workout.slug) ?? (workoutRest > 0 ? workoutRest : (_weights && repTarget(_step) != null ? _liftRestSec : 0));
     if (rest > 0) {
       _startRest(rest);
     } else {
@@ -277,6 +305,27 @@ class _PlayerState extends State<_Player> {
     if (!_playing) _setPlaying(true);
     _beep();
     _say('Rest. Next up: ${stepName(_next)}');
+  }
+
+  /// Change the rest length by [delta] seconds, now and for this workout's later rests.
+  void _adjustRest(int delta) {
+    final total = math.max(15, _stepTotal + delta);
+    setState(() {
+      _remaining = math.max(1, _remaining + total - _stepTotal);
+      _stepTotal = total;
+    });
+    _saveRest(widget.workout.slug, total);
+  }
+
+  /// Fill this step's log with the suggested reps and weight.
+  void _applySuggestion() {
+    final s = _previousAt(_current)?.suggestion;
+    if (s == null) return;
+    setState(() {
+      _reps.text = '${s.reps}';
+      if (s.weightKg != null) _weight.text = numText(s.weightKg);
+    });
+    _saveInputs();
   }
 
   /// Skip ahead without the rest (the next-step button).
@@ -333,9 +382,8 @@ class _PlayerState extends State<_Player> {
       final reps = int.tryParse(input?.reps ?? '');
       final weight = double.tryParse(input?.weight ?? '');
       if (!_completed.contains(idx) && seconds == 0 && reps == null && weight == null) continue;
-      final name = step.exerciseName ?? (step.instruction.isNotEmpty ? step.instruction : 'Step ${idx + 1}');
       sets.add({
-        'exerciseName': name.length > 200 ? name.substring(0, 200) : name,
+        'exerciseName': setName(step, idx),
         if (reps != null) 'reps': math.max(0, reps),
         if (weight != null) 'weightKg': math.max(0.0, weight),
         if (seconds > 0) 'durationSec': seconds,
@@ -530,6 +578,8 @@ class _PlayerState extends State<_Player> {
     final name = stepName(step);
     final reps = _repTarget;
     final next = _next;
+    final last = _previousAt(_current)?.last;
+    final suggestion = _previousAt(_current)?.suggestion;
     return [
       Text('STEP ${_current + 1} OF $_total', textAlign: TextAlign.center, style: fgLabel(color: AppColors.muted)),
       const SizedBox(height: 4),
@@ -754,16 +804,63 @@ class _PlayerState extends State<_Player> {
           children: [
             Text('LOG THIS STEP (OPTIONAL)', style: fg(size: 10, weight: FontWeight.w700, color: AppColors.muted, letterSpacing: 0.5)),
             const SizedBox(height: 8),
+            if (last != null) ...[
+              Row(
+                children: [
+                  Icon(LucideIcons.history, size: 14, color: AppColors.whiteA(0.6)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(children: [
+                        TextSpan(text: 'Last time (${formatMonthDay(last.completedAt)}): '),
+                        TextSpan(text: setLabel(last.reps, last.weightKg), style: fg(size: 12, weight: FontWeight.w700, color: AppColors.whiteA(0.85))),
+                      ]),
+                      style: fg(size: 12, color: AppColors.whiteA(0.6)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (suggestion != null) ...[
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                decoration: BoxDecoration(color: _tint.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8), border: Border.all(color: _tint.withValues(alpha: 0.25))),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.trendingUp, size: 16, color: _tint),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Today: ${setLabel(suggestion.reps, suggestion.weightKg)}', style: fg(size: 14, weight: FontWeight.w700)),
+                          Text(suggestionReason(suggestion), style: fg(size: 11, color: AppColors.whiteA(0.6), height: 1.35)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Semantics(
+                      label: 'Log ${setLabel(suggestion.reps, suggestion.weightKg)}',
+                      button: true,
+                      excludeSemantics: true,
+                      child: FgButton(label: 'Use', height: 36, radius: 6, fontSize: 12, fontWeight: FontWeight.w800, padding: const EdgeInsets.symmetric(horizontal: 14), color: _tint, onPressed: _applySuggestion),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             Row(
               children: [
                 Expanded(
-                  child: NumberField(controller: _reps, decimal: false, hint: reps?.reps.split(RegExp('[–-]')).first ?? '0', suffixText: 'reps', radius: 8, fill: AppColors.whiteA(0.05), border: Colors.transparent, semanticLabel: 'Reps done', onChanged: (_) => _saveInputs()),
+                  child: NumberField(controller: _reps, decimal: false, hint: '${suggestion?.reps ?? reps?.reps.split(RegExp('[–-]')).first ?? '0'}', suffixText: 'reps', radius: 8, fill: AppColors.whiteA(0.05), border: Colors.transparent, semanticLabel: 'Reps done', onChanged: (_) => _saveInputs()),
                 ),
-                // A weight only makes sense when the workout uses equipment.
-                if (_weights) ...[
+                // A weight makes sense when the workout uses equipment, or the lift had a weight before.
+                if (_weights || (last?.weightKg ?? 0) > 0) ...[
                   const SizedBox(width: 8),
                   Expanded(
-                    child: NumberField(controller: _weight, hint: '0', suffixText: 'kg', radius: 8, fill: AppColors.whiteA(0.05), border: Colors.transparent, semanticLabel: 'Weight in kilograms', onChanged: (_) => _saveInputs()),
+                    child: NumberField(controller: _weight, hint: numText(suggestion?.weightKg ?? last?.weightKg ?? 0), suffixText: 'kg', radius: 8, fill: AppColors.whiteA(0.05), border: Colors.transparent, semanticLabel: 'Weight in kilograms', onChanged: (_) => _saveInputs()),
                   ),
                 ],
               ],
@@ -788,7 +885,9 @@ class _PlayerState extends State<_Player> {
     );
   }
 
-  Widget _nextUp(WorkoutStep next) {
+  /// What's next, with today's suggestion for it when [suggest] (the rest screen).
+  Widget _nextUp(WorkoutStep next, {bool suggest = false}) {
+    final suggestion = suggest ? _previousAt(_current + 1)?.suggestion : null;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: AppColors.whiteA(0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.whiteA(0.1))),
@@ -802,6 +901,7 @@ class _PlayerState extends State<_Player> {
               children: [
                 Text('NEXT UP', style: fg(size: 10, weight: FontWeight.w700, color: AppColors.muted, letterSpacing: 0.8)),
                 Text(stepName(next), maxLines: 2, overflow: TextOverflow.ellipsis, style: fg(size: 15, weight: FontWeight.w700)),
+                if (suggestion != null) Text('Today: ${setLabel(suggestion.reps, suggestion.weightKg)}', style: fg(size: 13, weight: FontWeight.w700, color: _tint)),
               ],
             ),
           ),
@@ -1055,24 +1155,45 @@ class _PlayerState extends State<_Player> {
                 ),
                 const SizedBox(height: 24),
                 // What's coming, so the rest isn't spent wondering.
-                if (_next != null) ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: _nextUp(_next!)),
+                if (_next != null) ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: _nextUp(_next!, suggest: true)),
                 const SizedBox(height: 24),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Row(
                     children: [
                       Expanded(
-                        child: FgButton(
-                          label: '15 s',
-                          icon: LucideIcons.plus,
-                          style: FgButtonStyle.secondary,
-                          radius: 12,
-                          height: 52,
-                          fontWeight: FontWeight.w700,
-                          onPressed: () => setState(() {
-                            _remaining += 15;
-                            _stepTotal += 15;
-                          }),
+                        child: Semantics(
+                          label: '15 seconds less rest',
+                          button: true,
+                          excludeSemantics: true,
+                          child: FgButton(
+                            label: '15 s',
+                            icon: LucideIcons.minus,
+                            style: FgButtonStyle.secondary,
+                            radius: 12,
+                            height: 52,
+                            fontWeight: FontWeight.w700,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            onPressed: _stepTotal <= 15 ? null : () => _adjustRest(-15),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Semantics(
+                          label: '15 seconds more rest',
+                          button: true,
+                          excludeSemantics: true,
+                          child: FgButton(
+                            label: '15 s',
+                            icon: LucideIcons.plus,
+                            style: FgButtonStyle.secondary,
+                            radius: 12,
+                            height: 52,
+                            fontWeight: FontWeight.w700,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            onPressed: () => _adjustRest(15),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1092,6 +1213,12 @@ class _PlayerState extends State<_Player> {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Rests in this workout: ${stepClock(_stepTotal)}. Changes here are kept for next time.',
+                  textAlign: TextAlign.center,
+                  style: fg(size: 12, color: AppColors.whiteA(0.5)),
                 ),
               ],
             ),

@@ -3,7 +3,7 @@ const { body, query } = require('express-validator');
 const { sessionStore, exerciseStore } = require('../stores/records');
 const workoutStore = require('../stores/workoutStore');
 const { checkProgramDay, markDayComplete, unmarkSession } = require('../services/enrollments');
-const { personalRecords } = require('../services/progress');
+const { personalRecords, previousSets } = require('../services/progress');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { isPlus } = require('../services/billing');
 const { rejectInvalid, pick } = require('../utils/validate');
@@ -154,6 +154,37 @@ router.post('/', sessionRules, rejectInvalid, async (req, res, next) => {
     next(err);
   }
 });
+
+// ─── POST /api/sessions/previous-sets ─────────────────────────────────────────
+// Body: { steps: [{ name, reps? }] }, the workout's steps in order (name as
+// it is saved in a set, reps as the step's target like "8–10"). For each,
+// the same set last time and a suggestion for now (services/progress.js).
+// POST because a workout's steps can be long.
+const PREVIOUS_SESSIONS = 100;
+router.post(
+  '/previous-sets',
+  [
+    body('steps').isArray({ min: 1, max: 200 }).withMessage('steps must be a list of 1–200 steps'),
+    body('steps.*.name').isString().trim().notEmpty().isLength({ max: 200 }).withMessage('Each step needs a name'),
+    body('steps.*.reps').optional(nullable).isString().isLength({ max: 20 }),
+  ],
+  rejectInvalid,
+  async (req, res, next) => {
+    try {
+      const [exercises, sessions] = await Promise.all([
+        exerciseStore.all(),
+        sessionStore.list(req.user.id, { sortField: 'completedAt', limit: PREVIOUS_SESSIONS }),
+      ]);
+      const keyOf = (name) => {
+        const exercise = exerciseStore.matchExercise(name, exercises);
+        return exercise ? `slug:${exercise.slug}` : `name:${exerciseStore.normalizeName(name)}`;
+      };
+      res.json({ success: true, steps: previousSets(sessions, req.body.steps, keyOf) });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // ─── GET /api/sessions?limit=&workoutSlug= ────────────────────────────────────
 router.get(

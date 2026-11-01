@@ -1,4 +1,5 @@
 import '../../models/catalog.dart';
+import '../../models/json.dart';
 import 'catalog_filter.dart';
 import 'default_steps.dart';
 
@@ -40,6 +41,23 @@ String stepName(WorkoutStep? step) {
   final name = afterColon.split(RegExp(r'\s+[—–-]\s+|\s+[×x]\s+\d|\s+\(')).first.trim();
   return name.isEmpty ? text : name;
 }
+
+/// The name a step's set is saved under (and looked up by for "last time").
+String setName(WorkoutStep step, int index) {
+  final name = step.exerciseName ?? (step.instruction.isNotEmpty ? step.instruction : 'Step ${index + 1}');
+  return name.length > 200 ? name.substring(0, 200) : name;
+}
+
+/// "10 reps × 40 kg", "12 reps" or "40 kg" for a logged or suggested set.
+String setLabel(int? reps, double? weightKg) =>
+    [if (reps != null && reps > 0) '$reps reps', if (weightKg != null && weightKg > 0) '${numText((weightKg * 10).round() / 10)} kg'].join(' × ');
+
+/// Why the player suggests a set ([reason] from the API's previous-sets).
+String suggestionReason(({int reps, double? weightKg, String reason}) s) => switch (s.reason) {
+      'add_weight' => 'You hit the top of the range last time, so add weight.',
+      'reach_range' => 'Same weight. Aim for ${s.reps} reps.',
+      _ => s.weightKg != null ? 'Same weight, one more rep.' : 'One more rep than last time.',
+    };
 
 /// "10 reps", "3 × 10 reps" or "2:30" for a step.
 String targetLabel(WorkoutStep? step) {

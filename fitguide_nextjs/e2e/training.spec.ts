@@ -40,7 +40,7 @@ test('leaving a personal-plan workout goes back to the plan', async ({ page }) =
   await page.getByRole('button', { name: 'Mark Complete' }).click();
   await page.getByRole('button', { name: 'Save session' }).click();
   await expect(page.getByText('Saved to your progress')).toBeVisible();
-  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page).toHaveURL(/\/plan$/);
   await expect(page.getByRole('heading', { name: /plan/i }).first()).toBeVisible();
 
@@ -107,4 +107,36 @@ test('syncing keeps what it can and reports what the API refused', async ({ page
   const left = await readQueue(page);
   expect(left.map((q: { userId: string }) => q.userId)).toEqual(['someone-else']);
   expect(await page.evaluate(() => localStorage.getItem('fitguide_pending_sessions'))).toBeNull();
+});
+
+test('a lift shows last time, suggests the next weight and keeps the rest you pick', async ({ page }) => {
+  await signUpAndSignIn(page, 'Lift Logger');
+  const now = Date.now();
+  const saved = await page.request.post(`${API}/sessions`, { data: {
+    workoutSlug: 'full-body-strength-builder',
+    startedAt: new Date(now - 40 * 60_000).toISOString(),
+    completedAt: new Date(now - 60_000).toISOString(),
+    durationSec: 35 * 60,
+    sets: [{ exerciseName: 'Barbell Back Squats', reps: 10, weightKg: 60 }],
+  } });
+  expect(saved.status()).toBe(201);
+
+  await page.goto('/workouts/full-body-strength-builder/play');
+  await page.getByRole('button', { name: /Barbell Back Squats/ }).first().click();
+  await expect(page.getByText(/Last time \(.+\):/)).toContainText('10 reps × 60 kg');
+  // 10 reps is the top of 8–10, so: more weight, back to 8 reps.
+  await expect(page.getByText('Today: 8 reps × 62.5 kg')).toBeVisible();
+  await page.getByRole('button', { name: 'Log 8 reps × 62.5 kg' }).click();
+  await expect(page.getByLabel('Reps done')).toHaveValue('8');
+  await expect(page.getByLabel('Weight in kilograms')).toHaveValue('62.5');
+
+  // Done starts the workout's 60 s rest; a longer rest is kept for this workout.
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  const rest = page.getByRole('dialog', { name: 'Rest' });
+  await expect(rest).toContainText('Rests in this workout: 1:00');
+  await rest.getByRole('button', { name: '15 seconds more rest' }).click();
+  await expect(rest).toContainText('Rests in this workout: 1:15');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fitguide_rest_seconds') || '{}'))).toEqual({ 'full-body-strength-builder': 75 });
+  // Last time had one set, so set 2 is compared with it too.
+  await expect(rest).toContainText('Today: 8 reps × 62.5 kg');
 });

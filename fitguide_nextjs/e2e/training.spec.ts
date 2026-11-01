@@ -50,6 +50,30 @@ test('leaving a personal-plan workout goes back to the plan', async ({ page }) =
   await expect(page).toHaveURL(/\/plan$/);
 });
 
+test('after missed sessions the plan suggests catching up, and moves only once accepted', async ({ page }) => {
+  await signUpAndSignIn(page, 'Plan Catcher');
+  const started = new Date(Date.now() - 9 * 864e5);
+  const startDate = `${started.getFullYear()}-${String(started.getMonth() + 1).padStart(2, '0')}-${String(started.getDate()).padStart(2, '0')}`;
+  const res = await page.request.post(`${API}/plan/generate?tzOffset=${new Date().getTimezoneOffset()}`, {
+    data: { goal: 'Vitality', level: 'Beginner', daysPerWeek: 3, minutesPerSession: 30, equipment: [], weeks: 2, startDate },
+  });
+  expect(res.status()).toBe(201);
+
+  await page.goto('/plan');
+  const card = page.getByRole('region', { name: 'Catch up on your plan' });
+  await expect(card).toBeVisible();
+  await expect(card.getByText(/You missed the last \d+ sessions/)).toBeVisible();
+  await expect(card.getByRole('list', { name: 'What would change' }).getByText('today')).toBeVisible();
+  await expect(page.getByText('Missed', { exact: true }).first()).toBeVisible();
+
+  await card.getByRole('button', { name: 'Make this change' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /Moved\. Your plan now ends/ })).toBeVisible();
+  await expect(page.getByText('Missed', { exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Your plan' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Catch up on your plan' })).toHaveCount(0);
+});
+
 test('a workout finished offline syncs only to the account that finished it', async ({ page }) => {
   const owner = await signUpAndSignIn(page, 'Offline Owner');
   await page.goto('/workouts/morning-yoga-flow/play');

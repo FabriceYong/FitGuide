@@ -181,6 +181,20 @@ describe('enrollment schedule', () => {
   it('has no adherence before the first day', () => {
     assert.equal(describeEnrollment(enrollment, program, '2026-03-01').adherencePct, null);
   });
+
+  it('moves a caught-up day and every later one', () => {
+    // Week 1 day 5 (Fri 6 Mar) and after moved 3 days later.
+    const e = describeEnrollment({ ...enrollment, shifts: [{ week: 1, day: 5, days: 3 }] }, program, '2026-03-09');
+    assert.deepEqual(e.schedule.slice(0, 4).map((d) => [d.date, d.status]), [
+      ['2026-03-02', 'missed'],
+      ['2026-03-04', 'done'],
+      ['2026-03-09', 'today'],
+      ['2026-03-12', 'upcoming'],
+    ]);
+    assert.equal(e.endDate, addDays('2026-03-02', 3 * 7 + 4 + 3));
+    // The first open day (week 1 day 1, missed) didn't move, so weeks count from the start.
+    assert.equal(e.currentWeek, 2);
+  });
 });
 
 describe('seed catalog', () => {

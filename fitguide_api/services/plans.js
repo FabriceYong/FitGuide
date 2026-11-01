@@ -101,18 +101,16 @@ function openDays(described, todayYmd) {
 }
 
 /**
- * Make the rest of the plan easier or harder from recent effort and
- * adherence. Returns what changed and why.
+ * How the rest of a personal plan would get easier or harder from recent
+ * effort and adherence, without changing anything. Each change has the day's
+ * date and the workout before and after.
  */
-async function adapt(userId, todayYmd, tzOffset) {
-  const found = await activePersonal(userId);
-  if (!found) throw new PlanError('You are not following a personal plan.', 404);
-  const described = await describeOne(userId, found.enrollment.id, todayYmd);
+async function proposeAdaptation(found, described, todayYmd, tzOffset) {
   const since = new Date(`${addDays(todayYmd, -14)}T00:00:00Z`).getTime() + tzOffset * 60 * 1000;
-  const recent = (await sessionStore.list(userId, { sortField: 'completedAt', limit: 50 }))
+  const recent = (await sessionStore.list(found.enrollment.userId, { sortField: 'completedAt', limit: 50 }))
     .filter((s) => new Date(s.completedAt).getTime() >= since);
   const { direction, reason } = adaptDirection(recent, described.adherencePct);
-  if (direction === 'keep') return { direction, reason, changes: [], plan: described };
+  if (direction === 'keep') return { direction, reason, changes: [] };
 
   const candidates = await candidatesFor(found.program);
   const bySlug = new Map((await catalog()).map((w) => [w.slug, w]));
@@ -121,13 +119,46 @@ async function adapt(userId, todayYmd, tzOffset) {
     const currentWorkout = bySlug.get(day.workoutSlug);
     const replacement = currentWorkout && swapFor(currentWorkout, direction, candidates);
     if (!replacement) continue;
-    await prisma.programDay.update({
-      where: { programId_week_day: { programId: found.program.id, week: day.week, day: day.day } },
-      data: { workoutSlug: replacement.slug, title: day.title.replace(/:.*$/, `: ${replacement.title}`) },
+    changes.push({
+      week: day.week,
+      day: day.day,
+      date: day.date,
+      from: currentWorkout.slug,
+      to: replacement.slug,
+      title: day.title,
+      newTitle: day.title.replace(/:.*$/, `: ${replacement.title}`),
     });
-    changes.push({ week: day.week, day: day.day, from: currentWorkout.slug, to: replacement.slug });
   }
-  return { direction, reason, changes, plan: await describeOne(userId, found.enrollment.id, todayYmd) };
+  return { direction, reason, changes };
+}
+
+/** Put the proposed workouts on the plan's days. */
+async function applySwaps(programId, changes) {
+  for (const c of changes) {
+    await prisma.programDay.update({
+      where: { programId_week_day: { programId, week: c.week, day: c.day } },
+      data: { workoutSlug: c.to, title: c.newTitle },
+    });
+  }
+}
+
+/**
+ * Make the rest of the plan easier or harder from recent effort and
+ * adherence. Returns what changed and why.
+ */
+async function adapt(userId, todayYmd, tzOffset) {
+  const found = await activePersonal(userId);
+  if (!found) throw new PlanError('You are not following a personal plan.', 404);
+  const described = await describeOne(userId, found.enrollment.id, todayYmd);
+  const { direction, reason, changes } = await proposeAdaptation(found, described, todayYmd, tzOffset);
+  if (direction === 'keep') return { direction, reason, changes: [], plan: described };
+  await applySwaps(found.program.id, changes);
+  return {
+    direction,
+    reason,
+    changes: changes.map(({ week, day, from, to }) => ({ week, day, from, to })),
+    plan: await describeOne(userId, found.enrollment.id, todayYmd),
+  };
 }
 
 /** Put a different workout on one open day of the user's plan. */
@@ -147,4 +178,4 @@ async function swapDay(userId, { week, day, workoutSlug }, todayYmd) {
   return describeOne(userId, found.enrollment.id, todayYmd);
 }
 
-module.exports = { LIMITS, PlanError, options, current, create, adapt, swapDay };
+module.exports = { LIMITS, PlanError, options, current, create, activePersonal, proposeAdaptation, applySwaps, adapt, swapDay };

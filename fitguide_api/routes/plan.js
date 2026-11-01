@@ -2,6 +2,7 @@ const express = require('express');
 const { body } = require('express-validator');
 const { PROFILE } = require('@fitguide/shared');
 const plans = require('../services/plans');
+const suggestions = require('../services/planSuggestions');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { rejectInvalid } = require('../utils/validate');
 const { tzOffsetFrom, today, isValidYmd, daysBetween } = require('../utils/dates');
@@ -17,6 +18,7 @@ const handle = (fn) => async (req, res, next) => {
     await fn(req, res);
   } catch (err) {
     if (err instanceof plans.PlanError) return res.status(err.status).json({ success: false, message: err.message });
+    if (err instanceof suggestions.SuggestionError) return res.status(err.status).json({ success: false, message: err.message, ...err.extra });
     return next(err);
   }
 };
@@ -65,6 +67,39 @@ router.post('/adapt', handle(async (req, res) => {
   const tzOffset = tzOffsetFrom(req);
   res.json({ success: true, ...(await plans.adapt(req.user.id, today(tzOffset), tzOffset)) });
 }));
+
+// ─── GET /api/plan/suggestion?tzOffset= ───────────────────────────────────────
+// A change the active plan or program proposes (catch up after missed
+// sessions, or easier/harder workouts), or null. Nothing changes until the
+// member accepts it.
+router.get('/suggestion', handle(async (req, res) => {
+  const tzOffset = tzOffsetFrom(req);
+  res.json({ success: true, suggestion: await suggestions.current(req.user.id, today(tzOffset), tzOffset) });
+}));
+
+// ─── POST /api/plan/suggestion/accept?tzOffset= ───────────────────────────────
+// Body: { id } — the suggestion as it was shown. 409 with the new one if it changed.
+router.post(
+  '/suggestion/accept',
+  [body('id').isString().isLength({ min: 1, max: 64 })],
+  rejectInvalid,
+  handle(async (req, res) => {
+    const tzOffset = tzOffsetFrom(req);
+    res.json({ success: true, ...(await suggestions.accept(req.user.id, req.body.id, today(tzOffset), tzOffset)) });
+  }),
+);
+
+// ─── POST /api/plan/suggestion/dismiss?tzOffset= ──────────────────────────────
+// Body: { kind } — no thanks: that kind isn't suggested again for a week.
+router.post(
+  '/suggestion/dismiss',
+  [body('kind').isIn(suggestions.KINDS)],
+  rejectInvalid,
+  handle(async (req, res) => {
+    await suggestions.dismiss(req.user.id, req.body.kind, today(tzOffsetFrom(req)));
+    res.json({ success: true });
+  }),
+);
 
 // ─── PATCH /api/plan/days?tzOffset= ───────────────────────────────────────────
 // Body: { week, day, workoutSlug } — put another workout on an open day.

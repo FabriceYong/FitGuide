@@ -17,6 +17,7 @@ import '../common/site_page.dart';
 import '../programs/schedule.dart';
 import 'coach_chat.dart';
 import 'plan_generator.dart';
+import 'plan_suggestion.dart';
 import 'week_strip.dart';
 
 /// /plan: the user's personal plan (or the generator) and the coach
@@ -201,6 +202,11 @@ class _PlanScreenState extends State<PlanScreen> {
                 ],
               ],
             ),
+          ),
+          PlanSuggestionCard(
+            key: ValueKey('suggestion-${plan.id}'),
+            enrollmentId: plan.id,
+            onApplied: (changed) => setState(() => _plan = changed),
           ),
           WeekStrip(plan: plan),
           if (_notice.isNotEmpty)

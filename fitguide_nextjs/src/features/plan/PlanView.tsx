@@ -8,6 +8,7 @@ import { STATUS_STYLES, formatDate, playHref } from '../programs/ProgramDetail';
 import { adaptPlan, fetchPlan, type AdaptResult, type Plan, type PlanDay } from '../../services/planService';
 import { PlanGenerator } from './PlanGenerator';
 import { CoachChat } from './CoachChat';
+import { PlanSuggestionCard } from './PlanSuggestionCard';
 import { LoadingBlocks, Skeleton } from '../../components/Skeleton';
 import { track } from '../../lib/analytics';
 
@@ -190,6 +191,8 @@ export function PlanView() {
                 </div>
               )}
             </section>
+
+            <PlanSuggestionCard key={plan.id} enrollmentId={plan.id} onApplied={setPlan} />
 
             <WeekStrip plan={plan} />
 

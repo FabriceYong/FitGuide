@@ -63,6 +63,28 @@ export interface AdaptResult {
   plan: Plan;
 }
 
+/** One day a suggestion changes: catching up gives it a new date, easier/harder a new workout. */
+export interface SuggestedChange {
+  week: number;
+  day: number;
+  title: string;
+  date: string;
+  newDate?: string;
+  newTitle?: string;
+}
+
+/** A change the active plan or program proposes; nothing changes until it's accepted. */
+export interface PlanSuggestion {
+  id: string;
+  kind: 'catch_up' | 'easier' | 'harder';
+  enrollmentId: string;
+  programTitle: string;
+  reason: string;
+  moveDays?: number;
+  endDate?: string;
+  changes: SuggestedChange[];
+}
+
 export interface CoachMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -78,6 +100,17 @@ export const generatePlan = (answers: PlanRequest): Promise<{ plan: Plan; warnin
   apiRequest('/plan/generate', { method: 'POST', auth: true, query: tz(), body: answers });
 
 export const adaptPlan = (): Promise<AdaptResult> => apiRequest('/plan/adapt', { method: 'POST', auth: true, query: tz() });
+
+export const fetchPlanSuggestion = async (): Promise<PlanSuggestion | null> =>
+  (await apiRequest('/plan/suggestion', { auth: true, query: tz() })).suggestion;
+
+/** Make the change. If the plan changed since, this fails (409) with the new suggestion in `data`. */
+export const acceptPlanSuggestion = (id: string): Promise<{ applied: PlanSuggestion; enrollment: Plan }> =>
+  apiRequest('/plan/suggestion/accept', { method: 'POST', auth: true, query: tz(), body: { id } });
+
+/** No thanks: that kind isn't suggested again for a week. */
+export const dismissPlanSuggestion = (kind: PlanSuggestion['kind']) =>
+  apiRequest('/plan/suggestion/dismiss', { method: 'POST', auth: true, query: tz(), body: { kind } });
 
 export const fetchCoach = (): Promise<{ available: boolean; maxMessages: number; messages: CoachMessage[] }> =>
   apiRequest('/coach', { auth: true });

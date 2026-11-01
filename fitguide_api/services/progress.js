@@ -109,13 +109,21 @@ function personalRecords(sessions, exercisesBySlug) {
 const scheduledDate = (startDate, week, day) => addDays(startDate, (week - 1) * 7 + (day - 1));
 
 /**
+ * Days a program day moved from catch-ups: each shift moves its day and every
+ * later one.
+ * @param {{ week: number, day: number, days: number }[]} shifts
+ */
+const shiftFor = (shifts, week, day) => (Array.isArray(shifts) ? shifts : [])
+  .reduce((n, s) => (week > s.week || (week === s.week && day >= s.day) ? n + s.days : n), 0);
+
+/**
  * An enrollment with its program schedule laid out on the calendar and
  * adherence so far (share of the scheduled days up to today that were done).
  */
 function describeEnrollment(enrollment, program, todayYmd) {
   const done = new Map((enrollment.completedDays || []).map((d) => [`${d.week}:${d.day}`, d]));
   const schedule = (program?.days || []).map((d) => {
-    const date = scheduledDate(enrollment.startDate, d.week, d.day);
+    const date = addDays(scheduledDate(enrollment.startDate, d.week, d.day), shiftFor(enrollment.shifts, d.week, d.day));
     const completed = done.get(`${d.week}:${d.day}`);
     let status;
     if (completed) status = 'done';
@@ -131,6 +139,9 @@ function describeEnrollment(enrollment, program, todayYmd) {
   const completedCount = schedule.filter((d) => d.status === 'done').length;
   const nextDay = enrollment.status === 'active' ? schedule.find((d) => d.status !== 'done') || null : null;
   const lastDate = schedule.length ? schedule[schedule.length - 1].date : enrollment.startDate;
+  // Weeks count from the start, moved by any catch-up that applies to what's next.
+  const open = schedule.find((d) => d.status !== 'done');
+  const weekStart = addDays(enrollment.startDate, open ? shiftFor(enrollment.shifts, open.week, open.day) : shiftFor(enrollment.shifts, Infinity, 0));
 
   return {
     id: enrollment.id,
@@ -147,7 +158,7 @@ function describeEnrollment(enrollment, program, todayYmd) {
     percentComplete: schedule.length ? Math.round((completedCount / schedule.length) * 100) : 0,
     dueCount: due.length,
     adherencePct: due.length ? Math.round((dueDone / due.length) * 100) : null,
-    currentWeek: Math.min(program?.weeks || 1, Math.max(1, Math.floor(daysBetween(enrollment.startDate, todayYmd) / 7) + 1)),
+    currentWeek: Math.min(program?.weeks || 1, Math.max(1, Math.floor(daysBetween(weekStart, todayYmd) / 7) + 1)),
     nextDay,
     schedule,
   };
@@ -327,4 +338,4 @@ function previousSets(sessions, steps, keyOf, units = 'metric') {
   });
 }
 
-module.exports = { activityByDate, streaks, personalRecords, scheduledDate, describeEnrollment, buildSummary, muscleRegions, repRange, suggestNext, previousSets };
+module.exports = { activityByDate, streaks, personalRecords, scheduledDate, shiftFor, describeEnrollment, buildSummary, muscleRegions, repRange, suggestNext, previousSets };

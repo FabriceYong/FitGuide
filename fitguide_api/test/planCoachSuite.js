@@ -132,6 +132,76 @@ function definePlanCoachSuite(ctx) {
     });
   });
 
+  describe('plan suggestions', () => {
+    const todayYmd = new Date().toISOString().slice(0, 10); // no tzOffset sent: UTC dates
+    const daysAgo = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
+
+    it('requires auth and validates', async () => {
+      await request(app).get('/api/plan/suggestion').expect(401);
+      const member = await ctx().signUp('Suggest Check');
+      assert.equal((await member.agent.get('/api/plan/suggestion').expect(200)).body.suggestion, null);
+      await member.agent.post('/api/plan/suggestion/dismiss').send({ kind: 'bogus' }).expect(400);
+      await member.agent.post('/api/plan/suggestion/accept').send({}).expect(400);
+      await member.agent.post('/api/plan/suggestion/accept').send({ id: 'abc' }).expect(404);
+    });
+
+    it('suggests catching up after missed sessions, and changes nothing until accepted', async () => {
+      const member = await ctx().signUp('Catch Up');
+      await member.agent.post('/api/plan/generate').send({ ...planRequest, startDate: daysAgo(9) }).expect(201);
+      const { suggestion } = (await member.agent.get('/api/plan/suggestion').expect(200)).body;
+      assert.equal(suggestion.kind, 'catch_up');
+      assert.match(suggestion.reason, /missed the last \d+ sessions/);
+      const [first] = suggestion.changes;
+      assert.equal(first.newDate, todayYmd);
+      assert.equal(suggestion.moveDays, Math.round((Date.parse(todayYmd) - Date.parse(first.date)) / 864e5));
+      // Still as it was.
+      const before = (await member.agent.get('/api/plan').expect(200)).body.plan;
+      assert.equal(before.schedule[0].date, first.date);
+
+      const stale = await member.agent.post('/api/plan/suggestion/accept').send({ id: 'not-this-one' }).expect(409);
+      assert.equal(stale.body.suggestion.id, suggestion.id);
+
+      const res = await member.agent.post('/api/plan/suggestion/accept').send({ id: suggestion.id }).expect(200);
+      const day = res.body.enrollment.schedule.find((d) => d.week === first.week && d.day === first.day);
+      assert.deepEqual([day.date, day.status], [todayYmd, 'today']);
+      assert.equal(res.body.enrollment.endDate, suggestion.endDate);
+      assert.equal(res.body.enrollment.schedule.filter((d) => d.status === 'missed').length, 0);
+      assert.equal((await member.agent.get('/api/plan/suggestion').expect(200)).body.suggestion, null);
+    });
+
+    it('works for catalog programs too, and no thanks hides it for a week', async () => {
+      const member = await ctx().signUp('Program Gap');
+      await member.agent.post('/api/enrollments').send({ programSlug: 'foundations-starter', startDate: daysAgo(10) }).expect(201);
+      const { suggestion } = (await member.agent.get('/api/plan/suggestion').expect(200)).body;
+      assert.equal(suggestion.kind, 'catch_up');
+      await member.agent.post('/api/plan/suggestion/dismiss').send({ kind: 'catch_up' }).expect(200);
+      assert.equal((await member.agent.get('/api/plan/suggestion').expect(200)).body.suggestion, null, 'not a personal plan, so nothing else to suggest');
+    });
+
+    it('suggests easier workouts after very hard sessions', async () => {
+      const member = await ctx().signUp('Too Hard');
+      const { plan } = (await member.agent.post('/api/plan/generate').send(planRequest).expect(201)).body;
+      for (const minutesAgo of [90, 30]) {
+        await member.agent.post('/api/sessions').send({
+          workoutSlug: plan.schedule[0].workoutSlug,
+          startedAt: new Date(Date.now() - (minutesAgo + 20) * 60e3).toISOString(),
+          completedAt: new Date(Date.now() - minutesAgo * 60e3).toISOString(),
+          durationSec: 1200,
+          perceivedEffort: 10,
+        }).expect(201);
+      }
+      const { suggestion } = (await member.agent.get('/api/plan/suggestion').expect(200)).body;
+      assert.equal(suggestion.kind, 'easier');
+      assert.ok(suggestion.changes.length > 0);
+      const change = suggestion.changes[0];
+      assert.ok(change.date && change.title && change.newTitle && change.to);
+
+      const res = await member.agent.post('/api/plan/suggestion/accept').send({ id: suggestion.id }).expect(200);
+      const day = res.body.enrollment.schedule.find((d) => d.week === change.week && d.day === change.day);
+      assert.deepEqual([day.workoutSlug, day.title], [change.to, change.newTitle]);
+    });
+  });
+
   describe('coach', () => {
     let coachUser;
     before(async () => {

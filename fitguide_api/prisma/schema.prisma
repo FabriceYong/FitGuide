@@ -437,6 +437,13 @@ model Enrollment {
   startDate   String    @db.VarChar(10) // YYYY-MM-DD, user's local date of week 1 day 1
   status      String    @default("active") // active | completed | abandoned
   endedAt     DateTime?
+  // Catch-ups the member accepted (services/planSuggestions.js): each
+  // { week, day, days } moves that scheduled day and every later one `days`
+  // later than the start date alone would put them.
+  shifts      Json      @default("[]")
+  // A kind of plan suggestion the member said no to, hidden until this local date.
+  hiddenSuggestion      String?
+  hiddenSuggestionUntil String?   @db.VarChar(10)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

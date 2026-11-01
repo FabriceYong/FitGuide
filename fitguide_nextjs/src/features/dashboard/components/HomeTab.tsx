@@ -23,6 +23,7 @@ import type { TabId } from '../tabs';
 import { HeroCarousel, type HeroSlide } from './HeroCarousel';
 import { StatCard } from './StatCard';
 import { TodayPanel } from './TodayPanel';
+import { PlanSuggestionCard } from '../../plan/PlanSuggestionCard';
 import { WorkoutCard } from './WorkoutCard';
 
 /** Days since 1970, used to rotate daily picks. */
@@ -195,6 +196,10 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
         )}
         <HeroCarousel slides={slides} greeting={user?.name ? `Hello, ${user.name.split(' ')[0]}` : undefined} />
       </div>
+
+      {hasAccount && enrollment && (
+        <PlanSuggestionCard onApplied={() => fetchProgressSummary().then(setProgress).catch(() => {})} />
+      )}
 
       {hasAccount && <TodayPanel summary={summary} suggestion={recommended[0]} />}
 

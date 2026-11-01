@@ -22,6 +22,7 @@ import '../../widgets/stat_card.dart';
 import '../../widgets/ui.dart';
 import '../../widgets/workout_card.dart';
 import '../common/parq_modal.dart';
+import '../plan/plan_suggestion.dart';
 import 'article_screen.dart';
 import 'articles.dart';
 import 'hero_carousel.dart';
@@ -283,6 +284,11 @@ class _HomeTabState extends State<HomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: spaced([
+                if (auth.hasAccount && enrollment != null)
+                  PlanSuggestionCard(
+                    key: ValueKey('suggestion-${enrollment.id}'),
+                    onApplied: (_) => context.read<DashboardController>().dataChanged(),
+                  ),
                 if (auth.hasAccount) TodayPanel(key: ValueKey('today-${auth.user!.id}'), summary: summary, suggestion: picks.firstOrNull?.workout),
                 _section(
                   header: SectionHeader('Your progress', action: auth.hasAccount ? 'See all →' : null, onAction: () => dashboard.setTab(DashboardTab.progress)),

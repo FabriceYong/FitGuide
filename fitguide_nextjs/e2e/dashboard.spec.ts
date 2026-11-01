@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 import { signUpAndSignIn } from './helpers';
 
 const dashboardNav = (page: Page) => page.getByRole('navigation', { name: 'Dashboard' }).first();

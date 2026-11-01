@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 import { API, emailedLink, newAccount, registerConfirmed } from './helpers';
 
 /** The sticky button at the bottom of the sign-up wizard (last in the page). */

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { signUpAndSignIn } from './helpers';
 
 // Runs on a phone-sized viewport (see playwright.config.ts).

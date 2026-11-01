@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 import { API, signUpAndSignIn } from './helpers';
 
 // Where finished-offline sessions wait (see src/services/trainingService.ts).

@@ -15,6 +15,7 @@ import '../../services/training_service.dart';
 import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
 import '../../widgets/body_map.dart';
+import 'progress_photos.dart';
 import '../../widgets/charts.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/modal.dart';
@@ -162,6 +163,7 @@ class _ProgressViewState extends State<ProgressView> {
         else
           _MusclesThisWeek(counts: summary.muscleRegions),
         ...pairs(context, _PersonalRecords(records: summary.personalRecords), _RecentSessions(sessions: data.recentSessions, onDelete: _deleteSession)),
+        const Panel(title: 'Progress photos', icon: LucideIcons.camera, child: ProgressPhotos()),
         _BodyMetrics(
           body: summary.body,
           metrics: _metrics,

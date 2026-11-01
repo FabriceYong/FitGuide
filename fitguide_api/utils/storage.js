@@ -4,11 +4,23 @@
  *  - s3: any S3-compatible bucket (AWS S3, Cloudflare R2, MinIO, ...), served
  *    from S3_PUBLIC_URL (a CDN or the bucket's public URL). Use this in
  *    production so uploads survive redeploys and multiple API instances.
+ *
+ * Private files (progress photos) are never public: they're kept under
+ * PRIVATE_UPLOADS_DIR (local) or in S3_PRIVATE_BUCKET (a bucket without
+ * public access; defaults to S3_BUCKET under private/), and the API sends
+ * them only to their owner.
  */
 const fs = require('fs');
 const path = require('path');
 
 const UPLOADS_ROOT = process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : path.join(__dirname, '..', 'uploads');
+// Beside the public uploads, never served as static files.
+const PRIVATE_ROOT = () => (process.env.PRIVATE_UPLOADS_DIR ? path.resolve(process.env.PRIVATE_UPLOADS_DIR) : path.join(path.dirname(UPLOADS_ROOT), 'private-uploads'));
+const PRIVATE_KEY = /^[a-z-]+\/[A-Za-z0-9._-]+$/;
+const privatePath = (key) => {
+  if (!PRIVATE_KEY.test(key) || key.includes('..')) throw new Error('Bad private file key');
+  return path.join(PRIVATE_ROOT(), key);
+};
 
 // Keys we create look like "avatars/avatar-avatar-1700000000000-abc123.png".
 const KEY_PATTERN = /^[a-z]+\/[A-Za-z0-9._-]+$/;
@@ -33,6 +45,23 @@ function localStorage() {
     async remove(key) {
       await fs.promises.rm(path.join(UPLOADS_ROOT, key), { force: true });
     },
+    async putPrivate(key, buffer) {
+      const file = privatePath(key);
+      await fs.promises.mkdir(path.dirname(file), { recursive: true });
+      await fs.promises.writeFile(file, buffer);
+    },
+    /** The file's bytes, or null if it's gone. */
+    async readPrivate(key) {
+      try {
+        return await fs.promises.readFile(privatePath(key));
+      } catch (err) {
+        if (err.code === 'ENOENT') return null;
+        throw err;
+      }
+    },
+    async removePrivate(key) {
+      await fs.promises.rm(privatePath(key), { force: true });
+    },
   };
 }
 
@@ -41,7 +70,7 @@ function s3Storage() {
   const missing = required.filter((name) => !process.env[name]);
   if (missing.length) throw new Error(`STORAGE_DRIVER=s3 needs ${missing.join(', ')} (see .env.example).`);
 
-  const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+  const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
   const client = new S3Client({
     region: process.env.S3_REGION || 'auto',
     ...(process.env.S3_ENDPOINT && { endpoint: process.env.S3_ENDPOINT }),
@@ -51,6 +80,8 @@ function s3Storage() {
     }),
   });
   const publicBase = process.env.S3_PUBLIC_URL.replace(/\/+$/, '');
+  const privateBucket = process.env.S3_PRIVATE_BUCKET || process.env.S3_BUCKET;
+  const privateKey = (key) => (process.env.S3_PRIVATE_BUCKET ? key : `private/${key}`);
 
   return {
     name: 's3',
@@ -69,6 +100,21 @@ function s3Storage() {
     keyFor: (url) => keyAfter(publicBase, url),
     async remove(key) {
       await client.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }));
+    },
+    async putPrivate(key, buffer, contentType) {
+      await client.send(new PutObjectCommand({ Bucket: privateBucket, Key: privateKey(key), Body: buffer, ContentType: contentType, CacheControl: 'private, no-store' }));
+    },
+    async readPrivate(key) {
+      try {
+        const res = await client.send(new GetObjectCommand({ Bucket: privateBucket, Key: privateKey(key) }));
+        return Buffer.from(await res.Body.transformToByteArray());
+      } catch (err) {
+        if (err.name === 'NoSuchKey') return null;
+        throw err;
+      }
+    },
+    async removePrivate(key) {
+      await client.send(new DeleteObjectCommand({ Bucket: privateBucket, Key: privateKey(key) }));
     },
   };
 }

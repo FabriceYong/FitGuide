@@ -76,9 +76,10 @@ class UploadError extends Error {}
 /**
  * Uploads stored under <subdir>/ in the configured storage (local disk or an
  * S3-compatible bucket). After the middleware runs, each file has
- * `publicUrl` set to where it can be loaded from.
+ * `publicUrl` set to where it can be loaded from; with `private`, it has
+ * `privateKey` instead, and only the API can read it.
  */
-function fileUpload(kind, subdir, prefix) {
+function fileUpload(kind, subdir, prefix, { private: isPrivate = false } = {}) {
   const rules = KINDS[kind];
   const parser = multer({
     storage: multer.memoryStorage(),
@@ -105,7 +106,12 @@ function fileUpload(kind, subdir, prefix) {
       }
       for (const file of files) {
         file.filename = `${prefix}-${file.fieldname}-${Date.now()}-${crypto.randomBytes(6).toString('hex')}${rules.extensions[file.mimetype]}`;
-        file.publicUrl = await getStorage().put(`${subdir}/${file.filename}`, file.buffer, file.mimetype);
+        if (isPrivate) {
+          file.privateKey = `${subdir}/${file.filename}`;
+          await getStorage().putPrivate(file.privateKey, file.buffer, file.mimetype);
+        } else {
+          file.publicUrl = await getStorage().put(`${subdir}/${file.filename}`, file.buffer, file.mimetype);
+        }
         file.buffer = null;
       }
       next();
@@ -127,6 +133,9 @@ function fileUpload(kind, subdir, prefix) {
  */
 const imageUpload = (subdir, prefix) => fileUpload('image', subdir, prefix);
 
+/** Image uploads only the API can read back (progress photos). */
+const privateImageUpload = (subdir, prefix) => fileUpload('image', subdir, prefix, { private: true });
+
 /** Video uploads (MP4, WebM, MOV), up to 100 MB. */
 const videoUpload = (subdir, prefix) => fileUpload('video', subdir, prefix);
 
@@ -142,4 +151,4 @@ function uploadErrorHandler(err, req, res, next) {
   return next(err);
 }
 
-module.exports = { UPLOADS_ROOT, imageUpload, videoUpload, uploadErrorHandler, hasImageSignature, hasVideoSignature };
+module.exports = { UPLOADS_ROOT, imageUpload, privateImageUpload, videoUpload, uploadErrorHandler, hasImageSignature, hasVideoSignature };

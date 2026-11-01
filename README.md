@@ -134,6 +134,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | kg or lb (and cm or ft/in): chosen at sign-up or in the profile; weights, heights, measurements and next-weight suggestions follow it, and everything is stored in metric | `stores/userStore.js` (`units`), `services/progress.js` | `lib/units.ts`; app: `core/units.dart` |
 | Sessions, program enrollments, body metrics, progress | `routes/sessions.js`, `enrollments.js`, `bodyMetrics.js`, `progress.js` | player, `/progress` |
 | Achievements (badges for workouts, streaks, minutes, records, finished programs) and the muscle map of the last 7 days, on Progress | `services/achievements.js`, `services/progress.js` (`muscleRegions`) | `/progress`; app: progress view |
+| Progress photos: private, by date, compared side by side; only the owner can load them | `routes/progressPhotos.js`, `utils/storage.js` (private files) | `/progress` (`ProgressPhotos.tsx`); app: `features/progress/progress_photos.dart` |
 | Build your own workout: exercises with sets of reps or time, supersets; private, and played and logged like any workout | `services/myWorkouts.js`, `routes/myWorkouts.js` | Explore → My workouts (`features/workout/MyWorkouts.tsx`, `WorkoutBuilder.tsx`); app: `features/workout/my_workouts.dart` |
 | Personal plan generator and rules-based adaptation | `services/planGenerator.js`, `routes/plan.js` | `/plan` |
 | AI coach (Claude) with plan tools | `services/coach.js`, `routes/coach.js` | `/plan` |
@@ -174,7 +175,8 @@ keys are set, and show as unavailable otherwise:
 - **Stripe:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and the price
   ids; point a webhook at `/api/billing/webhook`.
 - **Uploads:** `STORAGE_DRIVER=s3` with an S3-compatible bucket (S3, R2,
-  MinIO) in production.
+  MinIO) in production, and `S3_PRIVATE_BUCKET`, a bucket with no public
+  access, for progress photos.
 
 ## Production notes
 

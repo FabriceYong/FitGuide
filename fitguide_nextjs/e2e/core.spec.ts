@@ -102,6 +102,32 @@ test('progress shows achievements and the muscles trained this week', async ({ p
   await expect(muscles.getByText(/^Legs · 1 workout$/)).toBeVisible();
 });
 
+test('progress photos stay private and compare side by side', async ({ page }) => {
+  await signUpAndSignIn(page, 'Photo Tester');
+  await page.goto('/progress');
+  const panel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Progress photos' }) });
+  const png = { name: 'me.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64') };
+
+  await panel.locator('input[type=file]').setInputFiles(png);
+  await panel.getByLabel('Date').fill('2026-10-01');
+  await panel.getByLabel('Note').fill('Week 1');
+  await panel.getByRole('button', { name: 'Add photo' }).click();
+  await expect(panel.getByRole('img', { name: /Progress photo, .*: Week 1/ })).toBeVisible();
+
+  await panel.locator('input[type=file]').setInputFiles(png);
+  await panel.getByRole('button', { name: 'Add photo' }).click();
+  // Two photos: the first and the latest side by side.
+  await expect(panel.getByLabel('Before')).toBeVisible();
+  await expect(panel.getByLabel('After')).toBeVisible();
+  await expect(panel.getByRole('img')).toHaveCount(4);
+
+  // Not reachable without the session.
+  const { photos } = await (await page.request.get(`${API}/progress-photos`)).json();
+  expect((await page.request.get(`${API}${photos[0].url}`)).status()).toBe(200);
+  await page.context().clearCookies();
+  expect((await page.request.get(`${API}${photos[0].url}`)).status()).toBe(401);
+});
+
 test('progress shows logged health data', async ({ page }) => {
   await signUpAndSignIn(page, 'Steps Tester');
   await page.goto('/progress');

@@ -83,6 +83,7 @@ model User {
   foods                  Food[]
   foodLogs               FoodLog[]
   waterIntake            WaterIntake[]
+  progressPhotos         ProgressPhoto[]
   dailyMetrics           DailyMetric[]
   bloodPressure          BloodPressureReading[]
   externalActivities     ExternalActivity[]
@@ -801,4 +802,20 @@ model WaterIntake {
 
   @@unique([userId, date])
   @@map("water_intake")
+}
+
+/// A private progress photo: only its owner can see it (served by the API,
+/// never from public storage).
+model ProgressPhoto {
+  id        String   @id @default(uuid())
+  userId    String
+  date      String   @db.VarChar(10) // the user's local date
+  fileKey   String   @unique // private storage key
+  note      String   @default("") @db.VarChar(200)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@map("progress_photos")
 }

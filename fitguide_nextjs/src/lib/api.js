@@ -140,11 +140,21 @@ export async function apiRequest(path, { method = 'GET', body, formData, query, 
     return data;
 }
 
-/**
- * Fetch a file from the API with the session (a data export) and save it
- * in the browser as `filename`.
- */
+/** Fetch a file from the API with the session (a data export) and save it in the browser as `filename`. */
 export async function downloadFile(path, filename) {
+    const url = URL.createObjectURL(await fetchFile(path));
+    const link = Object.assign(document.createElement('a'), { href: url, download: filename });
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * A file from the API (a data export, a private photo) as a Blob, fetched
+ * with the session (refreshed once if it has expired).
+ */
+export async function fetchFile(path) {
     if (!hasSession()) throw new ApiError('Please sign in to continue.', 401);
     const send = () => fetch(`${API_BASE}${path}`, { credentials: 'include' });
     let response;
@@ -159,10 +169,5 @@ export async function downloadFile(path, filename) {
         if (response.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
         throw new ApiError(data?.message || `Download failed (HTTP ${response.status}).`, response.status, data);
     }
-    const url = URL.createObjectURL(await response.blob());
-    const link = Object.assign(document.createElement('a'), { href: url, download: filename });
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return response.blob();
 }

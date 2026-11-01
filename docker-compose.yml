@@ -48,6 +48,8 @@ services:
       - "${API_PORT:-5001}:5001"
     volumes:
       - fitguide-uploads:/app/fitguide_api/uploads
+      # Progress photos: private, never served as static files.
+      - fitguide-private-uploads:/app/fitguide_api/private-uploads
     depends_on:
       db:
         condition: service_healthy
@@ -89,3 +91,4 @@ services:
 volumes:
   fitguide-db:
   fitguide-uploads:
+  fitguide-private-uploads:

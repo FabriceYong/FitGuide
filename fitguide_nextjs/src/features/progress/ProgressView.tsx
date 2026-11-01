@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import Link from 'next/link';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
-  Activity, AlertTriangle, Award, CalendarDays, PersonStanding, Clock, Dumbbell, Flame, Loader2, Lock, Play, Ruler, Scale, Trash2, TrendingDown, TrendingUp, Trophy, Zap, type LucideIcon,
+  Activity, AlertTriangle, Award, CalendarDays, Camera, PersonStanding, Clock, Dumbbell, Flame, Loader2, Lock, Play, Ruler, Scale, Trash2, TrendingDown, TrendingUp, Trophy, Zap, type LucideIcon,
 } from 'lucide-react';
 import type { MeasurementField } from '@fitguide/shared';
 import { useAuth, type AuthUser } from '../../contexts/AuthContext';
@@ -18,6 +18,7 @@ import { playHref } from '../programs/ProgramDetail';
 import { useStartSignUp } from '../auth/AuthWrapper';
 import { formatDateTime, formatDay, formatRecord, scheduleHref } from './format';
 import { MusclesThisWeek } from './MusclesThisWeek';
+import { ProgressPhotos } from './ProgressPhotos';
 import { measureFrom, measureText, measureUnit, useUnits, weightIn, weightText, weightUnit } from '../../lib/units';
 
 const ACCENT = '#00C4B4';
@@ -120,6 +121,8 @@ export function ProgressView() {
         <PersonalRecords records={summary.personalRecords} />
         <RecentSessions sessions={recentSessions} onDelete={setConfirmDelete} />
       </div>
+
+      <Panel title="Progress photos" icon={Camera}><ProgressPhotos /></Panel>
 
       <BodyMetrics
         body={summary.body}

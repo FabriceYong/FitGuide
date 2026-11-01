@@ -57,6 +57,7 @@ npm-debug.log*
 # API runtime data: user uploads, the old JSON mock database (contains password
 # hashes) and the embedded dev Postgres from `npm run db:dev`
 fitguide_api/uploads/
+fitguide_api/private-uploads/
 fitguide_api/mock_db_data.json
 fitguide_api/.devdb/
 

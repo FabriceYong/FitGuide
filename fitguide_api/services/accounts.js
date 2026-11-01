@@ -12,7 +12,7 @@
  */
 const { prisma } = require('../db/prisma');
 const billing = require('./billing');
-const { removeUrls } = require('../utils/storage');
+const { getStorage, removeUrls } = require('../utils/storage');
 
 class AccountError extends Error {
   constructor(message, status = 400) {
@@ -89,7 +89,11 @@ async function deleteAccount(userId) {
     throw new AccountError('We could not cancel your subscription, so your account was not deleted. Please try again later.', 502);
   }
   const urls = await imageUrlsOf(userId);
+  const photoKeys = (await prisma.progressPhoto.findMany({ where: { userId }, select: { fileKey: true } })).map((p) => p.fileKey);
   await prisma.$transaction((tx) => deleteData(tx, userId));
+  for (const key of photoKeys) {
+    await getStorage().removePrivate(key).catch((err) => console.error(`[account] could not remove ${key}:`, err.message));
+  }
   const shared = await stillUsed(urls);
   await removeUrls(urls.filter((url) => !shared.has(url)));
 }

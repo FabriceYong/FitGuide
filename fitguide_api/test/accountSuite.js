@@ -290,6 +290,50 @@ function defineAccountSuite(ctx) {
     });
   });
 
+  describe('progress photos', () => {
+    const privateFile = (key) => path.join(path.dirname(UPLOADS_ROOT), 'private-uploads', key);
+
+    it('keeps photos private to their owner and removes them for good', async () => {
+      const { app } = ctx();
+      await request(app).get('/api/progress-photos').expect(401);
+      const { agent } = await ctx().signUp('Photo Owner');
+      await agent.post('/api/progress-photos').field('date', '2026-10-01').expect(400);
+      await agent.post('/api/progress-photos').attach('photo', Buffer.from('not an image'), { filename: 'x.png', contentType: 'image/png' }).expect(400);
+      await agent.post('/api/progress-photos').field('date', '2999-01-01').attach('photo', PNG, { filename: 'a.png', contentType: 'image/png' }).expect(400);
+
+      const before = (await agent.post('/api/progress-photos').field('date', '2026-10-01').field('note', 'Week 1')
+        .attach('photo', PNG, { filename: 'a.png', contentType: 'image/png' }).expect(201)).body.photo;
+      const now = (await agent.post('/api/progress-photos').attach('photo', PNG, { filename: 'b.png', contentType: 'image/png' }).expect(201)).body.photo;
+      const list = (await agent.get('/api/progress-photos').expect(200)).body.photos;
+      assert.deepEqual(list.map((p) => [p.id, p.note]), [[before.id, 'Week 1'], [now.id, '']]);
+
+      const image = await agent.get(`/api${before.url}`).expect(200);
+      assert.equal(image.headers['content-type'], 'image/png');
+      assert.deepEqual(Buffer.from(image.body), PNG);
+      assert.match(image.headers['cache-control'], /^private/);
+
+      // Nobody else can see it, and it isn't among the public uploads.
+      const other = await ctx().signUp('Photo Snooper');
+      await other.agent.get(`/api${before.url}`).expect(404);
+      await other.agent.delete(`/api/progress-photos/${before.id}`).expect(404);
+      const { fileKey } = await prisma.progressPhoto.findUnique({ where: { id: before.id } });
+      assert.ok(fs.existsSync(privateFile(fileKey)));
+      assert.ok(!fs.existsSync(path.join(UPLOADS_ROOT, fileKey)));
+
+      await agent.delete(`/api/progress-photos/${before.id}`).expect(200);
+      assert.ok(!fs.existsSync(privateFile(fileKey)));
+      await agent.get(`/api${before.url}`).expect(404);
+    });
+
+    it('deletes the files with the account', async () => {
+      const { agent, creds } = await ctx().signUp('Photo Leaver');
+      const photo = (await agent.post('/api/progress-photos').attach('photo', PNG, { filename: 'a.png', contentType: 'image/png' }).expect(201)).body.photo;
+      const { fileKey } = await prisma.progressPhoto.findUnique({ where: { id: photo.id } });
+      await agent.delete('/api/auth/account').send({ password: creds.password }).expect(200);
+      assert.ok(!fs.existsSync(privateFile(fileKey)));
+    });
+  });
+
   describe('download my data', () => {
     it('gives everything as JSON, and workouts and measurements as CSV, without secrets', async () => {
       const { app } = ctx();

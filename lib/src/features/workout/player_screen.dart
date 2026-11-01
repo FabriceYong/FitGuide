@@ -25,6 +25,7 @@ import '../../widgets/forms.dart';
 import '../../widgets/ui.dart';
 import '../../services/ai_service.dart';
 import '../../services/speech.dart';
+import '../../services/timer_notifications.dart';
 import '../plus/plus_gate.dart';
 import 'exercise_demo_view.dart';
 import 'exercise_demos.dart';
@@ -35,7 +36,9 @@ import 'workout_steps.dart';
 /// The guided player (app/workouts/[slug]/play → EnhancedWorkoutExecution.js).
 /// Loads the workout, then takes it one step at a time: a countdown, or a rep
 /// target for steps counted in reps, what comes next, rests between steps and
-/// spoken cues. Saves the session at the end.
+/// spoken cues. Saves the session at the end. The clock follows real time, so
+/// it stays right while the phone is locked, and the countdown shows in a
+/// notification meanwhile (TimerNotifications).
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key, required this.slug, this.program});
   final String slug;
@@ -71,7 +74,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
     if (workout == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (workout.locked) return PlusLockedScreen(workout: workout);
-    return _Player(workout: workout, program: widget.program);
+    return WorkoutPlayer(workout: workout, program: widget.program);
   }
 }
 
@@ -83,16 +86,20 @@ const _liftRestSec = 90;
 int? _savedRest(String slug) => asInt(asJson(Storage.getJson(_restKey))[slug]);
 Future<void> _saveRest(String slug, int seconds) => Storage.setJson(_restKey, {...asJson(Storage.getJson(_restKey)), slug: seconds});
 
-class _Player extends StatefulWidget {
-  const _Player({required this.workout, this.program});
+/// The player for a loaded workout (PlayerScreen loads it first).
+class WorkoutPlayer extends StatefulWidget {
+  const WorkoutPlayer({super.key, required this.workout, this.program, this.now = DateTime.now});
   final Workout workout;
   final ProgramContext? program;
 
+  /// The clock (tests set it to make time pass).
+  final DateTime Function() now;
+
   @override
-  State<_Player> createState() => _PlayerState();
+  State<WorkoutPlayer> createState() => _PlayerState();
 }
 
-class _PlayerState extends State<_Player> {
+class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
   // Not final: a swapped exercise replaces its step for this workout.
   late final List<WorkoutStep> _steps = [...stepsFor(widget.workout)];
   bool _canSwap = false;
@@ -122,6 +129,17 @@ class _PlayerState extends State<_Player> {
   int _announced = -1;
   ({String status, String completedAt})? _summary;
   Timer? _timer;
+  // The clock runs on real times, so it stays right while the app is asleep:
+  // active time is counted from _lastTick, and a countdown (a timed step or
+  // a rest) runs out at _endsAt (null while counting reps up, or paused).
+  DateTime _lastTick = DateTime.now();
+  DateTime? _endsAt;
+  // While moving past countdowns that ran out: the moment one did, which
+  // stands in for "now"; and whether the app was asleep through it.
+  DateTime? _clockAt;
+  bool _catchingUp = false;
+  // On screen (not locked or in the background).
+  bool _foreground = true;
 
   /// Freely licensed pictures of the demos, by demo name.
   Map<String, DemoMedia> _pictures = const {};
@@ -133,6 +151,7 @@ class _PlayerState extends State<_Player> {
     final w = widget.workout;
     _caloriesPerMinute = (w.calories ?? 0) / (w.duration > 0 ? w.duration : 1) * calorieFactor(context.read<AuthController>().user);
     _goTo(0, initial: true);
+    WidgetsBinding.instance.addObserver(this);
     WakelockPlus.enable().catchError((_) {});
     demoMedia().then((pictures) {
       if (mounted) setState(() => _pictures = pictures);
@@ -170,7 +189,21 @@ class _PlayerState extends State<_Player> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _foreground = true;
+      TimerNotifications.clear();
+      _tick();
+    } else if ((state == AppLifecycleState.hidden || state == AppLifecycleState.paused) && _foreground) {
+      _foreground = false;
+      _syncNotification();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    TimerNotifications.clear();
     _timer?.cancel();
     _reps.dispose();
     _weight.dispose();
@@ -208,7 +241,8 @@ class _PlayerState extends State<_Player> {
   /// [keepPlaying] (moving on by itself or after a rest).
   void _goTo(int index, {bool initial = false, bool keepPlaying = false}) {
     _saveInputs();
-    final resume = keepPlaying && _playing;
+    // Not after the app was asleep: the next step waits for the user.
+    final resume = keepPlaying && _playing && !_catchingUp;
     _setPlaying(false, notify: !initial);
     final duration = _steps[index].duration ?? 60;
     void apply() {
@@ -235,10 +269,40 @@ class _PlayerState extends State<_Player> {
     _setInputs[_current] = (reps: _reps.text, weight: _weight.text);
   }
 
+  DateTime get _now => _clockAt ?? widget.now();
+
+  int _secondsLeft(DateTime endsAt, DateTime now) => math.max(0, (endsAt.difference(now).inMilliseconds / 1000).ceil());
+
+  /// Count active time up to now, in whole seconds: the total, the step's
+  /// own, and a step in reps' count-up.
+  void _countTime() {
+    final seconds = _now.difference(_lastTick).inSeconds;
+    if (seconds <= 0) return;
+    _lastTick = _lastTick.add(Duration(seconds: seconds));
+    _elapsed += seconds;
+    if (!_resting) {
+      _stepSeconds[_current] = (_stepSeconds[_current] ?? 0) + seconds;
+      if (_repTarget != null) _stepElapsed += seconds;
+    }
+  }
+
+  /// Run the countdown from [_remaining]; a step in reps counts up instead.
+  void _startClock() => _endsAt = _repTarget != null ? null : _now.add(Duration(seconds: _remaining));
+
   void _setPlaying(bool playing, {bool notify = true}) {
     _timer?.cancel();
     _timer = null;
-    if (playing) _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    if (_playing) {
+      _countTime();
+      final endsAt = _endsAt;
+      if (endsAt != null) _remaining = _secondsLeft(endsAt, _now);
+    }
+    _endsAt = null;
+    if (playing) {
+      _lastTick = _now;
+      _startClock();
+      _timer = Timer.periodic(const Duration(milliseconds: 250), (_) => _tick());
+    }
     if (notify && mounted) {
       setState(() => _playing = playing);
     } else {
@@ -247,35 +311,95 @@ class _PlayerState extends State<_Player> {
     _announce();
   }
 
+  void _togglePlay() {
+    if (!_playing) TimerNotifications.requestPermission();
+    _setPlaying(!_playing);
+  }
+
   void _tick() {
     if (!_playing) return;
-    // A step in reps counts up until Done.
-    if (_repTarget != null) {
-      setState(() {
-        _elapsed++;
-        _stepElapsed++;
-        _stepSeconds[_current] = (_stepSeconds[_current] ?? 0) + 1;
-      });
+    final now = widget.now();
+    final endsAt = _endsAt;
+    if (endsAt != null && !endsAt.isAfter(now)) {
+      _expire(now);
       return;
     }
-    if (_remaining <= 0) return;
-    final prev = _remaining;
+    final elapsed = _elapsed;
+    _countTime();
+    final left = endsAt == null ? _remaining : _secondsLeft(endsAt, now);
     // 3, 2, 1 out loud (with a buzz).
-    if (prev <= 4 && prev > 1) {
-      _say('${prev - 1}');
+    if (left != _remaining && left >= 1 && left <= 3) {
+      _say('$left');
       if (_sound) HapticFeedback.selectionClick();
     }
-    setState(() {
-      _elapsed++;
-      if (!_resting) _stepSeconds[_current] = (_stepSeconds[_current] ?? 0) + 1;
-      _remaining = prev <= 1 ? 0 : prev - 1;
-    });
-    if (prev > 1) return;
-    if (_resting) {
-      _goTo(_current + 1, keepPlaying: true);
-    } else {
-      _finishStep();
+    if (elapsed != _elapsed || left != _remaining) setState(() => _remaining = left);
+  }
+
+  /// Move on from countdowns that have run out, each from the moment it did:
+  /// a rest leads to the next step, a step to its rest (or the next one).
+  /// Normally that's one. After the app was asleep (an iPhone pauses it when
+  /// locked) it can be several, quietly, up to the next step, which then
+  /// waits paused, since nobody was there to do it.
+  void _expire(DateTime now) {
+    final asleep = now.difference(_endsAt!) > const Duration(seconds: 2);
+    final sound = _sound;
+    _catchingUp = asleep;
+    if (asleep) _sound = false;
+    try {
+      for (var guard = 0; guard <= 2 * _total && _playing && _summary == null; guard++) {
+        final endsAt = _endsAt;
+        if (endsAt == null || endsAt.isAfter(now)) break;
+        // Android keeps the app running when locked: sound the alert here.
+        if (!_foreground && !asleep) {
+          final text = _countdownText();
+          TimerNotifications.alert(title: text.doneTitle, body: text.doneBody);
+        }
+        _clockAt = endsAt;
+        _countTime();
+        _remaining = 0;
+        if (_resting) {
+          _goTo(_current + 1, keepPlaying: true);
+        } else {
+          _finishStep();
+        }
+        _clockAt = null;
+      }
+    } finally {
+      _clockAt = null;
+      _catchingUp = false;
+      _sound = sound;
     }
+    final endsAt = _endsAt;
+    if (_playing && endsAt != null && mounted) {
+      _countTime();
+      setState(() => _remaining = _secondsLeft(endsAt, now));
+    }
+    _syncNotification();
+  }
+
+  /// What the notification says about the running countdown, and when it's over.
+  ({String title, String body, String doneTitle, String doneBody}) _countdownText() {
+    final next = _next;
+    final nextUp = next == null ? 'Last step' : 'Next up: ${stepName(next)}';
+    if (_resting) {
+      final s = _previousAt(_current + 1)?.suggestion;
+      final target = s != null ? 'Today: ${setLabel(s.reps, s.weightKg)}' : targetLabel(next);
+      final detail = [nextUp, if (target.isNotEmpty) target].join(' · ');
+      return (title: 'Rest', body: detail, doneTitle: 'Rest over', doneBody: detail);
+    }
+    return (title: stepName(_step), body: nextUp, doneTitle: "Time's up: ${stepName(_step)}", doneBody: nextUp);
+  }
+
+  /// Outside the app, show the running countdown; nothing otherwise.
+  void _syncNotification() {
+    if (_foreground) return;
+    final endsAt = _endsAt;
+    if (!_playing || endsAt == null || _summary != null) {
+      TimerNotifications.clear();
+      return;
+    }
+    final text = _countdownText();
+    TimerNotifications.showCountdown(title: text.title, body: text.body, endsAt: endsAt, doneTitle: text.doneTitle, doneBody: text.doneBody);
   }
 
   /// The current step is done: rest first if there's a rest, else on to the
@@ -297,12 +421,17 @@ class _PlayerState extends State<_Player> {
   }
 
   void _startRest(int seconds) {
+    if (_playing) _countTime();
     setState(() {
       _resting = true;
       _remaining = seconds;
       _stepTotal = seconds;
     });
-    if (!_playing) _setPlaying(true);
+    if (_playing) {
+      _startClock();
+    } else {
+      _setPlaying(true);
+    }
     _beep();
     _say('Rest. Next up: ${stepName(_next)}');
   }
@@ -314,6 +443,7 @@ class _PlayerState extends State<_Player> {
       _remaining = math.max(1, _remaining + total - _stepTotal);
       _stepTotal = total;
     });
+    if (_endsAt != null) _startClock();
     _saveRest(widget.workout.slug, total);
   }
 
@@ -762,7 +892,7 @@ class _PlayerState extends State<_Player> {
               shape: CircleBorder(side: BorderSide(color: AppColors.whiteA(0.2))),
               child: InkWell(
                 customBorder: const CircleBorder(),
-                onTap: () => _setPlaying(!_playing),
+                onTap: _togglePlay,
                 child: SizedBox(
                   width: 64,
                   height: 64,

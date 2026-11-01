@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, BookOpen, Layers, Search, SlidersHorizontal, X } from 'lucide-react';
+import { AlertCircle, BookOpen, Dumbbell, Layers, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useWorkouts } from '../../../context/WorkoutContext';
 import { categoryCounts, DURATIONS, equipmentNames, LEVELS, matchesFilter } from '../../workout/catalogFilter';
 import { useFavorites } from '../useFavorites';
@@ -10,14 +10,19 @@ import { worksRegions, type Region } from '../muscles';
 import { BodyMap } from './BodyMap';
 import { ExerciseLibrary } from './ExerciseLibrary';
 import { WorkoutCard } from './WorkoutCard';
+import { MyWorkouts } from '../../workout/MyWorkouts';
 
 const PAGE = 9;
 
-/** Browse and filter the workout catalog, or the exercise library. */
+type View = 'workouts' | 'mine' | 'exercises';
+// /?tab=explore&view=mine opens your own workouts (back from playing one).
+const viewFromUrl = (): View => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'mine' ? 'mine' : 'workouts');
+
+/** Browse and filter the workout catalog, your own workouts, or the exercise library. */
 export function ExploreTab() {
   const { workouts, loading } = useWorkouts();
   const { isFavorite, toggle, canSave, error: favoriteError } = useFavorites();
-  const [view, setView] = useState<'workouts' | 'exercises'>('workouts');
+  const [view, setView] = useState<View>(viewFromUrl);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
   const [level, setLevel] = useState('');
@@ -41,7 +46,7 @@ export function ExploreTab() {
     setQuery(''); setCategory(''); setLevel(''); setEquipment(''); setMaxMinutes(0); setRegions([]); setShowAll(false);
   };
   const shown = showAll ? results : results.slice(0, PAGE);
-  const views = [['workouts', 'Workouts', Layers], ['exercises', 'Exercise library', BookOpen]] as const;
+  const views = [['workouts', 'Workouts', Layers], ['mine', 'My workouts', Dumbbell], ['exercises', 'Exercises', BookOpen]] as const;
 
   return (
     <div className="space-y-6 pb-10 text-left">
@@ -64,7 +69,7 @@ export function ExploreTab() {
         ))}
       </div>
 
-      {view === 'exercises' ? <ExerciseLibrary /> : (
+      {view === 'mine' ? <MyWorkouts /> : view === 'exercises' ? <ExerciseLibrary /> : (
         <div className="space-y-6">
           <div className="flex gap-2">
             <label className="flex-1 flex items-center bg-obsidian-wave border border-white-30/40 rounded-2xl px-4 py-3 focus-within:border-lime-light">

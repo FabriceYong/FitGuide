@@ -13,6 +13,7 @@ class WorkoutStep {
     this.formCues = const [],
     this.breathingPattern,
     this.commonMistakes = const [],
+    this.restAfter = true,
   });
 
   factory WorkoutStep.fromJson(Json j, int index) => WorkoutStep(
@@ -26,6 +27,7 @@ class WorkoutStep {
         formCues: asStrings(j['formCues']),
         breathingPattern: asString(j['breathingPattern']),
         commonMistakes: asStrings(j['commonMistakes']),
+        restAfter: j['restAfter'] != false,
       );
 
   final int stepNumber;
@@ -38,6 +40,9 @@ class WorkoutStep {
   final List<String> formCues;
   final String? breathingPattern;
   final List<String> commonMistakes;
+
+  /// False inside a superset: straight on to the next exercise, no rest.
+  final bool restAfter;
 }
 
 class Workout {

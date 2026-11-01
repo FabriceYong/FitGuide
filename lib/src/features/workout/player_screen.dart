@@ -18,6 +18,7 @@ import '../../models/catalog.dart';
 import '../../models/json.dart';
 import '../../navigation.dart';
 import '../../services/catalog_service.dart';
+import '../../services/my_workout_service.dart';
 import '../../services/training_service.dart';
 import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
@@ -56,7 +57,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void initState() {
     super.initState();
     track('workout_started', path: '/workouts/${widget.slug}/play', props: {'program': widget.program != null});
-    fetchWorkoutBySlug(widget.slug, auth: true).then((w) {
+    // Your own workouts aren't in the catalog.
+    final load = isOwnWorkout(widget.slug) ? fetchMyWorkout(widget.slug).then((m) => m?.workout) : fetchWorkoutBySlug(widget.slug, auth: true);
+    load.then((w) {
       if (mounted) setState(() => w == null ? _error = 'Workout not found' : _workout = w);
     }).catchError((Object err) {
       if (mounted) setState(() => _error = '$err');
@@ -404,7 +407,8 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
 
   /// The current step is done: rest first if there's a rest, else on to the
   /// next. The rest is the one picked for this workout on the rest screen,
-  /// else the workout's, else [_liftRestSec] after a lift in reps.
+  /// else the workout's, else [_liftRestSec] after a lift in reps. Inside a
+  /// superset there's none.
   void _finishStep() {
     _completed.add(_current);
     if (_current >= _total - 1) {
@@ -412,7 +416,7 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
       return;
     }
     final workoutRest = widget.workout.restPeriod ?? 0;
-    final rest = _savedRest(widget.workout.slug) ?? (workoutRest > 0 ? workoutRest : (_weights && repTarget(_step) != null ? _liftRestSec : 0));
+    final rest = !_step.restAfter ? 0 : _savedRest(widget.workout.slug) ?? (workoutRest > 0 ? workoutRest : (_weights && repTarget(_step) != null ? _liftRestSec : 0));
     if (rest > 0) {
       _startRest(rest);
     } else {

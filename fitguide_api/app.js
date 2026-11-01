@@ -34,6 +34,7 @@ const coachesRoutes = require('./routes/coaches');
 const billingRoutes = require('./routes/billing');
 const eventsRoutes = require('./routes/events');
 const remindersRoutes = require('./routes/reminders');
+const myWorkoutsRoutes = require('./routes/myWorkouts');
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -150,6 +151,7 @@ function createApp() {
   app.use('/api/billing', billingRoutes);
   app.use('/api/events', eventsRoutes);
   app.use('/api/reminders', remindersRoutes);
+  app.use('/api/my-workouts', myWorkoutsRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

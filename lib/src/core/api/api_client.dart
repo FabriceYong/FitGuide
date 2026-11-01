@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -54,7 +55,7 @@ class ApiClient {
   // Calls that start or end a session; a 401 from them is final.
   static const _noRefreshPaths = {'/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'};
 
-  final http.Client _http = http.Client();
+  http.Client _http = http.Client();
   final FlutterSecureStorage _secure = const FlutterSecureStorage();
   String? _access;
   String? _refresh;
@@ -64,6 +65,14 @@ class ApiClient {
   void Function()? onUnauthorized;
 
   bool get hasSession => _refresh != null;
+
+  /// Answer requests with [client] (a MockClient), signed in or not (tests).
+  @visibleForTesting
+  void useForTesting(http.Client client, {bool signedIn = true}) {
+    _http = client;
+    _access = signedIn ? 'test-access' : null;
+    _refresh = signedIn ? 'test-refresh' : null;
+  }
   String? get refreshToken => _refresh;
 
   Future<void> init() async {

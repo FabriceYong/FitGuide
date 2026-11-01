@@ -13,12 +13,13 @@ import '../../widgets/forms.dart';
 import '../../widgets/ui.dart';
 import '../../widgets/workout_card.dart';
 import '../workout/catalog_filter.dart';
+import '../workout/my_workouts.dart';
 import 'exercise_library.dart';
 
 const _page = 9;
 
-/// Browse and filter the workout catalog, or the exercise library
-/// (dashboard/components/ExploreTab.tsx).
+/// Browse and filter the workout catalog, your own workouts, or the
+/// exercise library (dashboard/components/ExploreTab.tsx).
 class ExploreTab extends StatefulWidget {
   const ExploreTab({super.key});
 
@@ -104,7 +105,7 @@ class _ExploreTabState extends State<ExploreTab> {
           decoration: BoxDecoration(color: AppColors.obsidianWave, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.white30A(0.2))),
           child: Row(
             children: [
-              for (final (id, label, icon) in const [('workouts', 'Workouts', LucideIcons.layers), ('exercises', 'Exercise library', LucideIcons.bookOpen)])
+              for (final (id, label, icon) in const [('workouts', 'Workouts', LucideIcons.layers), ('mine', 'My workouts', LucideIcons.dumbbell), ('exercises', 'Exercises', LucideIcons.bookOpen)])
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(left: id == 'workouts' ? 0 : 4),
@@ -137,7 +138,9 @@ class _ExploreTabState extends State<ExploreTab> {
           ),
         ),
         const SizedBox(height: 16),
-        if (_view == 'exercises')
+        if (_view == 'mine')
+          const MyWorkouts()
+        else if (_view == 'exercises')
           const ExerciseLibrary()
         else ...[
           Row(

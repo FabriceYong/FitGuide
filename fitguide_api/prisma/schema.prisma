@@ -90,6 +90,7 @@ model User {
   challengeMemberships   ChallengeMember[]
   createdPrograms        Program[]              @relation("ProgramCreator")
   createdWorkouts        Workout[]              @relation("WorkoutCreator")
+  ownWorkouts            Workout[]              @relation("WorkoutOwner")
   coachProfile           CoachProfile?
   articles               Article[]              @relation("ArticleAuthor")
   passwordResets         PasswordReset[]
@@ -180,19 +181,25 @@ model Workout {
   isPremium        Boolean  @default(false)
   // Coach-written workouts go through review like coach programs.
   creatorId        String?
-  status           String   @default("published") // draft | pending | published | rejected
+  status           String   @default("published") // draft | pending | published | rejected | private
   reviewNote       String?  @db.VarChar(500)
+  // A member's own workout (services/myWorkouts.js): private, never in the
+  // catalog. builtFrom is what they entered in the builder.
+  ownerId          String?
+  builtFrom        Json?
   viewCount        Int      @default(0)
   likeCount        Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   creator User?         @relation("WorkoutCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  owner   User?         @relation("WorkoutOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   likes   WorkoutLike[]
 
   @@index([category])
   @@index([difficulty])
   @@index([creatorId, status])
+  @@index([ownerId])
   @@map("workouts")
 }
 

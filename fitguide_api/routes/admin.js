@@ -44,7 +44,7 @@ router.get('/stats', handle(async (_req, res) => {
     prisma.workoutSession.groupBy({ by: ['userId'], where: { completedAt: { gte: weekAgo } } }).then((rows) => rows.length),
     prisma.review.count(),
     prisma.program.count({ where: { status: 'pending', ownerId: null } }),
-    prisma.workout.count(),
+    prisma.workout.count({ where: { ownerId: null } }),
     prisma.user.count({ where: { plan: 'plus' } }).catch(() => 0),
     prisma.workout.count({ where: { status: 'pending' } }),
     prisma.coachProfile.count({ where: { status: 'pending' } }),
@@ -94,6 +94,7 @@ router.get('/workouts', [query('status').optional().isIn(['draft', 'pending', 'p
   const search = req.query.search ? String(req.query.search).slice(0, 100) : '';
   const workouts = await prisma.workout.findMany({
     where: {
+      ownerId: null, // members' own workouts are theirs alone
       ...(search && { title: { contains: search, mode: 'insensitive' } }),
       // A coach's drafts stay private until they submit them.
       ...(req.query.status ? { status: req.query.status } : { NOT: { status: 'draft', creatorId: { not: null } } }),
@@ -113,7 +114,7 @@ router.post('/workouts', handle(async (req, res) => {
 router.put('/workouts/:slug', handle(async (req, res) => {
   const { slug, ...fields } = validate(schemas.workout, { ...req.body, slug: req.params.slug });
   const data = { ...fields, steps: catalogAdmin.withDemoNames(fields.steps), ...(fields.isPublished && { status: 'published' }) };
-  const { count } = await prisma.workout.updateMany({ where: { slug }, data });
+  const { count } = await prisma.workout.updateMany({ where: { slug, ownerId: null }, data });
   if (!count) return res.status(404).json({ success: false, message: 'Workout not found.' });
   res.json({ success: true, workout: await prisma.workout.findUnique({ where: { slug } }) });
 }));
@@ -134,7 +135,7 @@ router.patch(
     const data = Object.fromEntries(['isPublished', 'isPremium', 'reviewNote'].filter((k) => req.body[k] !== undefined).map((k) => [k, req.body[k]]));
     if (req.body.isPublished) data.status = 'published';
     if (req.body.status) Object.assign(data, { status: req.body.status, isPublished: req.body.status === 'published' });
-    const { count } = await prisma.workout.updateMany({ where: { slug: req.params.slug }, data });
+    const { count } = await prisma.workout.updateMany({ where: { slug: req.params.slug, ownerId: null }, data });
     if (!count) return res.status(404).json({ success: false, message: 'Workout not found.' });
     res.json({ success: true });
   }),

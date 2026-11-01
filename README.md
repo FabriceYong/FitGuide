@@ -131,6 +131,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | Workout catalog, exercise library, programs | `routes/workouts.js`, `exercises.js`, `programs.js` | `/workouts`, `/programs` (server-rendered) |
 | Dashboard: home, explore (workouts and exercise library), programs, favorites, progress, reviews, calculators, profile | the routes above, `favorites.js`, `reviews.js`, `articles.js` | `/` (`components/Dashboard.tsx`, `features/dashboard/`) |
 | Sessions, program enrollments, body metrics, progress | `routes/sessions.js`, `enrollments.js`, `bodyMetrics.js`, `progress.js` | player, `/progress` |
+| Build your own workout: exercises with sets of reps or time, supersets; private, and played and logged like any workout | `services/myWorkouts.js`, `routes/myWorkouts.js` | Explore → My workouts (`features/workout/MyWorkouts.tsx`, `WorkoutBuilder.tsx`); app: `features/workout/my_workouts.dart` |
 | Personal plan generator and rules-based adaptation | `services/planGenerator.js`, `routes/plan.js` | `/plan` |
 | AI coach (Claude) with plan tools | `services/coach.js`, `routes/coach.js` | `/plan` |
 | Nutrition: targets, food log, meal plans | `services/nutrition.js`, `routes/nutrition.js` | `/nutrition` |

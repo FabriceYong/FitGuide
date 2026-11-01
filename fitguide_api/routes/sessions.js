@@ -88,7 +88,7 @@ router.post('/', sessionRules, rejectInvalid, async (req, res, next) => {
     const saved = await findByClientId(req.user.id, b.clientId);
     if (saved) return sendSaved(res, saved);
 
-    const [workout] = await workoutStore.getManyBySlugs([b.workoutSlug]);
+    const [workout] = await workoutStore.getManyBySlugs([b.workoutSlug], { ownerId: req.user.id });
     if (!workout) return res.status(404).json({ success: false, message: 'Workout not found.' });
     if (workout.isPremium && !isPlus(req.user)) {
       return res.status(402).json({ success: false, code: 'PLUS_REQUIRED', message: 'This workout is part of FitGuide PLUS.' });
@@ -221,7 +221,7 @@ router.put('/:id/heart-rate', [body('avgHr').exists().withMessage('avgHr is requ
   try {
     const existing = await sessionStore.findOwned(req.user.id, req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: 'Session not found.' });
-    const [workout] = await workoutStore.getManyBySlugs([existing.workoutSlug]);
+    const [workout] = await workoutStore.getManyBySlugs([existing.workoutSlug], { ownerId: req.user.id });
     const session = await sessionStore.update(req.user.id, existing.id, (draft) => {
       draft.avgHr = req.body.avgHr;
       draft.maxHr = req.body.maxHr ?? null;

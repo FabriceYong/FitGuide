@@ -140,3 +140,48 @@ test('a lift shows last time, suggests the next weight and keeps the rest you pi
   // Last time had one set, so set 2 is compared with it too.
   await expect(rest).toContainText('Today: 8 reps × 62.5 kg');
 });
+
+test('a workout you build plays with supersets and can be changed or deleted', async ({ page }) => {
+  await signUpAndSignIn(page, 'Workout Builder');
+  await page.goto('/?tab=explore');
+  await page.getByRole('button', { name: 'My workouts' }).click();
+  await page.getByRole('button', { name: 'Build a workout' }).click();
+
+  const builder = page.getByRole('form', { name: 'Build a workout' });
+  await builder.getByLabel('Name').fill('Garage day');
+  const first = builder.getByRole('listitem', { name: 'Exercise 1' });
+  // A library exercise logged with weights turns on "Log a weight".
+  await first.getByLabel('Exercise', { exact: true }).fill('Barbell Back Squat');
+  await expect(first.getByLabel('Log a weight')).toBeChecked();
+  await first.getByLabel('Sets').fill('1');
+  await first.getByLabel('Reps').fill('5');
+  await builder.getByRole('button', { name: 'Add an exercise' }).click();
+  // Only an exercise with one after it can be paired with it.
+  await first.getByLabel(/Superset with the next one/).check();
+  const second = builder.getByRole('listitem', { name: 'Exercise 2' });
+  await second.getByLabel('Exercise', { exact: true }).fill('Hollow hold');
+  await second.getByLabel('Sets').fill('1');
+  await second.getByLabel('Count').selectOption('time');
+  await second.getByLabel('Seconds').fill('20');
+  await builder.getByRole('button', { name: 'Save workout' }).click();
+
+  const card = page.getByRole('listitem').filter({ hasText: 'Garage day' });
+  await expect(card).toContainText('2 exercises');
+  await card.getByRole('link', { name: 'Start' }).click();
+
+  // The squat and the hold are a superset: no rest between them.
+  await expect(page.getByText('Barbell Back Squat (5 reps)').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByText('Hollow hold (20 seconds)').first()).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Rest' })).toHaveCount(0);
+
+  await page.goto('/?tab=explore&view=mine');
+  await page.getByRole('button', { name: 'Edit Garage day' }).click();
+  await page.getByRole('form', { name: 'Edit Garage day' }).getByLabel('Name').fill('Garage day B');
+  await page.getByRole('button', { name: 'Save workout' }).click();
+  await expect(page.getByRole('heading', { name: 'Garage day B' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Delete Garage day B' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByText('No workouts of your own yet.', { exact: false })).toBeVisible();
+});

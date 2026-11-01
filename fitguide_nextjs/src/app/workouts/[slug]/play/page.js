@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { serverGet } from '../../../../lib/server-api';
 import { PlayWorkout } from './PlayWorkout';
+import { PlayOwnWorkout } from './PlayOwnWorkout';
 
 export const metadata = { title: 'Workout in progress', robots: { index: false } };
 
@@ -17,7 +18,8 @@ const positiveInt = (value) => {
 export default async function PlayPage({ params, searchParams }) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const data = await serverGet(`/workouts/${encodeURIComponent(slug)}`, { revalidate: 300 });
-  if (!data?.workout) notFound();
+  // Members' own workouts aren't in the catalog: the browser loads them with the session.
+  if (!data?.workout) return slug.startsWith('my-') ? <PlayOwnWorkout slug={slug} /> : notFound();
 
   const week = positiveInt(query.week);
   const day = positiveInt(query.day);

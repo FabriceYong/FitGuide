@@ -12,6 +12,8 @@ export interface WorkoutStep {
   exerciseName?: string;
   exerciseSlug?: string;
   gifUrl?: string | null;
+  /** False inside a superset: straight on to the next exercise, no rest. */
+  restAfter?: boolean;
   [key: string]: unknown;
 }
 

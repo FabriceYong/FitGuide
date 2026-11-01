@@ -26,7 +26,7 @@ async function ratingsFor(slugs) {
 
 async function toPublic(workouts) {
   const ratings = await ratingsFor(workouts.map((w) => w.slug));
-  return workouts.map(({ id: _uuid, isPublished: _p, creatorId: _c, status: _s, reviewNote: _r, ...w }) => ({
+  return workouts.map(({ id: _uuid, isPublished: _p, creatorId: _c, status: _s, reviewNote: _r, ownerId: _o, builtFrom: _b, ...w }) => ({
     id: w.slug,
     ...w,
     steps: withoutGifs(w.steps),
@@ -82,10 +82,14 @@ async function exists(slug) {
   return (await prisma.workout.count({ where: { slug: String(slug), isPublished: true } })) > 0;
 }
 
-/** Resolve a list of slugs to workouts, preserving order and skipping unknown slugs. */
-async function getManyBySlugs(slugs) {
+/**
+ * Resolve a list of slugs to workouts, preserving order and skipping unknown
+ * slugs. With ownerId, that member's own workouts count too.
+ */
+async function getManyBySlugs(slugs, { ownerId } = {}) {
   if (!slugs.length) return [];
-  const found = await toPublic(await prisma.workout.findMany({ where: { slug: { in: slugs }, isPublished: true } }));
+  const visible = ownerId ? { OR: [{ isPublished: true }, { ownerId: String(ownerId) }] } : { isPublished: true };
+  const found = await toPublic(await prisma.workout.findMany({ where: { slug: { in: slugs }, ...visible } }));
   const bySlug = new Map(found.map((w) => [w.slug, w]));
   return slugs.map((s) => bySlug.get(s)).filter(Boolean);
 }
@@ -102,4 +106,4 @@ async function like(slug, userId) {
   });
 }
 
-module.exports = { list, getBySlug, exists, getManyBySlugs, like, escapeLike };
+module.exports = { list, getBySlug, exists, getManyBySlugs, like, escapeLike, toPublic };

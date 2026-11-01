@@ -21,6 +21,7 @@ const { defineBillingSuite } = require('./billingSuite');
 const { defineAnalyticsSuite } = require('./analyticsSuite');
 const { defineAccountSuite } = require('./accountSuite');
 const { defineReminderSuite } = require('./reminderSuite');
+const { defineMyWorkoutSuite } = require('./myWorkoutSuite');
 
 const ALLOWED_ORIGIN = 'http://localhost:3000';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
@@ -552,6 +553,7 @@ function defineApiSuite() {
 
     describe('account', () => defineAccountSuite(() => ({ app, signUp })));
     describe('reminders', () => defineReminderSuite(() => ({ app, signUp })));
+    describe('own workouts', () => defineMyWorkoutSuite(() => ({ app, signUp })));
 
     describe('rate limits', () => {
       it('limits failed logins', async () => {

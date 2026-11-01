@@ -187,11 +187,12 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
    * Finish the current step: rest first if there's a rest, else straight to
    * the next. The rest is the one picked for this workout on the rest
    * screen, else the workout's, else LIFT_REST_SEC after a lift in reps.
+   * Inside a superset (restAfter: false) there's none.
    */
   const completeStep = useCallback(() => {
     setCompletedSteps((prev) => new Set(prev).add(currentStepIndex));
     if (currentStepIndex >= totalSteps - 1) { handleWorkoutComplete(); return; }
-    const rest = readRests()[workout?.slug] || workout?.restPeriod || (weights && repTarget(currentStep) ? LIFT_REST_SEC : 0);
+    const rest = currentStep?.restAfter === false ? 0 : readRests()[workout?.slug] || workout?.restPeriod || (weights && repTarget(currentStep) ? LIFT_REST_SEC : 0);
     if (rest > 0) {
       setIsResting(true);
       setRestTotal(rest);

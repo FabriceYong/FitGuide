@@ -66,6 +66,7 @@ class FgTextField extends StatelessWidget {
     this.autofocus = false,
     this.semanticLabel,
     this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    this.focusNode,
   });
 
   final TextEditingController? controller;
@@ -90,11 +91,13 @@ class FgTextField extends StatelessWidget {
   final bool autofocus;
   final String? semanticLabel;
   final EdgeInsets padding;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
     final field = TextField(
       controller: controller,
+      focusNode: focusNode,
       keyboardType: keyboardType,
       obscureText: obscure,
       enabled: enabled,

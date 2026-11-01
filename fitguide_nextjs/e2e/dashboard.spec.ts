@@ -18,7 +18,7 @@ test('the dashboard tabs load real data and keep the tab in the URL', async ({ p
   await page.getByRole('button', { name: `Show all ${total}` }).click();
   await expect(page.locator('main a[href^="/workouts/"]')).toHaveCount(total);
 
-  await page.getByRole('button', { name: 'Exercise library' }).click();
+  await page.getByRole('button', { name: 'Exercises', exact: true }).click();
   await expect(page.getByText(/^\d+ of \d+ exercises$/)).toBeVisible();
   await page.getByRole('button', { name: /Goblet Squat/ }).click();
   const dialog = page.getByRole('dialog', { name: 'Goblet Squat' });

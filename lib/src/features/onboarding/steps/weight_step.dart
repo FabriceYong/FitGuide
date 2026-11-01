@@ -9,9 +9,13 @@ import '../../../widgets/ui.dart';
 
 /// Target weight with ±1 and ±5 kg steps.
 class WeightStep extends StatefulWidget {
-  const WeightStep({super.key, required this.targetWeight, required this.onChanged});
+  const WeightStep({super.key, required this.targetWeight, this.units = 'metric', required this.onChanged, this.onUnits});
   final int targetWeight;
+
+  /// metric or imperial (the account's units).
+  final String units;
   final ValueChanged<int> onChanged;
+  final ValueChanged<String>? onUnits;
 
   @override
   State<WeightStep> createState() => _WeightStepState();
@@ -19,7 +23,7 @@ class WeightStep extends StatefulWidget {
 
 class _WeightStepState extends State<WeightStep> {
   static const _kgToLb = 2.20462;
-  String _unit = 'kg';
+  String get _unit => widget.units == 'imperial' ? 'lb' : 'kg';
 
   void _adjust(int deltaKg) {
     final min = Profile.weightKg[0];
@@ -40,7 +44,7 @@ class _WeightStepState extends State<WeightStep> {
         ),
         Align(
           alignment: Alignment.centerRight,
-          child: Segmented<String>(label: 'Units', options: const [('kg', 'kg'), ('lb', 'lb')], value: _unit, onChanged: (u) => setState(() => _unit = u)),
+          child: Segmented<String>(label: 'Units', options: const [('kg', 'kg'), ('lb', 'lb')], value: _unit, onChanged: (u) => widget.onUnits?.call(u == 'lb' ? 'imperial' : 'metric')),
         ),
         const SizedBox(height: 16),
         Container(
@@ -91,7 +95,8 @@ class _WeightStepState extends State<WeightStep> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         foregroundColor: AppColors.white70,
                       ),
-                      child: Text('${delta > 0 ? '+$delta' : '$delta'} kg', style: fg(size: 14, weight: FontWeight.w500, color: AppColors.white70)),
+                      // 5 kg is about 11 lb.
+                      child: Text('${delta > 0 ? '+' : '−'}${_unit == 'kg' ? '5 kg' : '11 lb'}', style: fg(size: 14, weight: FontWeight.w500, color: AppColors.white70)),
                     ),
                   ],
                 ],

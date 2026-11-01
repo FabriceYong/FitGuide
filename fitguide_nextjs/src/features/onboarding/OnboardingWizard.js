@@ -24,6 +24,8 @@ export const OnboardingWizard = ({ onFinish, onBackToLogin }) => {
         height: 170,
         weight: 70,
         targetWeight: 70,
+        // How weights and heights are shown, here and once signed up.
+        units: 'metric',
         fitnessLevel: 'Beginner',
         activityStatus: 'Active',
         goal: 'Vitality',
@@ -120,6 +122,8 @@ export const OnboardingWizard = ({ onFinish, onBackToLogin }) => {
                     selectedGender={onboardingData.gender}
                     height={onboardingData.height}
                     weight={onboardingData.weight}
+                    units={onboardingData.units}
+                    onUnitsSelected={(units) => update({ units })}
                     onGenderSelected={(gender) => update({ gender })}
                     onHeightSelected={(height) => update({ height })}
                     onWeightSelected={(weight) => update({ weight })}
@@ -134,7 +138,14 @@ export const OnboardingWizard = ({ onFinish, onBackToLogin }) => {
                 />
             )}
             {step === 4 && <GoalStep selectedGoal={onboardingData.goal} onGoalSelected={(goal) => update({ goal })} />}
-            {step === 5 && <WeightStep targetWeight={onboardingData.targetWeight} onWeightSelected={(targetWeight) => update({ targetWeight })} />}
+            {step === 5 && (
+                <WeightStep
+                    targetWeight={onboardingData.targetWeight}
+                    units={onboardingData.units}
+                    onUnitsSelected={(units) => update({ units })}
+                    onWeightSelected={(targetWeight) => update({ targetWeight })}
+                />
+            )}
             {step === 6 && <DietStep selectedDiet={onboardingData.diet} onDietSelected={(diet) => update({ diet })} />}
             {step === 7 && (
                 <FocusStep

@@ -108,6 +108,15 @@ describe('last time and what to aim for', () => {
     assert.equal(suggestNext(null, '8–10'), null);
   });
 
+  it('adds weight in pounds for lifters who use them', () => {
+    const lb = (kg) => Math.round(kg * 2.20462 * 10) / 10;
+    // 135 lb (61.235 kg) → 140 lb; 30 lb dumbbells → 32.5 lb.
+    assert.equal(lb(suggestNext({ reps: 10, weightKg: 61.235 }, '8–10', 'imperial').weightKg), 140);
+    assert.equal(lb(suggestNext({ reps: 12, weightKg: 13.608 }, '10–12', 'imperial').weightKg), 32.5);
+    // Same weight: unchanged, whatever the units.
+    assert.equal(suggestNext({ reps: 8, weightKg: 61.235 }, '8–10', 'imperial').weightKg, 61.235);
+  });
+
   it('pairs each step with the same set in the latest session that had it', () => {
     const keyOf = (name) => (/squat/i.test(name) ? 'slug:back-squat' : `name:${name.toLowerCase()}`);
     const sessions = [ // newest first

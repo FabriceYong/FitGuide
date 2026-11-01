@@ -1,3 +1,4 @@
+import '../core/units.dart';
 import 'json.dart';
 
 /// The signed-in user (or a guest), as /auth/me returns it. Keeps every field
@@ -21,6 +22,9 @@ class AppUser {
   String? get avatarUrl => asString(data['avatarUrl']);
   int? get birthYear => asInt(data['birthYear']);
   bool get showOnLeaderboards => data['showOnLeaderboards'] != false;
+
+  /// kg and cm, or lb and inches, for showing and entering weights and lengths.
+  Units get units => Units.of(data['units']);
   List<String> get focusAreas => asStrings(data['focusAreas']);
   List<String> get equipment => asStrings(data['equipment']);
   List<String> get limitations => asStrings(data['limitations']);

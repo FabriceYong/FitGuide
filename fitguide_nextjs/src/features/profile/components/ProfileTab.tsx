@@ -17,6 +17,7 @@ import { LanguageSwitcher } from '../../../components/LanguageSwitcher';
 import { useStartSignUp } from '../../auth/AuthWrapper';
 import type { TabId } from '../../dashboard/tabs';
 import { BecomeCoach } from '../../coaches/BecomeCoach';
+import { CM_PER_INCH, heightText, kgFrom, useUnits, weightIn, weightText, weightUnit, type Units } from '../../../lib/units';
 import { Reminders } from './Reminders';
 
 const bmiOf = (weight?: number, height?: number) => (weight && height ? Math.round((weight / (height / 100) ** 2) * 10) / 10 : null);
@@ -55,7 +56,8 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
 
   const bmi = bmiOf(user?.weight, user?.height);
   const bmiInfo = bmiLabel(bmi);
-  const toGo = user?.weight && user?.targetWeight ? Math.round(Math.abs(user.weight - user.targetWeight) * 10) / 10 : null;
+  const toGo = user?.weight && user?.targetWeight ? Math.abs(user.weight - user.targetWeight) : null;
+  const units = useUnits();
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-10 text-left">
@@ -89,9 +91,9 @@ export function ProfileTab({ onLogout, onNavigate }: { onLogout: () => void; onN
       <section aria-labelledby="profile-body">
         <h2 id="profile-body" className="text-xs font-extrabold tracking-widest text-white-70 uppercase mb-3">Body</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <Stat icon={Ruler} color="#22D3EE" label="Height" value={user?.height ? `${user.height} cm` : '—'} />
-          <Stat icon={Scale} color="#34D399" label="Weight" value={user?.weight ? `${user.weight} kg` : '—'} />
-          <Stat icon={Target} color="#A78BFA" label="Target" value={user?.targetWeight ? `${user.targetWeight} kg` : '—'} sub={toGo ? `${toGo} kg to go` : undefined} />
+          <Stat icon={Ruler} color="#22D3EE" label="Height" value={user?.height ? heightText(user.height, units) : '—'} />
+          <Stat icon={Scale} color="#34D399" label="Weight" value={user?.weight ? weightText(user.weight, units) : '—'} />
+          <Stat icon={Target} color="#A78BFA" label="Target" value={user?.targetWeight ? weightText(user.targetWeight, units) : '—'} sub={toGo && weightIn(toGo, units) > 0 ? `${weightText(toGo, units)} to go` : undefined} />
           <Stat icon={Activity} color={bmiInfo.color} label="BMI" value={bmi ? String(bmi) : '—'} sub={bmiInfo.label} />
         </div>
         <p className="text-xs text-white-70 mt-2">Log your weight over time on the <button type="button" onClick={() => onNavigate('progress')} className="underline">Progress tab</button>.</p>
@@ -317,10 +319,14 @@ function FormError({ message }: { message: string }) {
 }
 
 // ─── Edit form ───────────────────────────────────────────────────────────────
+// Body fields are in the form's units: cm or feet and inches, kg or lb.
 type Form = {
   name: string;
   gender: string;
+  units: Units;
   height: string;
+  feet: string;
+  inches: string;
   weight: string;
   targetWeight: string;
   birthYear: string;
@@ -337,6 +343,14 @@ type Form = {
   daysPerWeek: string;
 };
 
+/** A height in cm as form fields: cm, and feet and inches. */
+const heightFields = (cm?: number | null) => {
+  const inches = cm ? Math.round(cm / CM_PER_INCH) : null;
+  return { height: cm ? String(cm) : '', feet: inches == null ? '' : String(Math.floor(inches / 12)), inches: inches == null ? '' : String(inches % 12) };
+};
+
+const unitsOf = (u: AuthUser): Units => (u.units === 'imperial' ? 'imperial' : 'metric');
+
 const toForm = (u: AuthUser): Form => ({
   focusAreas: u.focusAreas || [],
   equipment: u.equipment || [],
@@ -345,9 +359,10 @@ const toForm = (u: AuthUser): Form => ({
   daysPerWeek: u.daysPerWeek ? String(u.daysPerWeek) : '',
   name: u.name || '',
   gender: u.gender || 'Prefer not to say',
-  height: u.height ? String(u.height) : '',
-  weight: u.weight ? String(u.weight) : '',
-  targetWeight: u.targetWeight ? String(u.targetWeight) : '',
+  units: unitsOf(u),
+  ...heightFields(u.height),
+  weight: u.weight ? String(weightIn(u.weight, unitsOf(u))) : '',
+  targetWeight: u.targetWeight ? String(weightIn(u.targetWeight, unitsOf(u))) : '',
   birthYear: u.birthYear ? String(u.birthYear) : '',
   fitnessLevel: u.fitnessLevel || 'Beginner',
   activityStatus: u.activityStatus || 'Active',
@@ -366,6 +381,25 @@ function EditProfile({ user, onClose }: { user: AuthUser; onClose: () => void })
   const [saved, setSaved] = useState(false);
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => ({ ...f, [key]: value }));
   const maxBirthYear = new Date().getFullYear() - PROFILE.MIN_AGE;
+
+  const heightCm = (f: Form) => {
+    if (f.units === 'metric') return f.height.trim() === '' ? null : Number(f.height);
+    if (f.feet.trim() === '' && f.inches.trim() === '') return null;
+    return Math.round((Number(f.feet || 0) * 12 + Number(f.inches || 0)) * CM_PER_INCH * 10) / 10;
+  };
+  const kg = (value: string, units: Units) => (value.trim() === '' ? null : kgFrom(Number(value), units));
+  // Switch units, converting what's in the body fields.
+  const setUnits = (units: Units) => setForm((f) => {
+    const weight = kg(f.weight, f.units);
+    const target = kg(f.targetWeight, f.units);
+    return {
+      ...f,
+      units,
+      ...heightFields(heightCm(f)),
+      weight: weight == null ? '' : String(weightIn(weight, units)),
+      targetWeight: target == null ? '' : String(weightIn(target, units)),
+    };
+  });
 
   const pickAvatar = async (file: File | undefined) => {
     if (!file) return;
@@ -392,12 +426,13 @@ function EditProfile({ user, onClose }: { user: AuthUser; onClose: () => void })
     setError(null);
     setSaving(true);
     const numberOrNull = (s: string) => (s.trim() === '' ? null : Number(s));
+    const { feet: _feet, inches: _inches, ...fields } = form;
     const changes = {
-      ...form,
+      ...fields,
       name: form.name.trim(),
-      height: numberOrNull(form.height),
-      weight: numberOrNull(form.weight),
-      targetWeight: numberOrNull(form.targetWeight),
+      height: heightCm(form),
+      weight: kg(form.weight, form.units),
+      targetWeight: kg(form.targetWeight, form.units),
       birthYear: numberOrNull(form.birthYear),
       workoutMinutes: numberOrNull(form.workoutMinutes),
       daysPerWeek: numberOrNull(form.daysPerWeek),
@@ -442,10 +477,33 @@ function EditProfile({ user, onClose }: { user: AuthUser; onClose: () => void })
         </div>
 
         <TextField label="Name" value={form.name} onChange={(v) => set('name', v)} required maxLength={PROFILE.NAME_MAX} />
-        <div className="grid grid-cols-3 gap-3">
+        <fieldset>
+          <legend className="text-sm font-medium text-white mb-2">Units</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {([['metric', 'kg · cm'], ['imperial', 'lb · ft/in']] as const).map(([id, text]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setUnits(id)}
+                aria-pressed={form.units === id}
+                className={`h-10 rounded-lg text-sm font-medium border ${form.units === id ? 'bg-lime-light/15 border-lime-light text-white' : 'bg-white/5 border-white-30/30 text-white-70 hover:text-white'}`}
+              >
+                {text}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        {form.units === 'imperial' ? (
+          <div className="grid grid-cols-2 gap-3">
+            <TextField label="Height (ft)" type="number" value={form.feet} onChange={(v) => set('feet', v)} min={1} max={8} />
+            <TextField label="Height (in)" type="number" value={form.inches} onChange={(v) => set('inches', v)} min={0} max={11.9} step="0.1" />
+          </div>
+        ) : (
           <TextField label="Height (cm)" type="number" value={form.height} onChange={(v) => set('height', v)} min={PROFILE.HEIGHT_CM[0]} max={PROFILE.HEIGHT_CM[1]} />
-          <TextField label="Weight (kg)" type="number" value={form.weight} onChange={(v) => set('weight', v)} min={PROFILE.WEIGHT_KG[0]} max={PROFILE.WEIGHT_KG[1]} step="0.1" />
-          <TextField label="Target (kg)" type="number" value={form.targetWeight} onChange={(v) => set('targetWeight', v)} min={PROFILE.WEIGHT_KG[0]} max={PROFILE.WEIGHT_KG[1]} step="0.1" />
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <TextField label={`Weight (${weightUnit(form.units)})`} type="number" value={form.weight} onChange={(v) => set('weight', v)} min={weightIn(PROFILE.WEIGHT_KG[0], form.units)} max={weightIn(PROFILE.WEIGHT_KG[1], form.units)} step="0.1" />
+          <TextField label={`Target (${weightUnit(form.units)})`} type="number" value={form.targetWeight} onChange={(v) => set('targetWeight', v)} min={weightIn(PROFILE.WEIGHT_KG[0], form.units)} max={weightIn(PROFILE.WEIGHT_KG[1], form.units)} step="0.1" />
         </div>
         <TextField label="Birth year (for calorie targets)" type="number" value={form.birthYear} onChange={(v) => set('birthYear', v)} min={PROFILE.MIN_BIRTH_YEAR} max={maxBirthYear} />
         <Choices label="Gender" options={PROFILE.GENDERS} value={form.gender} onChange={(v) => set('gender', v)} />

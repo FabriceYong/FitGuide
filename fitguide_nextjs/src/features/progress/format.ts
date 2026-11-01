@@ -1,8 +1,9 @@
 /** Display helpers for logged training data. */
 import type { PersonalRecord } from '../../services/trainingService';
+import { weightText, type Units } from '../../lib/units';
 
-export function formatRecord(r: Pick<PersonalRecord, 'unit' | 'value' | 'reps'>) {
-  if (r.unit === 'kg') return `${r.value} kg${r.reps ? ` × ${r.reps}` : ''}`;
+export function formatRecord(r: Pick<PersonalRecord, 'unit' | 'value' | 'reps'>, units: Units = 'metric') {
+  if (r.unit === 'kg') return `${weightText(r.value, units)}${r.reps ? ` × ${r.reps}` : ''}`;
   if (r.unit === 'sec') return formatSeconds(r.value);
   if (r.unit === 'm') return r.value >= 1000 ? `${(r.value / 1000).toFixed(2)} km` : `${r.value} m`;
   return `${r.value} reps`;

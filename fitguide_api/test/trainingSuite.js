@@ -288,6 +288,20 @@ function defineTrainingSuite(ctx) {
       assert.equal(fresh.body.steps[0].last, null);
     });
 
+    it('adds weight in pounds for lifters who use them', async () => {
+      const lb = await ctx().signUp('Pound Presser');
+      await lb.agent.put('/api/auth/profile').send({ units: 'stones' }).expect(400);
+      const profile = await lb.agent.put('/api/auth/profile').send({ units: 'imperial' }).expect(200);
+      assert.equal(profile.body.user.units, 'imperial');
+
+      const steps = [{ name: 'Overhead Barbell Press', reps: '8–10' }];
+      // 95 lb, logged as kg.
+      await lb.agent.post('/api/sessions').send(session('core-power-blast', { sets: [{ exerciseName: 'Overhead Barbell Press', reps: 10, weightKg: 43.0912 }] })).expect(201);
+      const res = await lb.agent.post('/api/sessions/previous-sets').send({ steps }).expect(200);
+      // Up 5 lb, to 100 lb.
+      assert.equal(Math.round(res.body.steps[0].suggestion.weightKg * 2.20462 * 10) / 10, 100);
+    });
+
     it('filters by workout', async () => {
       const res = await lifter.agent.get('/api/sessions').query({ workoutSlug: 'morning-yoga-flow' }).expect(200);
       assert.equal(res.body.count, 1);

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/format.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/units.dart';
 import '../../models/json.dart';
 import '../../models/training.dart';
 import '../../navigation.dart';
@@ -20,14 +21,15 @@ import '../../widgets/ui.dart';
 
 const _accent = AppColors.limeLight;
 
+// Shown and entered in the user's units (measureUnit); saved in kg and cm.
 const _measurements = [
-  ('weightKg', 'Weight', 'kg'),
-  ('bodyFatPct', 'Body fat', '%'),
-  ('waistCm', 'Waist', 'cm'),
-  ('hipsCm', 'Hips', 'cm'),
-  ('chestCm', 'Chest', 'cm'),
-  ('armCm', 'Arm', 'cm'),
-  ('thighCm', 'Thigh', 'cm'),
+  ('weightKg', 'Weight'),
+  ('bodyFatPct', 'Body fat'),
+  ('waistCm', 'Waist'),
+  ('hipsCm', 'Hips'),
+  ('chestCm', 'Chest'),
+  ('armCm', 'Arm'),
+  ('thighCm', 'Thigh'),
 ];
 
 /// Progress from the user's logged sessions, program enrolment and body
@@ -651,6 +653,7 @@ class _PersonalRecords extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final units = context.watch<AuthController>().user?.units ?? Units.metric;
     return Panel(
       title: 'Personal records',
       icon: LucideIcons.trophy,
@@ -674,8 +677,8 @@ class _PersonalRecords extends StatelessWidget {
                       ),
                       const SizedBox(width: 16),
                       Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                        Text(formatRecord(r), style: fg(size: 14, weight: FontWeight.w700, color: AppColors.amber300)),
-                        if (r.estimatedOneRepMaxKg != null) Text('≈ ${numText(r.estimatedOneRepMaxKg)} kg 1RM', style: fg(size: 11, color: AppColors.white70)),
+                        Text(formatRecord(r, units), style: fg(size: 14, weight: FontWeight.w700, color: AppColors.amber300)),
+                        if (r.estimatedOneRepMaxKg != null) Text('≈ ${weightText(r.estimatedOneRepMaxKg!, units)} 1RM', style: fg(size: 11, color: AppColors.white70)),
                       ]),
                     ]),
                   ),
@@ -747,7 +750,7 @@ class _BodyMetrics extends StatefulWidget {
 
 class _BodyMetricsState extends State<_BodyMetrics> {
   String _date = localToday();
-  final _fields = {for (final (key, _, _) in _measurements) key: TextEditingController()};
+  final _fields = {for (final (key, _) in _measurements) key: TextEditingController()};
   bool _showMore = false;
   bool _saving = false;
   String? _error;
@@ -767,9 +770,10 @@ class _BodyMetricsState extends State<_BodyMetrics> {
     });
     try {
       final entry = <String, dynamic>{'date': _date};
-      for (final (key, _, _) in _measurements) {
+      final units = context.read<AuthController>().user?.units ?? Units.metric;
+      for (final (key, _) in _measurements) {
         final value = double.tryParse(_fields[key]!.text);
-        if (value != null) entry[key] = value;
+        if (value != null) entry[key] = measureFrom(key, value, units);
       }
       final result = await logBodyMetric(entry);
       for (final c in _fields.values) {
@@ -791,6 +795,7 @@ class _BodyMetricsState extends State<_BodyMetrics> {
   @override
   Widget build(BuildContext context) {
     final body = widget.body;
+    final units = context.watch<AuthController>().user?.units ?? Units.metric;
     final latest = body.latestWeight;
     final change = body.weightChangeKg;
     final others = _measurements.where((m) => m.$1 != 'weightKg' && body.latestMeasurements.containsKey(m.$1)).toList();
@@ -804,12 +809,12 @@ class _BodyMetricsState extends State<_BodyMetrics> {
           runSpacing: 4,
           children: [
             Text.rich(TextSpan(children: [
-              TextSpan(text: latest != null ? '${numText(latest.weightKg)} kg' : '–', style: fg(size: 30, weight: FontWeight.w700)),
+              TextSpan(text: latest != null ? weightText(latest.weightKg, units) : '–', style: fg(size: 30, weight: FontWeight.w700)),
               if (latest != null) TextSpan(text: '  ${formatDay(latest.date)}', style: fg(size: 12, color: AppColors.white70)),
             ])),
             if (change != null && body.weightChangeSince != null)
               Text(
-                '${change > 0 ? '+' : ''}${numText(change)} kg since ${formatDay(body.weightChangeSince!)}',
+                '${change > 0 ? '+' : ''}${weightText(change, units)} since ${formatDay(body.weightChangeSince!)}',
                 style: fg(size: 14, weight: FontWeight.w700, color: change <= 0 ? AppColors.emerald400 : AppColors.orange300),
               ),
           ],
@@ -818,7 +823,8 @@ class _BodyMetricsState extends State<_BodyMetrics> {
         if (body.weights.length >= 2)
           TrendLineChart(
             labels: [for (final w in body.weights) formatDayMonth(w.date)],
-            values: [for (final w in body.weights) w.weightKg],
+            values: [for (final w in body.weights) weightIn(w.weightKg, units)],
+            unit: units.weight,
             label: 'Weight trend: ${body.weights.length} weigh-ins',
           )
         else
@@ -826,13 +832,13 @@ class _BodyMetricsState extends State<_BodyMetrics> {
         if (others.isNotEmpty) ...[
           const SizedBox(height: 16),
           Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final (key, label, unit) in others)
+            for (final (key, label) in others)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(color: AppColors.noirEclipse.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(999)),
                 child: Text.rich(TextSpan(children: [
                   TextSpan(text: '$label ', style: fg(size: 12, color: AppColors.white70)),
-                  TextSpan(text: '${numText(body.latestMeasurements[key]!.value)} $unit', style: fg(size: 12, weight: FontWeight.w700)),
+                  TextSpan(text: measureText(key, body.latestMeasurements[key]!.value, units), style: fg(size: 12, weight: FontWeight.w700)),
                 ])),
               ),
           ]),
@@ -868,8 +874,8 @@ class _BodyMetricsState extends State<_BodyMetrics> {
           columns: 2,
           gap: 8,
           children: [
-            for (final (key, label, unit) in shown)
-              NumberField(controller: _fields[key]!, hint: label, suffixText: unit, semanticLabel: '$label ($unit)', border: AppColors.white30A(0.2)),
+            for (final (key, label) in shown)
+              NumberField(controller: _fields[key]!, hint: label, suffixText: measureUnit(key, units), semanticLabel: '$label (${measureUnit(key, units)})', border: AppColors.white30A(0.2)),
           ],
         ),
         const SizedBox(height: 12),
@@ -887,7 +893,7 @@ class _BodyMetricsState extends State<_BodyMetrics> {
                 SizedBox(width: 96, child: Text(formatDay(m.date), style: fg(size: 12, color: AppColors.white70))),
                 Expanded(
                   child: Text(
-                    [for (final (key, _, unit) in _measurements) if (m.value(key) != null) '${numText(m.value(key))} $unit'].join(' · '),
+                    [for (final (key, _) in _measurements) if (m.value(key) != null) measureText(key, m.value(key)!, units)].join(' · '),
                     overflow: TextOverflow.ellipsis,
                     style: fg(size: 12),
                   ),

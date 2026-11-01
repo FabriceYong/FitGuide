@@ -14,6 +14,7 @@ import '../../core/storage.dart';
 import '../../core/shared/tailoring.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/units.dart';
 import '../../models/catalog.dart';
 import '../../models/json.dart';
 import '../../navigation.dart';
@@ -217,6 +218,9 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
   }
 
   WorkoutStep get _step => _steps[_current];
+
+  /// The user's weight unit; sets are saved in kg.
+  Units get _units => context.read<AuthController>().user?.units ?? Units.metric;
   WorkoutStep? get _next => _current + 1 < _total ? _steps[_current + 1] : null;
   int get _total => _steps.length;
 
@@ -386,7 +390,7 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
     final nextUp = next == null ? 'Last step' : 'Next up: ${stepName(next)}';
     if (_resting) {
       final s = _previousAt(_current + 1)?.suggestion;
-      final target = s != null ? 'Today: ${setLabel(s.reps, s.weightKg)}' : targetLabel(next);
+      final target = s != null ? 'Today: ${setLabel(s.reps, s.weightKg, _units)}' : targetLabel(next);
       final detail = [nextUp, if (target.isNotEmpty) target].join(' · ');
       return (title: 'Rest', body: detail, doneTitle: 'Rest over', doneBody: detail);
     }
@@ -457,7 +461,7 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
     if (s == null) return;
     setState(() {
       _reps.text = '${s.reps}';
-      if (s.weightKg != null) _weight.text = numText(s.weightKg);
+      if (s.weightKg != null) _weight.text = numText(weightIn(s.weightKg!, _units));
     });
     _saveInputs();
   }
@@ -514,7 +518,8 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
       final seconds = _stepSeconds[idx] ?? 0;
       final input = _setInputs[idx];
       final reps = int.tryParse(input?.reps ?? '');
-      final weight = double.tryParse(input?.weight ?? '');
+      final entered = double.tryParse(input?.weight ?? '');
+      final weight = entered == null ? null : kgFrom(entered, _units);
       if (!_completed.contains(idx) && seconds == 0 && reps == null && weight == null) continue;
       sets.add({
         'exerciseName': setName(step, idx),
@@ -947,7 +952,7 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
                     child: Text.rich(
                       TextSpan(children: [
                         TextSpan(text: 'Last time (${formatMonthDay(last.completedAt)}): '),
-                        TextSpan(text: setLabel(last.reps, last.weightKg), style: fg(size: 12, weight: FontWeight.w700, color: AppColors.whiteA(0.85))),
+                        TextSpan(text: setLabel(last.reps, last.weightKg, _units), style: fg(size: 12, weight: FontWeight.w700, color: AppColors.whiteA(0.85))),
                       ]),
                       style: fg(size: 12, color: AppColors.whiteA(0.6)),
                     ),
@@ -968,14 +973,14 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Today: ${setLabel(suggestion.reps, suggestion.weightKg)}', style: fg(size: 14, weight: FontWeight.w700)),
+                          Text('Today: ${setLabel(suggestion.reps, suggestion.weightKg, _units)}', style: fg(size: 14, weight: FontWeight.w700)),
                           Text(suggestionReason(suggestion), style: fg(size: 11, color: AppColors.whiteA(0.6), height: 1.35)),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
                     Semantics(
-                      label: 'Log ${setLabel(suggestion.reps, suggestion.weightKg)}',
+                      label: 'Log ${setLabel(suggestion.reps, suggestion.weightKg, _units)}',
                       button: true,
                       excludeSemantics: true,
                       child: FgButton(label: 'Use', height: 36, radius: 6, fontSize: 12, fontWeight: FontWeight.w800, padding: const EdgeInsets.symmetric(horizontal: 14), color: _tint, onPressed: _applySuggestion),
@@ -994,7 +999,16 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
                 if (_weights || (last?.weightKg ?? 0) > 0) ...[
                   const SizedBox(width: 8),
                   Expanded(
-                    child: NumberField(controller: _weight, hint: numText(suggestion?.weightKg ?? last?.weightKg ?? 0), suffixText: 'kg', radius: 8, fill: AppColors.whiteA(0.05), border: Colors.transparent, semanticLabel: 'Weight in kilograms', onChanged: (_) => _saveInputs()),
+                    child: NumberField(
+                      controller: _weight,
+                      hint: numText(weightIn(suggestion?.weightKg ?? last?.weightKg ?? 0, _units)),
+                      suffixText: _units.weight,
+                      radius: 8,
+                      fill: AppColors.whiteA(0.05),
+                      border: Colors.transparent,
+                      semanticLabel: 'Weight in ${_units.weightName}',
+                      onChanged: (_) => _saveInputs(),
+                    ),
                   ),
                 ],
               ],
@@ -1035,7 +1049,7 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
               children: [
                 Text('NEXT UP', style: fg(size: 10, weight: FontWeight.w700, color: AppColors.muted, letterSpacing: 0.8)),
                 Text(stepName(next), maxLines: 2, overflow: TextOverflow.ellipsis, style: fg(size: 15, weight: FontWeight.w700)),
-                if (suggestion != null) Text('Today: ${setLabel(suggestion.reps, suggestion.weightKg)}', style: fg(size: 13, weight: FontWeight.w700, color: _tint)),
+                if (suggestion != null) Text('Today: ${setLabel(suggestion.reps, suggestion.weightKg, _units)}', style: fg(size: 13, weight: FontWeight.w700, color: _tint)),
               ],
             ),
           ),

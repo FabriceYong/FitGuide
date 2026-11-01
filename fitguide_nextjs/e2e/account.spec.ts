@@ -179,3 +179,38 @@ test('guests have no password or account to manage', async ({ page }) => {
   await expect(main.getByRole('button', { name: 'Change password' })).toHaveCount(0);
   await expect(main.getByRole('button', { name: 'Delete account' })).toHaveCount(0);
 });
+
+test('weights and heights follow the units chosen in the profile', async ({ page }) => {
+  await signUpAndSignIn(page, 'Pound Tester');
+  expect((await page.request.put(`${API}/auth/profile`, { data: { height: 170, weight: 70, targetWeight: 65 } })).status()).toBe(200);
+  await page.reload();
+  await openProfile(page);
+  await expect(page.getByText('70 kg', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Edit profile' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit profile' });
+  await dialog.getByRole('button', { name: 'lb · ft/in' }).click();
+  // What's in the form is converted.
+  await expect(dialog.getByLabel('Weight (lb)')).toHaveValue('154.3');
+  await expect(dialog.getByLabel('Height (ft)')).toHaveValue('5');
+  await expect(dialog.getByLabel('Height (in)')).toHaveValue('7');
+  await dialog.getByLabel('Target (lb)').fill('140');
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await expect(page.getByText('154.3 lb', { exact: true })).toBeVisible();
+  await expect(page.getByText('5′ 7″', { exact: true })).toBeVisible();
+  // Stored in metric: 140 lb is 63.5 kg.
+  const me = (await (await page.request.get(`${API}/auth/me`)).json()).user;
+  expect(me.units).toBe('imperial');
+  expect(Math.round(me.targetWeight * 10) / 10).toBe(63.5);
+
+  // A weigh-in is entered in pounds and saved in kg.
+  await page.goto('/progress');
+  const log = page.locator('form').filter({ hasText: 'Log measurements' });
+  await log.getByLabel('Weight (lb)').fill('150');
+  await log.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('150 lb', { exact: true }).first()).toBeVisible();
+  const { metrics } = await (await page.request.get(`${API}/body-metrics`)).json();
+  expect(Math.round(metrics[0].weightKg * 10) / 10).toBe(68);
+});

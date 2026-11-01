@@ -6,6 +6,7 @@ import '../../core/api/api_client.dart';
 import '../../core/shared/profile_options.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/units.dart';
 import '../../models/json.dart';
 import '../../models/user.dart';
 import '../../navigation.dart';
@@ -65,8 +66,9 @@ class ProfileTab extends StatelessWidget {
     final dashboard = context.read<DashboardController>();
     final bmi = _bmiOf(user?.weight, user?.height);
     final bmiInfo = _bmiLabel(bmi);
-    final toGo = user?.weight != null && user?.targetWeight != null ? ((user!.weight! - user.targetWeight!).abs() * 10).round() / 10 : null;
-    String kg(double? v) => v == null ? '—' : '${numText(v)} kg';
+    final toGo = user?.weight != null && user?.targetWeight != null ? (user!.weight! - user.targetWeight!).abs() : null;
+    final units = user?.units ?? Units.metric;
+    String kg(double? v) => v == null ? '—' : weightText(v, units);
 
     // A single readable column on a tablet (`max-w-3xl`).
     return MaxWidth(
@@ -116,9 +118,9 @@ class ProfileTab extends StatelessWidget {
             children: [
               const _Heading('Body'),
               FgGrid(columns: 2, sm: 4, gap: 8, children: [
-                _Stat(LucideIcons.ruler, AppColors.cyan400, 'Height', user?.height != null ? '${numText(user!.height)} cm' : '—'),
+                _Stat(LucideIcons.ruler, AppColors.cyan400, 'Height', user?.height != null ? heightText(user!.height!, units) : '—'),
                 _Stat(LucideIcons.scale, AppColors.emerald400, 'Weight', kg(user?.weight)),
-                _Stat(LucideIcons.target, const Color(0xFFA78BFA), 'Target', kg(user?.targetWeight), sub: toGo != null && toGo > 0 ? '${numText(toGo)} kg to go' : null),
+                _Stat(LucideIcons.target, const Color(0xFFA78BFA), 'Target', kg(user?.targetWeight), sub: toGo != null && weightIn(toGo, units) > 0 ? '${weightText(toGo, units)} to go' : null),
                 _Stat(LucideIcons.activity, bmiInfo.color, 'BMI', bmi != null ? numText(bmi) : '—', sub: bmiInfo.label.isEmpty ? null : bmiInfo.label),
               ]),
               const SizedBox(height: 8),
@@ -463,9 +465,13 @@ class _EditProfile extends StatefulWidget {
 class _EditProfileState extends State<_EditProfile> {
   late final AppUser u = widget.user;
   late final _name = TextEditingController(text: u.name);
-  late final _height = TextEditingController(text: u.height == null ? '' : numText(u.height));
-  late final _weight = TextEditingController(text: u.weight == null ? '' : numText(u.weight));
-  late final _target = TextEditingController(text: u.targetWeight == null ? '' : numText(u.targetWeight));
+  // Body fields are shown in the chosen units: cm, or feet and inches; kg or lb.
+  late Units _units = u.units;
+  final _height = TextEditingController();
+  final _feet = TextEditingController();
+  final _inches = TextEditingController();
+  late final _weight = TextEditingController(text: u.weight == null ? '' : numText(weightIn(u.weight!, _units)));
+  late final _target = TextEditingController(text: u.targetWeight == null ? '' : numText(weightIn(u.targetWeight!, _units)));
   late final _birthYear = TextEditingController(text: u.birthYear?.toString() ?? '');
   late final _minutes = TextEditingController(text: u.workoutMinutes?.toString() ?? '');
   late final _days = TextEditingController(text: u.daysPerWeek?.toString() ?? '');
@@ -485,8 +491,47 @@ class _EditProfileState extends State<_EditProfile> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _fillHeight(u.height);
+  }
+
+  double? _heightCm() {
+    if (!_units.isImperial) return double.tryParse(_height.text.trim());
+    final feet = int.tryParse(_feet.text.trim());
+    final inches = double.tryParse(_inches.text.trim());
+    if (feet == null && inches == null) return null;
+    return (((feet ?? 0) * 12 + (inches ?? 0)) * cmPerInch * 10).round() / 10;
+  }
+
+  void _fillHeight(double? cm) {
+    _height.text = cm == null ? '' : numText(cm);
+    final inches = cm == null ? null : (cm / cmPerInch).round();
+    _feet.text = inches == null ? '' : '${inches ~/ 12}';
+    _inches.text = inches == null ? '' : '${inches % 12}';
+  }
+
+  double? _kg(TextEditingController c) {
+    final value = double.tryParse(c.text.trim());
+    return value == null ? null : kgFrom(value, _units);
+  }
+
+  /// Switch units, converting what's in the body fields.
+  void _setUnits(Units next) {
+    final height = _heightCm();
+    final weight = _kg(_weight);
+    final target = _kg(_target);
+    setState(() {
+      _units = next;
+      _fillHeight(height);
+      _weight.text = weight == null ? '' : numText(weightIn(weight, next));
+      _target.text = target == null ? '' : numText(weightIn(target, next));
+    });
+  }
+
+  @override
   void dispose() {
-    for (final c in [_name, _height, _weight, _target, _birthYear, _minutes, _days]) {
+    for (final c in [_name, _height, _feet, _inches, _weight, _target, _birthYear, _minutes, _days]) {
       c.dispose();
     }
     super.dispose();
@@ -528,9 +573,10 @@ class _EditProfileState extends State<_EditProfile> {
     final changes = <String, dynamic>{
       'name': _name.text.trim(),
       'gender': _gender,
-      'height': numberOrNull(_height.text),
-      'weight': numberOrNull(_weight.text),
-      'targetWeight': numberOrNull(_target.text),
+      'height': _heightCm(),
+      'weight': _kg(_weight),
+      'targetWeight': _kg(_target),
+      'units': _units.name,
       'birthYear': numberOrNull(_birthYear.text),
       'fitnessLevel': _level,
       'activityStatus': _activity,
@@ -649,12 +695,27 @@ class _EditProfileState extends State<_EditProfile> {
           ]),
         ),
         _text('Name', _name),
+        FormFieldLabel(
+          label: 'Units',
+          child: Segmented<Units>(
+            options: const [(Units.metric, 'kg · cm'), (Units.imperial, 'lb · ft/in')],
+            value: _units,
+            expand: true,
+            onChanged: _setUnits,
+          ),
+        ),
+        if (_units.isImperial)
+          Row(children: [
+            Expanded(child: _text('Height (ft)', _feet, number: true)),
+            const SizedBox(width: 12),
+            Expanded(child: _text('Height (in)', _inches, number: true)),
+          ])
+        else
+          _text('Height (cm)', _height, number: true),
         Row(children: [
-          Expanded(child: _text('Height (cm)', _height, number: true)),
+          Expanded(child: _text('Weight (${_units.weight})', _weight, number: true, decimal: true)),
           const SizedBox(width: 12),
-          Expanded(child: _text('Weight (kg)', _weight, number: true, decimal: true)),
-          const SizedBox(width: 12),
-          Expanded(child: _text('Target (kg)', _target, number: true, decimal: true)),
+          Expanded(child: _text('Target (${_units.weight})', _target, number: true, decimal: true)),
         ]),
         _text('Birth year (for calorie targets)', _birthYear, number: true),
         _choices('Gender', Profile.genders, _gender, (v) => setState(() => _gender = v)),

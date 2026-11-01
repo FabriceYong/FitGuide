@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { logSession, newClientId } from '../../services/trainingService';
 import { track } from '../../lib/analytics';
 import { formatRecord } from '../progress/format';
+import { useUnits } from '../../lib/units';
 import { WorkoutFeedback } from './WorkoutFeedback';
 
 const EFFORT_LABELS = { 1: 'Very easy', 3: 'Easy', 5: 'Moderate', 7: 'Hard', 9: 'Very hard', 10: 'Max effort' };
@@ -23,6 +24,7 @@ const EFFORT_LABELS = { 1: 'Very easy', 3: 'Easy', 5: 'Moderate', 7: 'Hard', 9: 
  */
 export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, onDone, onResume }) {
     const { hasAccount, user } = useAuth();
+    const units = useUnits();
     const [minutes, setMinutes] = useState(Math.max(1, Math.round(draft.durationSec / 60)));
     const [effort, setEffort] = useState(null);
     const [notes, setNotes] = useState('');
@@ -92,7 +94,7 @@ export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, on
                                         {saved.newRecords.map((r) => (
                                             <li key={r.exerciseSlug || r.exerciseName} className="flex justify-between gap-4">
                                                 <span className="text-white/80">{r.exerciseName}</span>
-                                                <span className="font-bold text-white">{formatRecord(r)}</span>
+                                                <span className="font-bold text-white">{formatRecord(r, units)}</span>
                                             </li>
                                         ))}
                                     </ul>

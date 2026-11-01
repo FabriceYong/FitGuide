@@ -8,6 +8,7 @@ import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/units.dart';
 import '../../models/json.dart';
 import '../../navigation.dart';
 import '../../services/reminders.dart';
@@ -217,7 +218,7 @@ class _SessionSummaryState extends State<SessionSummary> {
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Row(children: [
                                   Expanded(child: Text(r.exerciseName, style: fg(size: 14, color: AppColors.whiteA(0.8)))),
-                                  Text(formatRecord(r), style: fg(size: 14, weight: FontWeight.w700)),
+                                  Text(formatRecord(r, context.read<AuthController>().user?.units ?? Units.metric), style: fg(size: 14, weight: FontWeight.w700)),
                                 ]),
                               ),
                           ],

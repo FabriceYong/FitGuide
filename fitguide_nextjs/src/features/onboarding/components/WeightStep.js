@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Plus, Minus } from 'lucide-react';
 import { PROFILE } from '@fitguide/shared';
 import { Segmented, StepHeading } from '../ui';
@@ -10,8 +10,8 @@ const KG_TO_LB = 2.20462;
 
 const stepButton = 'w-11 h-11 rounded-lg border border-white-30/40 text-white flex items-center justify-center hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors';
 
-export const WeightStep = ({ targetWeight = 70, onWeightSelected }) => {
-    const [unit, setUnit] = useState('kg'); // 'kg' or 'lb'
+export const WeightStep = ({ targetWeight = 70, units = 'metric', onUnitsSelected, onWeightSelected }) => {
+    const unit = units === 'imperial' ? 'lb' : 'kg';
     const display = unit === 'kg' ? targetWeight : Math.round(targetWeight * KG_TO_LB);
 
     const adjust = (deltaKg) => onWeightSelected(Math.max(MIN_KG, Math.min(MAX_KG, targetWeight + deltaKg)));
@@ -24,7 +24,7 @@ export const WeightStep = ({ targetWeight = 70, onWeightSelected }) => {
             />
 
             <div className="flex justify-end mb-4">
-                <Segmented label="Units" options={[['kg', 'kg'], ['lb', 'lb']]} value={unit} onChange={setUnit} />
+                <Segmented label="Units" options={[['kg', 'kg'], ['lb', 'lb']]} value={unit} onChange={(u) => onUnitsSelected(u === 'lb' ? 'imperial' : 'metric')} />
             </div>
 
             <div className="rounded-xl border border-white-30/30 bg-white/[0.03] p-6">
@@ -48,7 +48,8 @@ export const WeightStep = ({ targetWeight = 70, onWeightSelected }) => {
                             onClick={() => adjust(delta)}
                             className="h-9 px-3.5 rounded-lg text-sm font-medium border border-white-30/30 text-white-70 hover:text-white hover:border-white-30/60 cursor-pointer transition-colors"
                         >
-                            {delta > 0 ? `+${delta}` : delta} kg
+                            {/* 5 kg is about 11 lb. */}
+                            {delta > 0 ? '+' : '−'}{unit === 'kg' ? '5 kg' : '11 lb'}
                         </button>
                     ))}
                 </div>

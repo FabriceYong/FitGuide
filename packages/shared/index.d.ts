@@ -6,6 +6,7 @@ export declare const PROFILE: {
   readonly ACTIVITY_STATUSES: readonly ['Active', 'Inactive', 'Moderately Active', 'Very Active'];
   readonly GOALS: readonly ['Vitality', 'Muscle', 'Weight', 'Flexibility'];
   readonly DIETS: readonly ['Keto Diet', 'Mediterranean Diet', 'Paleo Diet', 'Intermittent Fasting', 'Flexible Balanced Plan'];
+  readonly UNITS: readonly ['metric', 'imperial'];
   readonly HEIGHT_CM: Range;
   readonly WEIGHT_KG: Range;
   readonly NAME_MAX: number;

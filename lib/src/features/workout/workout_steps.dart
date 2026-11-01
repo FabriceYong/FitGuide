@@ -1,5 +1,5 @@
+import '../../core/units.dart';
 import '../../models/catalog.dart';
-import '../../models/json.dart';
 import 'catalog_filter.dart';
 import 'default_steps.dart';
 
@@ -48,9 +48,9 @@ String setName(WorkoutStep step, int index) {
   return name.length > 200 ? name.substring(0, 200) : name;
 }
 
-/// "10 reps × 40 kg", "12 reps" or "40 kg" for a logged or suggested set.
-String setLabel(int? reps, double? weightKg) =>
-    [if (reps != null && reps > 0) '$reps reps', if (weightKg != null && weightKg > 0) '${numText((weightKg * 10).round() / 10)} kg'].join(' × ');
+/// "10 reps × 40 kg", "12 reps" or "40 kg" (or lb) for a logged or suggested set.
+String setLabel(int? reps, double? weightKg, [Units units = Units.metric]) =>
+    [if (reps != null && reps > 0) '$reps reps', if (weightKg != null && weightKg > 0) weightText(weightKg, units)].join(' × ');
 
 /// Why the player suggests a set ([reason] from the API's previous-sets).
 String suggestionReason(({int reps, double? weightKg, String reason}) s) => switch (s.reason) {

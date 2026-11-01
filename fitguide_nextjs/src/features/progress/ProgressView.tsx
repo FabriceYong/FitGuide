@@ -17,17 +17,19 @@ import type { Plan } from '../../services/planService';
 import { playHref } from '../programs/ProgramDetail';
 import { useStartSignUp } from '../auth/AuthWrapper';
 import { formatDateTime, formatDay, formatRecord, scheduleHref } from './format';
+import { measureFrom, measureText, measureUnit, useUnits, weightIn, weightText, weightUnit } from '../../lib/units';
 
 const ACCENT = '#00C4B4';
 
-const MEASUREMENTS: { key: MeasurementField; label: string; unit: string; step: string }[] = [
-  { key: 'weightKg', label: 'Weight', unit: 'kg', step: '0.1' },
-  { key: 'bodyFatPct', label: 'Body fat', unit: '%', step: '0.1' },
-  { key: 'waistCm', label: 'Waist', unit: 'cm', step: '0.5' },
-  { key: 'hipsCm', label: 'Hips', unit: 'cm', step: '0.5' },
-  { key: 'chestCm', label: 'Chest', unit: 'cm', step: '0.5' },
-  { key: 'armCm', label: 'Arm', unit: 'cm', step: '0.5' },
-  { key: 'thighCm', label: 'Thigh', unit: 'cm', step: '0.5' },
+// Shown and entered in the user's units (measureUnit); saved in kg and cm.
+const MEASUREMENTS: { key: MeasurementField; label: string; step: string }[] = [
+  { key: 'weightKg', label: 'Weight', step: '0.1' },
+  { key: 'bodyFatPct', label: 'Body fat', step: '0.1' },
+  { key: 'waistCm', label: 'Waist', step: '0.1' },
+  { key: 'hipsCm', label: 'Hips', step: '0.1' },
+  { key: 'chestCm', label: 'Chest', step: '0.1' },
+  { key: 'armCm', label: 'Arm', step: '0.1' },
+  { key: 'thighCm', label: 'Thigh', step: '0.1' },
 ];
 
 type Data = { summary: ProgressSummary; recentSessions: SessionRecord[] };
@@ -363,6 +365,7 @@ function ActivityCalendar({ days }: { days: ActivityDay[] }) {
 }
 
 function PersonalRecords({ records }: { records: PersonalRecord[] }) {
+  const units = useUnits();
   return (
     <Panel title="Personal records" icon={Trophy}>
       {records.length === 0 ? (
@@ -378,8 +381,8 @@ function PersonalRecords({ records }: { records: PersonalRecord[] }) {
                 <p className="text-[11px] text-white-70">{formatDay(r.achievedAt.slice(0, 10))} · {r.workoutTitle}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="font-bold text-amber-300">{formatRecord(r)}</p>
-                {r.estimatedOneRepMaxKg && <p className="text-[11px] text-white-70">≈ {r.estimatedOneRepMaxKg} kg 1RM</p>}
+                <p className="font-bold text-amber-300">{formatRecord(r, units)}</p>
+                {r.estimatedOneRepMaxKg && <p className="text-[11px] text-white-70">≈ {weightText(r.estimatedOneRepMaxKg, units)} 1RM</p>}
               </div>
             </li>
           ))}
@@ -429,6 +432,7 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }: {
   const [showMore, setShowMore] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const units = useUnits();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -437,7 +441,7 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }: {
     try {
       const entry: { date: string } & Partial<Record<MeasurementField, number>> = { date: form.date };
       for (const m of MEASUREMENTS) {
-        if (form[m.key] !== undefined && form[m.key] !== '') entry[m.key] = Number(form[m.key]);
+        if (form[m.key] !== undefined && form[m.key] !== '') entry[m.key] = measureFrom(m.key, Number(form[m.key]), units);
       }
       const result = await logBodyMetric(entry);
       setForm({ date: form.date, weightKg: '' });
@@ -449,7 +453,7 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }: {
     }
   };
 
-  const chartData = body.weights.map((w) => ({ ...w, label: formatDay(w.date, { day: 'numeric', month: 'short' }) }));
+  const chartData = body.weights.map((w) => ({ ...w, weight: weightIn(w.weightKg, units), label: formatDay(w.date, { day: 'numeric', month: 'short' }) }));
   const fields = showMore ? MEASUREMENTS : MEASUREMENTS.slice(0, 1);
   const otherMeasurements = MEASUREMENTS.filter((m) => m.key !== 'weightKg' && body.latestMeasurements[m.key]);
 
@@ -459,12 +463,12 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }: {
         <div className="space-y-4">
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
             <div>
-              <span className="text-3xl font-bold">{body.latestWeight ? `${body.latestWeight.weightKg} kg` : '–'}</span>
+              <span className="text-3xl font-bold">{body.latestWeight ? weightText(body.latestWeight.weightKg, units) : '–'}</span>
               {body.latestWeight && <span className="text-xs text-white-70 ml-2">{formatDay(body.latestWeight.date)}</span>}
             </div>
             {body.weightChangeKg != null && body.weightChangeSince && (
               <span className={`text-sm font-bold ${body.weightChangeKg <= 0 ? 'text-emerald-400' : 'text-orange-300'}`}>
-                {body.weightChangeKg > 0 ? '+' : ''}{body.weightChangeKg} kg since {formatDay(body.weightChangeSince)}
+                {body.weightChangeKg > 0 ? '+' : ''}{weightText(body.weightChangeKg, units)} since {formatDay(body.weightChangeSince)}
               </span>
             )}
           </div>
@@ -478,9 +482,9 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }: {
                   <Tooltip
                     contentStyle={{ background: '#131921', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }}
                     labelStyle={{ color: 'rgba(255,255,255,0.7)' }}
-                    formatter={(v) => [`${v} kg`, 'Weight']}
+                    formatter={(v) => [`${v} ${weightUnit(units)}`, 'Weight']}
                   />
-                  <Line type="monotone" dataKey="weightKg" stroke={ACCENT} strokeWidth={2.5} dot={{ r: 3, fill: ACCENT }} />
+                  <Line type="monotone" dataKey="weight" stroke={ACCENT} strokeWidth={2.5} dot={{ r: 3, fill: ACCENT }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -492,7 +496,7 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }: {
             <div className="flex flex-wrap gap-2">
               {otherMeasurements.map((m) => (
                 <span key={m.key} className="px-3 py-1.5 rounded-full bg-noir-eclipse/60 text-xs">
-                  <span className="text-white-70">{m.label}</span> <span className="font-bold">{body.latestMeasurements[m.key]!.value} {m.unit}</span>
+                  <span className="text-white-70">{m.label}</span> <span className="font-bold">{measureText(m.key, body.latestMeasurements[m.key]!.value, units)}</span>
                 </span>
               ))}
             </div>
@@ -519,13 +523,13 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }: {
                     min="0"
                     step={m.step}
                     inputMode="decimal"
-                    aria-label={`${m.label} (${m.unit})`}
+                    aria-label={`${m.label} (${measureUnit(m.key, units)})`}
                     placeholder={m.label}
                     value={form[m.key] ?? ''}
                     onChange={(e) => setForm({ ...form, [m.key]: e.target.value })}
                     className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white-70"
                   />
-                  <span className="text-xs text-white-70">{m.unit}</span>
+                  <span className="text-xs text-white-70">{measureUnit(m.key, units)}</span>
                 </label>
               ))}
             </div>
@@ -544,7 +548,7 @@ function BodyMetrics({ body, metrics, onSaved, onDelete }: {
                 <li key={m.id} className="flex items-center justify-between gap-2 py-2 text-xs">
                   <span className="text-white-70 w-24 shrink-0">{formatDay(m.date)}</span>
                   <span className="flex-1 truncate">
-                    {MEASUREMENTS.filter((f) => m[f.key] != null).map((f) => `${m[f.key]} ${f.unit}`).join(' · ')}
+                    {MEASUREMENTS.filter((f) => m[f.key] != null).map((f) => measureText(f.key, m[f.key]!, units)).join(' · ')}
                   </span>
                   <button type="button" onClick={() => onDelete(m.id)} aria-label={`Delete entry for ${formatDay(m.date)}`} className="p-1.5 rounded-lg text-white-70 hover:text-red-300">
                     <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />

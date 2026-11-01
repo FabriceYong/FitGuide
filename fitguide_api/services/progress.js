@@ -226,22 +226,34 @@ function repRange(target) {
   return min > 0 && max >= min ? { min, max } : null;
 }
 
-const roundToHalf = (kg) => Math.round(kg * 2) / 2;
+const roundToHalf = (n) => Math.round(n * 2) / 2;
+const LB_PER_KG = 2.20462;
+
+/**
+ * The next weight up, in the plates the lifter uses: 1 kg under 20 kg, else
+ * 2.5 kg; in pounds, 2.5 lb under 45 lb, else 5 lb. Always returned in kg.
+ */
+function nextWeight(kg, units = 'metric') {
+  if (units !== 'imperial') return roundToHalf(kg + (kg < 20 ? 1 : 2.5));
+  const lb = roundToHalf(kg * LB_PER_KG);
+  return Math.round(((lb + (lb < 45 ? 2.5 : 5)) / LB_PER_KG) * 10000) / 10000;
+}
 
 /**
  * What to aim for this time, from the same set last time (double
  * progression): add reps until the top of the step's rep range, then add
- * weight (1 kg under 20 kg, else 2.5 kg) and start again from the bottom.
+ * weight (nextWeight, in the user's units) and start again from the bottom.
  * @param {{ reps?: number, weightKg?: number }} last
  * @param {string} [target]  The step's rep target, like "8–10"
+ * @param {'metric' | 'imperial'} [units]
  * @returns {{ reps: number, weightKg?: number, reason: 'add_weight' | 'reach_range' | 'more_reps' } | null}
  */
-function suggestNext(last, target) {
+function suggestNext(last, target, units = 'metric') {
   if (!last || !(last.reps > 0)) return null;
   const range = repRange(target);
   const weight = last.weightKg > 0 ? last.weightKg : null;
   if (weight && range && last.reps >= range.max) {
-    return { reps: range.min, weightKg: roundToHalf(weight + (weight < 20 ? 1 : 2.5)), reason: 'add_weight' };
+    return { reps: range.min, weightKg: nextWeight(weight, units), reason: 'add_weight' };
   }
   if (range && last.reps < range.min) {
     return { reps: range.min, ...(weight && { weightKg: weight }), reason: 'reach_range' };
@@ -259,8 +271,9 @@ function suggestNext(last, target) {
  * @param {object[]} sessions  Newest first
  * @param {{ name: string, reps?: string }[]} steps
  * @param {(name: string) => string} keyOf  The exercise a step name refers to
+ * @param {'metric' | 'imperial'} [units]  For the weight to add
  */
-function previousSets(sessions, steps, keyOf) {
+function previousSets(sessions, steps, keyOf, units = 'metric') {
   const setKey = (set) => (set.exerciseSlug ? `slug:${set.exerciseSlug}` : keyOf(set.exerciseName));
   const latest = new Map(); // key → that exercise's sets in its latest session
   const seen = new Map(); // key → steps of it so far
@@ -281,7 +294,7 @@ function previousSets(sessions, steps, keyOf) {
     seen.set(key, index + 1);
     const sets = latest.get(key);
     const last = sets ? sets[Math.min(index, sets.length - 1)] : null;
-    return { last, suggestion: suggestNext(last, step.reps) };
+    return { last, suggestion: suggestNext(last, step.reps, units) };
   });
 }
 

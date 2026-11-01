@@ -5,6 +5,7 @@
  * ("Burpees × 10 reps") or time ("× 40 seconds").
  */
 import { requiredEquipment } from './catalogFilter';
+import { weightText } from '../../lib/units';
 
 /** The workout's steps, numbered. */
 export function stepsFor(workout) {
@@ -40,11 +41,9 @@ export function stepName(step) {
 /** The name a step's set is saved under (and looked up by for "last time"). */
 export const setName = (step, index) => String(step?.exerciseName || step?.instruction || `Step ${index + 1}`).slice(0, 200);
 
-const kg = (n) => `${Number(n.toFixed(1))} kg`;
-
-/** "10 reps × 40 kg", "12 reps" or "40 kg" for a logged or suggested set. */
-export function setLabel({ reps, weightKg }) {
-  return [reps > 0 && `${reps} reps`, weightKg > 0 && kg(weightKg)].filter(Boolean).join(' × ');
+/** "10 reps × 40 kg", "12 reps" or "40 kg" (or lb) for a logged or suggested set. */
+export function setLabel({ reps, weightKg }, units = 'metric') {
+  return [reps > 0 && `${reps} reps`, weightKg > 0 && weightText(weightKg, units)].filter(Boolean).join(' × ');
 }
 
 /** Why the player suggests a set (a suggestion from the API's previous-sets). */

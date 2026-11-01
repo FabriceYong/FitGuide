@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/units.dart';
 import '../../../models/json.dart';
 import '../../../widgets/forms.dart';
 import '../../../widgets/ui.dart';
@@ -57,6 +58,7 @@ class _ProfileStepState extends State<ProfileStep> {
         'height': d['height'] ?? 170,
         'weight': d['weight'] ?? 70,
         'targetWeight': d['targetWeight'] ?? 70,
+        'units': d['units'] ?? 'metric',
         'fitnessLevel': d['fitnessLevel'] ?? 'Beginner',
         'activityStatus': d['activityStatus'] ?? 'Active',
         'goal': d['goal'] ?? 'Vitality',
@@ -80,11 +82,12 @@ class _ProfileStepState extends State<ProfileStep> {
   Widget build(BuildContext context) {
     final d = widget.onboardingData;
     final focus = List<String>.from(d['focusAreas'] as List? ?? const []);
+    final units = Units.of(d['units']);
     final summary = [
       ('Goal', _goalLabels[d['goal']] ?? '${d['goal']}'),
       ('Level', '${d['fitnessLevel']}'),
-      ('Height', '${d['height']} cm'),
-      ('Weight', '${d['weight']} kg (target ${d['targetWeight']} kg)'),
+      ('Height', heightText(d['height'] as num? ?? 170, units)),
+      ('Weight', '${weightText(d['weight'] as num? ?? 70, units)} (target ${weightText(d['targetWeight'] as num? ?? 70, units)})'),
       ('Diet', '${d['diet']}'),
       if (focus.isNotEmpty) ('Focus', focus.join(', ')),
     ];

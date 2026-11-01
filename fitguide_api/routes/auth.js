@@ -30,6 +30,7 @@ const profileRules = [
   body('diet').optional().isIn(DIETS).withMessage('Invalid diet'),
   body('avatarUrl').optional({ values: 'null' }).isString().isLength({ max: 500 }),
   body('showOnLeaderboards').optional().isBoolean().withMessage('showOnLeaderboards must be true or false').toBoolean(),
+  body('units').optional().isIn(PROFILE.UNITS).withMessage('units must be metric or imperial'),
   ...[['focusAreas', PROFILE.FOCUS_AREAS, 'focus area'], ['equipment', PROFILE.EQUIPMENT_KITS, 'equipment option'], ['limitations', PROFILE.LIMITATIONS, 'limitation']]
     .flatMap(([field, allowed, noun]) => [
       body(field).optional({ values: 'null' }).isArray({ max: allowed.length }).withMessage(`${field} must be a list`),

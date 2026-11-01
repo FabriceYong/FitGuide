@@ -43,6 +43,8 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
     'height': 170,
     'weight': 70,
     'targetWeight': 70,
+    // How weights and heights are shown, here and once signed up.
+    'units': 'metric',
     'fitnessLevel': 'Beginner',
     'activityStatus': 'Active',
     'goal': 'Vitality',
@@ -94,6 +96,7 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
           gender: data['gender'] as String,
           height: (data['height'] as num).toInt(),
           weight: (data['weight'] as num).toInt(),
+          units: data['units'] as String,
           onChanged: _update,
         );
       case 3:
@@ -101,7 +104,12 @@ class _OnboardingWizardState extends State<OnboardingWizard> {
       case 4:
         return GoalStep(goal: data['goal'] as String, onChanged: (goal) => _update({'goal': goal}));
       case 5:
-        return WeightStep(targetWeight: (data['targetWeight'] as num).toInt(), onChanged: (w) => _update({'targetWeight': w}));
+        return WeightStep(
+          targetWeight: (data['targetWeight'] as num).toInt(),
+          units: data['units'] as String,
+          onChanged: (w) => _update({'targetWeight': w}),
+          onUnits: (units) => _update({'units': units}),
+        );
       case 6:
         return DietStep(diet: data['diet'] as String, onChanged: (diet) => _update({'diet': diet}));
       case 7:

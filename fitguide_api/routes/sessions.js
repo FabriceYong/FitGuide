@@ -179,7 +179,7 @@ router.post(
         const exercise = exerciseStore.matchExercise(name, exercises);
         return exercise ? `slug:${exercise.slug}` : `name:${exerciseStore.normalizeName(name)}`;
       };
-      res.json({ success: true, steps: previousSets(sessions, req.body.steps, keyOf) });
+      res.json({ success: true, steps: previousSets(sessions, req.body.steps, keyOf, req.user.units) });
     } catch (err) {
       next(err);
     }

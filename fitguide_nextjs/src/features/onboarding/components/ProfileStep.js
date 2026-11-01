@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Loader2, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 import { apiRequest } from '../../../lib/api';
+import { heightText, weightText } from '../../../lib/units';
 import { Field, StepHeading, inputClass, primaryButton, secondaryButton } from '../ui';
 
 const GOAL_LABELS = { Vitality: 'Overall health', Muscle: 'Build muscle', Weight: 'Lose fat', Flexibility: 'Mobility' };
@@ -32,6 +33,7 @@ export const ProfileStep = ({ onboardingData, onComplete, onBack }) => {
                     height: onboardingData.height || 170,
                     weight: onboardingData.weight || 70,
                     targetWeight: onboardingData.targetWeight || 70,
+                    units: onboardingData.units || 'metric',
                     fitnessLevel: onboardingData.fitnessLevel || 'Beginner',
                     activityStatus: onboardingData.activityStatus || 'Active',
                     goal: onboardingData.goal || 'Vitality',
@@ -53,11 +55,12 @@ export const ProfileStep = ({ onboardingData, onComplete, onBack }) => {
         }
     };
 
+    const units = onboardingData.units === 'imperial' ? 'imperial' : 'metric';
     const summary = [
         ['Goal', GOAL_LABELS[onboardingData.goal] || onboardingData.goal],
         ['Level', onboardingData.fitnessLevel],
-        ['Height', `${onboardingData.height} cm`],
-        ['Weight', `${onboardingData.weight} kg (target ${onboardingData.targetWeight} kg)`],
+        ['Height', heightText(onboardingData.height, units)],
+        ['Weight', `${weightText(onboardingData.weight, units)} (target ${weightText(onboardingData.targetWeight, units)})`],
         ['Diet', onboardingData.diet],
         ...(onboardingData.focusAreas?.length ? [['Focus', onboardingData.focusAreas.join(', ')]] : []),
     ];

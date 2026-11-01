@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { PROFILE } from '@fitguide/shared';
 import { OptionCard, Section, Segmented, StepHeading } from '../ui';
 
@@ -33,8 +33,9 @@ export const BiometricsStep = ({
     onGenderSelected,
     onHeightSelected,
     onWeightSelected,
+    units: unit = 'metric', // 'metric' (cm/kg) or 'imperial' (ft/lb), kept for the account
+    onUnitsSelected,
 }) => {
-    const [unit, setUnit] = useState('metric'); // 'metric' (cm/kg) or 'imperial' (ft/lbs)
 
     const displayHeight = unit === 'metric' ? `${height} cm` : `${Math.floor(height / 30.48)}' ${Math.round((height % 30.48) / 2.54)}"`;
     const displayWeight = unit === 'metric' ? `${weight} kg` : `${Math.round(weight * 2.20462)} lb`;
@@ -67,7 +68,7 @@ export const BiometricsStep = ({
                             label="Units"
                             options={[['metric', 'cm / kg'], ['imperial', 'ft / lb']]}
                             value={unit}
-                            onChange={setUnit}
+                            onChange={onUnitsSelected}
                         />
                     </div>
                     <RangeField id="height" label="Height" value={height} display={displayHeight} min={120} max={220} onChange={onHeightSelected} />

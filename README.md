@@ -130,6 +130,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | Password change and account deletion (cancels PLUS, removes data and uploads) | `routes/auth.js`, `services/accounts.js` | Profile tab (`features/profile/`) |
 | Workout catalog, exercise library, programs | `routes/workouts.js`, `exercises.js`, `programs.js` | `/workouts`, `/programs` (server-rendered) |
 | Dashboard: home, explore (workouts and exercise library), programs, favorites, progress, reviews, calculators, profile | the routes above, `favorites.js`, `reviews.js`, `articles.js` | `/` (`components/Dashboard.tsx`, `features/dashboard/`) |
+| kg or lb (and cm or ft/in): chosen at sign-up or in the profile; weights, heights, measurements and next-weight suggestions follow it, and everything is stored in metric | `stores/userStore.js` (`units`), `services/progress.js` | `lib/units.ts`; app: `core/units.dart` |
 | Sessions, program enrollments, body metrics, progress | `routes/sessions.js`, `enrollments.js`, `bodyMetrics.js`, `progress.js` | player, `/progress` |
 | Build your own workout: exercises with sets of reps or time, supersets; private, and played and logged like any workout | `services/myWorkouts.js`, `routes/myWorkouts.js` | Explore → My workouts (`features/workout/MyWorkouts.tsx`, `WorkoutBuilder.tsx`); app: `features/workout/my_workouts.dart` |
 | Personal plan generator and rules-based adaptation | `services/planGenerator.js`, `routes/plan.js` | `/plan` |

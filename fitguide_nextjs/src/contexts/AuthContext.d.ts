@@ -16,6 +16,8 @@ export interface AuthUser {
   avatarUrl?: string | null;
   birthYear?: number | null;
   showOnLeaderboards?: boolean;
+  /** How weights and lengths are shown; stored in kg and cm either way. */
+  units?: 'metric' | 'imperial';
   /** Training preferences: empty / null means not answered (see @fitguide/shared tailoring). */
   focusAreas?: string[];
   equipment?: string[];

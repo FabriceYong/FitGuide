@@ -45,6 +45,9 @@ model User {
   friendCode         String?   @unique
   // Appear by first name + initial on challenge and friend leaderboards.
   showOnLeaderboards Boolean   @default(true)
+  // metric (kg, cm) or imperial (lb, ft/in), for showing and entering
+  // weights and lengths. Values are stored in metric either way.
+  units              String    @default("metric")
   // Billing (Stripe). plan is "plus" while the subscription is active.
   plan               String    @default("free")
   stripeCustomerId   String?   @unique

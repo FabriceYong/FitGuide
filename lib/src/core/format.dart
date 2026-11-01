@@ -1,5 +1,6 @@
 import '../models/json.dart';
 import '../models/training.dart';
+import 'units.dart';
 
 /// Display helpers shared by the screens (features/progress/format.ts and
 /// friends on the website).
@@ -85,8 +86,8 @@ String formatSeconds(int total) {
 /// mm:ss
 String clock(int seconds) => '${_two(seconds ~/ 60)}:${_two(seconds % 60)}';
 
-String formatRecord(PersonalRecord r) {
-  if (r.unit == 'kg') return '${numText(r.value)} kg${r.reps != null && r.reps! > 0 ? ' × ${r.reps}' : ''}';
+String formatRecord(PersonalRecord r, [Units units = Units.metric]) {
+  if (r.unit == 'kg') return '${weightText(r.value, units)}${r.reps != null && r.reps! > 0 ? ' × ${r.reps}' : ''}';
   if (r.unit == 'sec') return formatSeconds(r.value.round());
   if (r.unit == 'm') return r.value >= 1000 ? '${(r.value / 1000).toStringAsFixed(2)} km' : '${numText(r.value)} m';
   return '${numText(r.value)} reps';

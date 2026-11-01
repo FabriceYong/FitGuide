@@ -9,10 +9,13 @@ import '../../../widgets/ui.dart';
 
 /// Gender, height and current weight, with metric or imperial display.
 class BiometricsStep extends StatefulWidget {
-  const BiometricsStep({super.key, required this.gender, required this.height, required this.weight, required this.onChanged});
+  const BiometricsStep({super.key, required this.gender, required this.height, required this.weight, this.units = 'metric', required this.onChanged});
   final String gender;
   final int height;
   final int weight;
+
+  /// metric or imperial: kept as the account's units.
+  final String units;
   final void Function(Json) onChanged;
 
   @override
@@ -20,14 +23,13 @@ class BiometricsStep extends StatefulWidget {
 }
 
 class _BiometricsStepState extends State<BiometricsStep> {
-  String _unit = 'metric';
-
   @override
   Widget build(BuildContext context) {
+    final unit = widget.units;
     final h = widget.height;
     final w = widget.weight;
-    final displayHeight = _unit == 'metric' ? '$h cm' : "${(h / 30.48).floor()}' ${((h % 30.48) / 2.54).round()}\"";
-    final displayWeight = _unit == 'metric' ? '$w kg' : '${(w * 2.20462).round()} lb';
+    final displayHeight = unit == 'metric' ? '$h cm' : "${(h / 30.48).floor()}' ${((h % 30.48) / 2.54).round()}\"";
+    final displayWeight = unit == 'metric' ? '$w kg' : '${(w * 2.20462).round()} lb';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -50,8 +52,8 @@ class _BiometricsStepState extends State<BiometricsStep> {
             Segmented<String>(
               label: 'Units',
               options: const [('metric', 'cm / kg'), ('imperial', 'ft / lb')],
-              value: _unit,
-              onChanged: (u) => setState(() => _unit = u),
+              value: unit,
+              onChanged: (u) => widget.onChanged({'units': u}),
             ),
           ],
         ),

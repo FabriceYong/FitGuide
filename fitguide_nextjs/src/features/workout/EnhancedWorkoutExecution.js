@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { calorieFactor } from '@fitguide/shared';
 import { useAuth } from '../../contexts/AuthContext';
+import { kgFrom, useUnits, weightIn, weightUnit, weightUnitName } from '../../lib/units';
 import { SessionSummary } from './SessionSummary';
 import { StepDemo } from './StepDemo';
 import { SwapExercise } from './SwapExercise';
@@ -103,6 +104,8 @@ const spokenTarget = (step) => {
  */
 export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', program = null, onExit, onComplete }) => {
   const { user, hasAccount } = useAuth();
+  // Weights are entered and shown in the user's units, and saved in kg.
+  const units = useUnits();
   // The workout's burn rate scaled to this user's body, as the API does when saving.
   const caloriesPerMinute = ((workout?.calories || 0) / (workout?.duration || 1)) * calorieFactor(user);
   const [steps, setSteps] = useState(() => stepsFor(workout));
@@ -260,7 +263,7 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
     if (!suggestion) return;
     setSetInputs((prev) => ({
       ...prev,
-      [currentStepIndex]: { ...prev[currentStepIndex], reps: String(suggestion.reps), ...(suggestion.weightKg && { weightKg: String(suggestion.weightKg) }) },
+      [currentStepIndex]: { ...prev[currentStepIndex], reps: String(suggestion.reps), ...(suggestion.weightKg && { weightKg: String(weightIn(suggestion.weightKg, units)) }) },
     }));
   };
 
@@ -276,7 +279,7 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
       const seconds = stepSecondsRef.current[idx] || 0;
       const input = setInputs[idx] || {};
       const loggedReps = parse(input.reps, (v) => Math.max(0, parseInt(v, 10)));
-      const weightKg = parse(input.weightKg, (v) => Math.max(0, parseFloat(v)));
+      const weightKg = parse(input.weightKg, (v) => Math.max(0, kgFrom(parseFloat(v), units)));
       if (!completedSteps.has(idx) && !seconds && loggedReps === undefined && weightKg === undefined) return null;
       return {
         exerciseName: setName(step, idx),
@@ -384,7 +387,7 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
                   <span className="block text-[11px] font-bold uppercase tracking-wider text-white/50">Next up</span>
                   <span className="block font-extrabold text-lg leading-tight">{stepName(nextStep)}</span>
                   <span className="block text-sm text-white/60">{targetLabel(nextStep)}</span>
-                  {nextSuggestion && <span className="block text-sm font-bold mt-0.5" style={{ color }}>Today: {setLabel(nextSuggestion)}</span>}
+                  {nextSuggestion && <span className="block text-sm font-bold mt-0.5" style={{ color }}>Today: {setLabel(nextSuggestion, units)}</span>}
                 </span>
               </div>
             )}
@@ -533,17 +536,17 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
             {prev?.last && (
               <p className="text-xs text-white/60 mb-2 flex items-center gap-1.5">
                 <History className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>Last time ({shortDate(prev.last.completedAt)}): <span className="font-bold text-white/85">{setLabel(prev.last)}</span></span>
+                <span>Last time ({shortDate(prev.last.completedAt)}): <span className="font-bold text-white/85">{setLabel(prev.last, units)}</span></span>
               </p>
             )}
             {prev?.suggestion && (
               <div className="mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2" style={{ backgroundColor: `${color}14`, border: `1px solid ${color}40` }}>
                 <TrendingUp className="w-4 h-4 shrink-0" style={{ color }} aria-hidden="true" />
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-bold">Today: {setLabel(prev.suggestion)}</span>
+                  <span className="block text-sm font-bold">Today: {setLabel(prev.suggestion, units)}</span>
                   <span className="block text-[11px] text-white/60 leading-snug">{suggestionReason(prev.suggestion)}</span>
                 </span>
-                <button type="button" onClick={applySuggestion} aria-label={`Log ${setLabel(prev.suggestion)}`} className="shrink-0 text-xs font-extrabold px-3 py-2 rounded-md" style={{ backgroundColor: color, color: '#0A0C10' }}>Use</button>
+                <button type="button" onClick={applySuggestion} aria-label={`Log ${setLabel(prev.suggestion, units)}`} className="shrink-0 text-xs font-extrabold px-3 py-2 rounded-md" style={{ backgroundColor: color, color: '#0A0C10' }}>Use</button>
               </div>
             )}
             <div className={`grid gap-2 ${showWeight ? 'grid-cols-2' : 'grid-cols-1'}`}>
@@ -560,13 +563,13 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
               {showWeight && (
                 <label className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
                   <input
-                    type="number" min="0" max="1000" step="0.5" inputMode="decimal" aria-label="Weight in kilograms"
+                    type="number" min="0" max="2500" step="0.5" inputMode="decimal" aria-label={`Weight in ${weightUnitName(units)}`}
                     value={setInputs[currentStepIndex]?.weightKg ?? ''}
                     onChange={(e) => updateSetInput('weightKg', e.target.value)}
                     className="w-full bg-transparent text-sm font-bold text-white outline-none"
-                    placeholder={String(prev?.suggestion?.weightKg ?? prev?.last?.weightKg ?? 0)}
+                    placeholder={String(weightIn(prev?.suggestion?.weightKg ?? prev?.last?.weightKg ?? 0, units))}
                   />
-                  <span className="text-xs text-white/50">kg</span>
+                  <span className="text-xs text-white/50">{weightUnit(units)}</span>
                 </label>
               )}
             </div>

@@ -16,6 +16,8 @@ const PROFILE = {
   ACTIVITY_STATUSES: ['Active', 'Inactive', 'Moderately Active', 'Very Active'],
   GOALS: ['Vitality', 'Muscle', 'Weight', 'Flexibility'],
   DIETS: ['Keto Diet', 'Mediterranean Diet', 'Paleo Diet', 'Intermittent Fasting', 'Flexible Balanced Plan'],
+  // How weights and lengths are shown and entered; stored in metric either way.
+  UNITS: ['metric', 'imperial'],
   // [min, max] in cm / kg
   HEIGHT_CM: [50, 250],
   WEIGHT_KG: [30, 250],

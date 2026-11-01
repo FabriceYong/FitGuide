@@ -19,6 +19,9 @@ const PROFILE_DEFAULTS = {
   avatarUrl: null,
   birthYear: null,
   showOnLeaderboards: true,
+  // How weights and lengths are shown and entered: metric (kg, cm) or
+  // imperial (lb, ft/in). Everything is stored in metric either way.
+  units: 'metric',
   // Training preferences: empty / null means not answered.
   focusAreas: [],
   equipment: [],
@@ -29,7 +32,7 @@ const PROFILE_DEFAULTS = {
 
 // Fields a user may change about themselves through the profile endpoint.
 const EDITABLE_FIELDS = [
-  'name', 'gender', 'height', 'weight', 'targetWeight', 'fitnessLevel', 'activityStatus', 'goal', 'diet', 'avatarUrl', 'birthYear', 'showOnLeaderboards',
+  'name', 'gender', 'height', 'weight', 'targetWeight', 'fitnessLevel', 'activityStatus', 'goal', 'diet', 'avatarUrl', 'birthYear', 'showOnLeaderboards', 'units',
   'focusAreas', 'equipment', 'limitations', 'workoutMinutes', 'daysPerWeek',
 ];
 const NUMERIC_FIELDS = new Set(['height', 'weight', 'targetWeight', 'birthYear', 'workoutMinutes', 'daysPerWeek']);

@@ -104,6 +104,8 @@ function defineCoachSuite(ctx) {
   describe('coach workouts and programs', () => {
     let workoutSlug;
     let programSlug;
+    let sam;
+    let samId;
 
     it('drafts a workout with automatic demos', async () => {
       await kim.agent.post('/api/creator/workouts').send(coachWorkout({ category: 'Napping' })).expect(400);
@@ -186,6 +188,60 @@ function defineCoachSuite(ctx) {
       assert.deepEqual(row.weeks.map((w) => w.people), [1, 1, 0, 0]);
       assert.equal(res.body.totals.enrolled, 2);
       assert.equal(res.body.totals.levels.Intermediate, 1);
+    });
+
+    it('shows the coach only clients who share their progress, slipping first', async () => {
+      // Sessions on day 6 of each week: started 15 days ago, the last two were missed.
+      sam = await ctx().signUp('Sam Slip');
+      const enrolled = await sam.agent.post('/api/enrollments').send({ programSlug, startDate: addDays(today(), -15) }).expect(201);
+      samId = enrolled.body.enrollment.id;
+      assert.equal(enrolled.body.enrollment.shareWithCoach, false);
+      assert.ok(!(await kim.agent.get('/api/creator/clients').expect(200)).body.clients.some((c) => c.enrollmentId === samId));
+
+      await sam.agent.patch(`/api/enrollments/${samId}`).send({}).expect(400);
+      const shared = await sam.agent.patch(`/api/enrollments/${samId}`).send({ shareWithCoach: true }).expect(200);
+      assert.equal(shared.body.enrollment.shareWithCoach, true);
+      assert.equal(shared.body.enrollment.status, 'active');
+      const moId = (await member.agent.get('/api/enrollments').expect(200)).body.active.id;
+      await member.agent.patch(`/api/enrollments/${moId}`).send({ shareWithCoach: true }).expect(200);
+
+      await member.agent.get('/api/creator/clients').expect(403);
+      const { clients } = (await kim.agent.get('/api/creator/clients').expect(200)).body;
+      assert.deepEqual(clients.map((c) => c.name), ['Sam Slip', 'Mo Member']);
+      const [samRow, moRow] = clients;
+      assert.equal(samRow.slipping, true);
+      assert.deepEqual(samRow.reasons, ['Missed the last 2 sessions', 'No workout logged yet']);
+      assert.equal(samRow.adherencePct, 0);
+      assert.equal(moRow.slipping, false);
+      assert.deepEqual(moRow.reasons, []);
+    });
+
+    it('lets the coach send a client a note a day, which the client reads', async () => {
+      await kim.agent.post(`/api/creator/clients/${samId}/notes`).send({ text: ' ' }).expect(400);
+      await kim.agent.post('/api/creator/clients/nope/notes').send({ text: 'Hi' }).expect(404);
+      await kim.agent.post(`/api/creator/clients/${samId}/notes`).send({ text: 'Missed you on Saturday. Shall we do a short one this week?' }).expect(201);
+      const again = await kim.agent.post(`/api/creator/clients/${samId}/notes`).send({ text: 'Hello?' }).expect(429);
+      assert.match(again.body.message, /^You sent Sam S\. a note today/);
+      assert.ok((await kim.agent.get('/api/creator/clients').expect(200)).body.clients.find((c) => c.enrollmentId === samId).lastNoteAt);
+
+      const { notes } = (await sam.agent.get('/api/enrollments/notes').expect(200)).body;
+      assert.equal(notes.length, 1);
+      assert.deepEqual([notes[0].coachName, notes[0].programTitle], ['Kim C.', 'Saturday Park Club']);
+      assert.equal((await member.agent.get('/api/enrollments/notes').expect(200)).body.notes.length, 0);
+      await member.agent.post(`/api/enrollments/notes/${notes[0].id}/read`).expect(404);
+      await sam.agent.post(`/api/enrollments/notes/${notes[0].id}/read`).expect(200);
+      await sam.agent.post(`/api/enrollments/notes/${notes[0].id}/read`).expect(404);
+      assert.equal((await sam.agent.get('/api/enrollments/notes').expect(200)).body.notes.length, 0);
+    });
+
+    it('stops showing a client who stops sharing, and only coached programs can be shared', async () => {
+      await sam.agent.patch(`/api/enrollments/${samId}`).send({ shareWithCoach: false }).expect(200);
+      assert.ok(!(await kim.agent.get('/api/creator/clients').expect(200)).body.clients.some((c) => c.enrollmentId === samId));
+      await kim.agent.post(`/api/creator/clients/${samId}/notes`).send({ text: 'Still there?' }).expect(404);
+
+      const pat = await ctx().signUp('Pat Plain');
+      const plain = await pat.agent.post('/api/enrollments').send({ programSlug: 'foundations-starter' }).expect(201);
+      await pat.agent.patch(`/api/enrollments/${plain.body.enrollment.id}`).send({ shareWithCoach: true }).expect(400);
     });
 
     it('takes the role away when an admin declines an approved coach', async () => {

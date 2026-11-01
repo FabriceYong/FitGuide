@@ -5,15 +5,18 @@
  * routes/admin.js).
  */
 const express = require('express');
+const { body } = require('express-validator');
 const { PROFILE } = require('@fitguide/shared');
 const { prisma } = require('../db/prisma');
 const { schemas } = require('../schemas/catalog');
 const { validate } = require('../schemas/records');
 const catalogAdmin = require('../services/catalogAdmin');
 const articles = require('../services/articles');
+const coachClients = require('../services/coachClients');
 const { imageUpload, videoUpload, uploadErrorHandler } = require('../utils/uploads');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/requireRole');
+const { rejectInvalid } = require('../utils/validate');
 const { tzOffsetFrom, today, daysBetween } = require('../utils/dates');
 const { apiBaseOf: apiBase } = require('../utils/exerciseDemos');
 
@@ -26,7 +29,7 @@ const handle = (fn) => async (req, res, next) => {
   try {
     await fn(req, res);
   } catch (err) {
-    if (err instanceof catalogAdmin.CatalogError || err instanceof articles.ArticleError) return res.status(err.status).json({ success: false, message: err.message });
+    if (err instanceof catalogAdmin.CatalogError || err instanceof articles.ArticleError || err instanceof coachClients.ClientError) return res.status(err.status).json({ success: false, message: err.message });
     return next(err);
   }
 };
@@ -91,6 +94,26 @@ router.get('/dashboard', handle(async (req, res) => {
     programs: rows,
   });
 }));
+
+// ─── Clients ──────────────────────────────────────────────────────────────────
+
+// GET /api/creator/clients?tzOffset= — members following the coach's programs
+// who chose to share their progress with them: how each is doing, slipping first.
+router.get('/clients', handle(async (req, res) => {
+  const tzOffset = tzOffsetFrom(req);
+  res.json({ success: true, clients: await coachClients.list(req.user.id, today(tzOffset), tzOffset), slipping: coachClients.SLIPPING });
+}));
+
+// POST /api/creator/clients/:enrollmentId/notes { text } — a short note to a
+// client, at most one a day. They see it on their home page.
+router.post(
+  '/clients/:enrollmentId/notes',
+  [body('text').isString().trim().isLength({ min: 1, max: 500 }).withMessage('Write a note of up to 500 characters')],
+  rejectInvalid,
+  handle(async (req, res) => {
+    res.status(201).json({ success: true, note: await coachClients.sendNote(req.user, req.params.enrollmentId, req.body.text) });
+  }),
+);
 
 // ─── Coach profile ────────────────────────────────────────────────────────────
 

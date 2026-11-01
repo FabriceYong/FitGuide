@@ -3,6 +3,8 @@ const { body } = require('express-validator');
 const { enrollmentStore, programStore } = require('../stores/records');
 const { describeAll, describeOne } = require('../services/enrollments');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const coachClients = require('../services/coachClients');
+const { prisma } = require('../db/prisma');
 const { isPlus } = require('../services/billing');
 const { rejectInvalid } = require('../utils/validate');
 const { tzOffsetFrom, today, isValidYmd, daysBetween } = require('../utils/dates');
@@ -16,6 +18,26 @@ router.get('/', async (req, res, next) => {
   try {
     const enrollments = await describeAll(req.user.id, today(tzOffsetFrom(req)));
     res.json({ success: true, enrollments, active: enrollments.find((e) => e.status === 'active') || null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /api/enrollments/notes ───────────────────────────────────────────────
+// Unread notes from the coaches of programs the user shares their progress with.
+router.get('/notes', async (req, res, next) => {
+  try {
+    res.json({ success: true, notes: await coachClients.unread(req.user.id) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST /api/enrollments/notes/:id/read ─────────────────────────────────────
+router.post('/notes/:id/read', async (req, res, next) => {
+  try {
+    if (!(await coachClients.markRead(req.user.id, req.params.id))) return res.status(404).json({ success: false, message: 'Note not found.' });
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }
@@ -86,16 +108,30 @@ router.post(
   }
 );
 
-// ─── PATCH /api/enrollments/:id ───────────────────────────────────────────────
-// Body: { status: 'abandoned' } — leave an active program.
+// ─── PATCH /api/enrollments/:id?tzOffset= ─────────────────────────────────────
+// Body: { status: 'abandoned' } — leave an active program; or
+// { shareWithCoach: boolean } — let the program's coach see how you're doing
+// and send you notes.
 router.patch(
   '/:id',
-  [body('status').equals('abandoned').withMessage('Only status "abandoned" can be set')],
+  [
+    body('status').optional().equals('abandoned').withMessage('Only status "abandoned" can be set'),
+    body('shareWithCoach').optional().isBoolean().withMessage('shareWithCoach must be true or false').toBoolean(),
+    body().custom((b) => b.status !== undefined || b.shareWithCoach !== undefined).withMessage('Nothing to change'),
+  ],
   rejectInvalid,
   async (req, res, next) => {
     try {
       const existing = await enrollmentStore.findOwned(req.user.id, req.params.id);
       if (!existing) return res.status(404).json({ success: false, message: 'Enrollment not found.' });
+      if (req.body.shareWithCoach !== undefined) {
+        const program = await prisma.program.findUnique({ where: { slug: existing.programSlug }, select: { creatorId: true } });
+        if (!program?.creatorId) return res.status(400).json({ success: false, message: 'This program has no coach to share with.' });
+        await prisma.enrollment.update({ where: { id: existing.id }, data: { shareWithCoach: req.body.shareWithCoach } });
+        if (req.body.status === undefined) {
+          return res.json({ success: true, enrollment: await describeOne(req.user.id, existing.id, today(tzOffsetFrom(req))) });
+        }
+      }
       if (existing.status !== 'active') {
         return res.status(409).json({ success: false, message: 'Only an active program can be ended.' });
       }

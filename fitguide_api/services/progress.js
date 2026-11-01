@@ -153,6 +153,7 @@ function describeEnrollment(enrollment, program, todayYmd) {
     endDate: lastDate,
     status: enrollment.status,
     endedAt: enrollment.endedAt || null,
+    shareWithCoach: Boolean(enrollment.shareWithCoach),
     totalDays: schedule.length,
     completedCount,
     percentComplete: schedule.length ? Math.round((completedCount / schedule.length) * 100) : 0,

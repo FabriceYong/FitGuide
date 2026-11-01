@@ -36,6 +36,8 @@ export interface Plan {
   percentComplete: number;
   adherencePct: number | null;
   currentWeek: number;
+  /** The member lets the program's coach see how they're doing and send them notes. */
+  shareWithCoach?: boolean;
   nextDay: PlanDay | null;
   schedule: PlanDay[];
 }

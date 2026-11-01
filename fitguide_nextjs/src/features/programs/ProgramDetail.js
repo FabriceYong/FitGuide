@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { CalendarDays, Check, Clock, Flame, Loader2, Play, Target, X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ApiError } from '../../lib/api';
-import { enrollInProgram, fetchEnrollments, leaveProgram, localToday } from '../../services/trainingService';
+import { enrollInProgram, fetchEnrollments, leaveProgram, localToday, shareWithCoach } from '../../services/trainingService';
 import { LEVEL_COLORS } from './ProgramCard';
 import { scheduleHref } from '../progress/format';
 import { ProgramCoach } from '../coaches/ProgramCoach';
@@ -35,6 +35,7 @@ export function ProgramDetail({ program, workouts }) {
     const [error, setError] = useState(null);
     const [conflict, setConflict] = useState(null);
     const [startDate, setStartDate] = useState('');
+    const [sharing, setSharing] = useState(false);
 
     const load = useCallback(async () => {
         try {
@@ -80,6 +81,19 @@ export function ProgramDetail({ program, workouts }) {
             setError(err.message);
         } finally {
             setBusy(false);
+        }
+    };
+
+    const share = async (on) => {
+        setSharing(true);
+        setError(null);
+        try {
+            const updated = await shareWithCoach(mine.id, on);
+            setEnrollments((list) => list.map((e) => (e.id === updated.id ? updated : e)));
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setSharing(false);
         }
     };
 
@@ -144,6 +158,17 @@ export function ProgramDetail({ program, workouts }) {
                                 <div className="h-full rounded-full bg-lime-light transition-all" style={{ width: `${mine.percentComplete}%` }} />
                             </div>
                         </div>
+                        {program.coachId && (
+                            <label className="flex items-start gap-3 bg-noir-eclipse/60 rounded-xl p-4 text-sm cursor-pointer">
+                                <input type="checkbox" checked={Boolean(mine.shareWithCoach)} disabled={sharing} onChange={(e) => share(e.target.checked)} className="accent-lime-light mt-1" />
+                                <span>
+                                    <span className="font-bold">Share my progress with {program.createdBy}</span>
+                                    <span className="block text-xs text-white-70 mt-0.5">
+                                        They see your name, the sessions you&apos;ve done and missed, and when you last trained, and can send you a short note. Turn it off any time.
+                                    </span>
+                                </span>
+                            </label>
+                        )}
                         {mine.nextDay && (
                             <div className="flex flex-wrap items-center justify-between gap-4 bg-noir-eclipse/60 rounded-xl p-4">
                                 <div>

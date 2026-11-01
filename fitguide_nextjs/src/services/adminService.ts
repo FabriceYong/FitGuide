@@ -214,6 +214,29 @@ export const fetchCoachDashboard = async (): Promise<CoachDashboard> => {
   const data = await apiRequest('/creator/dashboard', { auth: true, query: { tzOffset: new Date().getTimezoneOffset() } });
   return { totals: data.totals, programs: data.programs.map(({ weeks, ...p }: { weeks: { week: number; people: number }[] }) => ({ ...p, weeks: weeks.length, weekCounts: weeks })) };
 };
+/** A member following one of the coach's programs who shares their progress with them. */
+export interface CoachClient {
+  enrollmentId: string;
+  name: string;
+  programSlug: string;
+  programTitle: string;
+  currentWeek: number;
+  weeks: number | null;
+  completedCount: number;
+  totalDays: number;
+  adherencePct: number | null;
+  missedInARow: number;
+  lastWorkoutDate: string | null;
+  daysSinceWorkout: number | null;
+  slipping: boolean;
+  reasons: string[];
+  lastNoteAt: string | null;
+}
+export const fetchClients = async (): Promise<CoachClient[]> =>
+  (await apiRequest('/creator/clients', { auth: true, query: { tzOffset: new Date().getTimezoneOffset() } })).clients;
+/** A short note to a client, at most one a day; they see it on their home page. */
+export const sendClientNote = (enrollmentId: string, text: string) =>
+  apiRequest(`/creator/clients/${encodeURIComponent(enrollmentId)}/notes`, { method: 'POST', auth: true, body: { text } });
 export const fetchCoachProfile = async (): Promise<CoachApplication | null> => (await apiRequest('/creator/profile', { auth: true })).profile;
 export const saveCoachProfile = async (input: CoachProfileInput): Promise<CoachApplication> =>
   (await apiRequest('/creator/profile', { method: 'PUT', auth: true, body: input })).profile;

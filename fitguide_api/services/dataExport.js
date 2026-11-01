@@ -15,7 +15,7 @@ async function everything(userId) {
   const id = String(userId);
   const [
     user, sessions, bodyMetrics, enrollments, plans, ownWorkouts, favorites, reviews, foods, foodLogs,
-    dailyMetrics, bloodPressure, activities, connections, friendships, challenges, coachMessages, water, photos,
+    dailyMetrics, bloodPressure, activities, connections, friendships, challenges, coachMessages, water, photos, coachNotes,
   ] = await Promise.all([
     prisma.user.findUnique({ where: { id } }),
     prisma.workoutSession.findMany({ where: { userId: id }, orderBy: { completedAt: 'desc' }, include: { sets: { orderBy: { position: 'asc' } } } }),
@@ -39,6 +39,7 @@ async function everything(userId) {
     prisma.coachMessage.findMany({ where: { userId: id, role: { in: ['user', 'assistant'] } }, orderBy: { createdAt: 'asc' }, select: { role: true, display: true, content: true, createdAt: true } }),
     prisma.waterIntake.findMany({ where: { userId: id }, orderBy: { date: 'desc' }, select: { date: true, ml: true } }),
     prisma.progressPhoto.findMany({ where: { userId: id }, orderBy: { date: 'asc' }, select: { date: true, note: true, createdAt: true } }),
+    prisma.coachNote.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' }, select: { text: true, createdAt: true, readAt: true, coach: { select: { name: true } } } }),
   ]);
   if (!user) return null;
 
@@ -62,6 +63,7 @@ async function everything(userId) {
     water,
     // The pictures themselves stay in the app; save them from Progress.
     progressPhotos: photos,
+    notesFromCoaches: coachNotes.map((n) => ({ from: n.coach.name, text: n.text, sentAt: n.createdAt, readAt: n.readAt })),
     dailyHealth: withoutIds(dailyMetrics),
     bloodPressure: withoutIds(bloodPressure),
     connectedActivities: withoutIds(activities),

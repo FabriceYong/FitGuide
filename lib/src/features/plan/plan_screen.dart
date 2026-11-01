@@ -203,12 +203,15 @@ class _PlanScreenState extends State<PlanScreen> {
               ],
             ),
           ),
-          PlanSuggestionCard(
-            key: ValueKey('suggestion-${plan.id}'),
-            enrollmentId: plan.id,
-            onApplied: (changed) => setState(() => _plan = changed),
-          ),
-          WeekStrip(plan: plan),
+          Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            PlanSuggestionCard(
+              key: ValueKey('suggestion-${plan.id}'),
+              enrollmentId: plan.id,
+              onApplied: (changed) => setState(() => _plan = changed),
+              bottomGap: 16,
+            ),
+            WeekStrip(plan: plan),
+          ]),
           if (_notice.isNotEmpty)
             Semantics(
               liveRegion: true,

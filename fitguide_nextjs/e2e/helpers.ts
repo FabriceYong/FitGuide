@@ -44,3 +44,19 @@ export async function signUpAndSignIn(page: Page, name?: string) {
   await expect(page.getByLabel('Email')).toHaveCount(0);
   return account;
 }
+
+// The approved coach and program the e2e API seeds (fitguide_api/scripts/e2eServer.js).
+export const E2E_COACH = { name: 'Casey Coach', email: 'coach@e2e.test', password: 'e2e-coach-password-123' };
+export const COACH_PROGRAM = 'e2e-coach-club';
+
+/** Sign out through the profile menu, then sign in as `account` through the login form. */
+export async function switchAccount(page: Page, account: { email: string; password: string }) {
+  await page.goto('/');
+  await page.locator('header button[aria-haspopup="menu"]').click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Sign out' }).click();
+  await page.getByLabel('Email').fill(account.email);
+  await page.getByLabel('Password', { exact: true }).fill(account.password);
+  await page.getByRole('button', { name: /sign in/i }).click();
+  await expect(page.getByLabel('Email')).toHaveCount(0);
+}

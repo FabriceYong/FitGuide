@@ -234,6 +234,21 @@ export const enrollInProgram = (programSlug: string, { replace = false, startDat
 export const leaveProgram = (id: string) => apiRequest(`/enrollments/${encodeURIComponent(id)}`, {
   method: 'PATCH', auth: true, query: tz(), body: { status: 'abandoned' },
 });
+/** Let the program's coach see how you're doing and send you notes (or stop). */
+export const shareWithCoach = async (id: string, share: boolean): Promise<Plan> => (await apiRequest(`/enrollments/${encodeURIComponent(id)}`, {
+  method: 'PATCH', auth: true, query: tz(), body: { shareWithCoach: share },
+})).enrollment;
+
+/** A note from the coach of a program you share your progress with. */
+export interface CoachNote {
+  id: string;
+  text: string;
+  createdAt: string;
+  coachName: string;
+  programTitle: string;
+}
+export const fetchCoachNotes = async (): Promise<CoachNote[]> => (await apiRequest('/enrollments/notes', { auth: true })).notes;
+export const markCoachNoteRead = (id: string) => apiRequest(`/enrollments/notes/${encodeURIComponent(id)}/read`, { method: 'POST', auth: true });
 
 // ── Body metrics ──────────────────────────────────────────────────────────────
 export const fetchBodyMetrics = (): Promise<{ metrics: BodyMetric[] }> => apiRequest('/body-metrics', { auth: true });

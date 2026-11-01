@@ -13,6 +13,7 @@ import '../../navigation.dart';
 import '../../services/training_service.dart';
 import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
+import '../../widgets/forms.dart';
 import '../../widgets/modal.dart';
 import '../../widgets/ui.dart';
 import '../coaches/coach_widgets.dart';
@@ -97,6 +98,21 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
     try {
       await leaveProgram(mine.id);
       if (mounted) context.read<DashboardController>().dataChanged();
+    } catch (err) {
+      _error = '$err';
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _share(Plan mine, bool on) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final updated = await shareWithCoach(mine.id, on);
+      if (mounted) setState(() => _enrollments = [for (final e in _enrollments ?? <Plan>[]) e.id == updated.id ? updated : e]);
     } catch (err) {
       _error = '$err';
     } finally {
@@ -248,6 +264,17 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
           ]),
           const SizedBox(height: 6),
           FgProgressBar(percent: mine.percentComplete.toDouble(), label: 'Program completed'),
+          if (program.coachId != null) ...[
+            const SizedBox(height: 16),
+            CheckRow(
+              value: mine.shareWithCoach,
+              onChanged: (on) {
+                if (!_busy) _share(mine, on);
+              },
+              title: 'Share my progress with ${program.createdBy ?? 'the coach'}',
+              subtitle: 'They see your name, the sessions you’ve done and missed, and when you last trained, and can send you a short note. Turn it off any time.',
+            ),
+          ],
           if (next != null) ...[
             const SizedBox(height: 16),
             Container(

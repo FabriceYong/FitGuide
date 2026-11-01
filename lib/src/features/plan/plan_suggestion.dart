@@ -25,11 +25,14 @@ String _workout(String title) => title.replaceFirst(RegExp(r'^.*?: '), '');
 /// changes until they say yes; "Not now" hides it for a week
 /// (plan/PlanSuggestionCard.tsx).
 class PlanSuggestionCard extends StatefulWidget {
-  const PlanSuggestionCard({super.key, this.enrollmentId, this.onApplied});
+  const PlanSuggestionCard({super.key, this.enrollmentId, this.onApplied, this.bottomGap = 0});
 
   /// Only show a suggestion for this enrollment.
   final String? enrollmentId;
   final ValueChanged<Plan>? onApplied;
+
+  /// Space below the card when it shows (nothing takes space when it doesn't).
+  final double bottomGap;
 
   @override
   State<PlanSuggestionCard> createState() => _PlanSuggestionCardState();
@@ -98,9 +101,13 @@ class _PlanSuggestionCardState extends State<PlanSuggestionCard> {
 
   @override
   Widget build(BuildContext context) {
-    if (_done != null) return StatusBox(_done!);
+    if (_done != null) return Padding(padding: EdgeInsets.only(bottom: widget.bottomGap), child: StatusBox(_done!));
     final s = _suggestion;
     if (s == null || (widget.enrollmentId != null && s.enrollmentId != widget.enrollmentId)) return const SizedBox.shrink();
+    return Padding(padding: EdgeInsets.only(bottom: widget.bottomGap), child: _card(s));
+  }
+
+  Widget _card(PlanSuggestion s) {
     final more = s.changes.length - _shown;
     return FgCard(
       padding: const EdgeInsets.all(16),

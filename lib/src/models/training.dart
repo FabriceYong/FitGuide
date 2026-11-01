@@ -106,6 +106,7 @@ class Plan {
         percentComplete = asInt(j['percentComplete']) ?? 0,
         adherencePct = asInt(j['adherencePct']),
         currentWeek = asInt(j['currentWeek']) ?? 1,
+        shareWithCoach = asBool(j['shareWithCoach']),
         nextDay = j['nextDay'] == null ? null : PlanDay(asJson(j['nextDay'])),
         schedule = asJsonList(j['schedule']).map(PlanDay.new).toList();
 
@@ -124,6 +125,9 @@ class Plan {
   final int percentComplete;
   final int? adherencePct;
   final int currentWeek;
+
+  /// The member lets the program's coach see how they're doing and send them notes.
+  final bool shareWithCoach;
   final PlanDay? nextDay;
   final List<PlanDay> schedule;
 

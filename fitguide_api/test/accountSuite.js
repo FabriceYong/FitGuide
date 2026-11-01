@@ -356,6 +356,7 @@ function defineAccountSuite(ctx) {
       assert.equal(data.profile.email, creds.email);
       assert.equal(data.workoutSessions[0].sets[0].weightKg, 70);
       assert.equal(data.bodyMetrics[0].waistCm, 82);
+      assert.deepEqual(data.notesFromCoaches, []);
       for (const secret of ['passwordHash', 'accessToken', 'refreshToken', 'tokenHash']) assert.ok(!json.text.includes(secret), secret);
 
       const workouts = await agent.get('/api/auth/export/workouts.csv').expect(200);

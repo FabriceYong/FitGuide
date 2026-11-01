@@ -236,5 +236,5 @@ function start() {
 
 module.exports = {
   STREAK_TIME, isTime, isTimeZone, isPushEndpoint, localNow,
-  publicKey, isConfigured, setSender, settings, update, upcoming, subscribe, unsubscribe, runDue, start,
+  publicKey, isConfigured, setSender, pushTo, settings, update, upcoming, subscribe, unsubscribe, runDue, start,
 };

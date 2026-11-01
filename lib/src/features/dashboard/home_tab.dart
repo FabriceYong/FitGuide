@@ -24,6 +24,7 @@ import '../../widgets/workout_card.dart';
 import '../common/parq_modal.dart';
 import '../plan/plan_suggestion.dart';
 import 'article_screen.dart';
+import 'coach_notes.dart';
 import 'articles.dart';
 import 'hero_carousel.dart';
 import 'today_panel.dart';
@@ -284,12 +285,18 @@ class _HomeTabState extends State<HomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: spaced([
-                if (auth.hasAccount && enrollment != null)
-                  PlanSuggestionCard(
-                    key: ValueKey('suggestion-${enrollment.id}'),
-                    onApplied: (_) => context.read<DashboardController>().dataChanged(),
-                  ),
-                if (auth.hasAccount) TodayPanel(key: ValueKey('today-${auth.user!.id}'), summary: summary, suggestion: picks.firstOrNull?.workout),
+                // Coach notes and a plan suggestion, when there are any, sit above Today.
+                if (auth.hasAccount)
+                  Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    CoachNotes(key: ValueKey('notes-${auth.user!.id}'), bottomGap: 16),
+                    if (enrollment != null)
+                      PlanSuggestionCard(
+                        key: ValueKey('suggestion-${enrollment.id}'),
+                        onApplied: (_) => context.read<DashboardController>().dataChanged(),
+                        bottomGap: 16,
+                      ),
+                    TodayPanel(key: ValueKey('today-${auth.user!.id}'), summary: summary, suggestion: picks.firstOrNull?.workout),
+                  ]),
                 _section(
                   header: SectionHeader('Your progress', action: auth.hasAccount ? 'See all →' : null, onAction: () => dashboard.setTab(DashboardTab.progress)),
                   children: [

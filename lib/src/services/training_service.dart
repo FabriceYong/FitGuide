@@ -178,6 +178,29 @@ Future<Json> enrollInProgram(String programSlug, {bool replace = false, String? 
 Future<Json> leaveProgram(String id) =>
     _api.request('/enrollments/${Uri.encodeComponent(id)}', method: 'PATCH', auth: true, query: _tz(), body: {'status': 'abandoned'});
 
+/// Let the program's coach see how you're doing and send you notes (or stop).
+Future<Plan> shareWithCoach(String id, bool share) async => Plan(asJson(
+    (await _api.request('/enrollments/${Uri.encodeComponent(id)}', method: 'PATCH', auth: true, query: _tz(), body: {'shareWithCoach': share}))['enrollment']));
+
+/// A note from the coach of a program you share your progress with.
+class CoachNote {
+  CoachNote(Json j)
+      : id = asString(j['id']) ?? '',
+        text = asString(j['text']) ?? '',
+        createdAt = asString(j['createdAt']) ?? '',
+        coachName = asString(j['coachName']) ?? '',
+        programTitle = asString(j['programTitle']) ?? '';
+  final String id;
+  final String text;
+  final String createdAt;
+  final String coachName;
+  final String programTitle;
+}
+
+Future<List<CoachNote>> fetchCoachNotes() async => asJsonList((await _api.request('/enrollments/notes', auth: true))['notes']).map(CoachNote.new).toList();
+
+Future<Json> markCoachNoteRead(String id) => _api.request('/enrollments/notes/${Uri.encodeComponent(id)}/read', method: 'POST', auth: true);
+
 // ── Body metrics ──────────────────────────────────────────────────────────────
 Future<List<BodyMetric>> fetchBodyMetrics() async => asJsonList((await _api.request('/body-metrics', auth: true))['metrics']).map(BodyMetric.new).toList();
 

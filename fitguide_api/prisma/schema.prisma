@@ -101,6 +101,8 @@ model User {
   passwordResets         PasswordReset[]
   emailVerifications     EmailVerification[]
   pushSubscriptions      PushSubscription[]
+  coachNotesSent         CoachNote[]            @relation("CoachNoteFrom")
+  coachNotesReceived     CoachNote[]            @relation("CoachNoteTo")
 
   @@map("users")
 }
@@ -444,6 +446,9 @@ model Enrollment {
   // A kind of plan suggestion the member said no to, hidden until this local date.
   hiddenSuggestion      String?
   hiddenSuggestionUntil String?   @db.VarChar(10)
+  // The member lets the program's coach see how they're doing and send
+  // them notes (routes/creator.js clients). Off until they turn it on.
+  shareWithCoach        Boolean   @default(false)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -451,6 +456,7 @@ model Enrollment {
   program       Program          @relation(fields: [programSlug], references: [slug], onUpdate: Cascade)
   completedDays EnrollmentDay[]
   sessions      WorkoutSession[]
+  coachNotes    CoachNote[]
 
   @@index([userId, status])
   @@map("enrollments")
@@ -467,6 +473,26 @@ model EnrollmentDay {
 
   @@id([enrollmentId, week, day])
   @@map("enrollment_days")
+}
+
+// A short note from a program's coach to a member who shares their progress
+// with them; shown to the member until they mark it read.
+model CoachNote {
+  id           String    @id @default(uuid())
+  coachId      String
+  userId       String
+  enrollmentId String
+  text         String    @db.VarChar(500)
+  readAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  coach      User       @relation("CoachNoteFrom", fields: [coachId], references: [id], onDelete: Cascade)
+  user       User       @relation("CoachNoteTo", fields: [userId], references: [id], onDelete: Cascade)
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([enrollmentId, createdAt])
+  @@map("coach_notes")
 }
 
 // Body measurements logged over time; one entry per user per day.

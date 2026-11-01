@@ -11,6 +11,7 @@ import '../../state/auth_controller.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/ui.dart';
 import 'auth_page.dart';
+import 'forgot_password_screen.dart';
 
 /// Sign in (features/auth/LoginPage.js).
 class LoginScreen extends StatefulWidget {
@@ -60,6 +61,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _forgotPassword() {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ForgotPasswordScreen(initialEmail: _email.text.trim())));
+  }
+
   @override
   Widget build(BuildContext context) {
     return AuthPage(
@@ -89,7 +94,11 @@ class _LoginScreenState extends State<LoginScreen> {
               label: 'Password',
               child: PasswordField(controller: _password, enabled: !_loading, textInputAction: TextInputAction.done, onSubmitted: (_) => _submit()),
             ),
-            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.centerRight,
+              child: LinkText('Forgot password?', onTap: _loading ? null : _forgotPassword),
+            ),
+            const SizedBox(height: 8),
             FgButton(
               label: _loading ? 'Signing in…' : 'Sign in',
               loading: _loading,

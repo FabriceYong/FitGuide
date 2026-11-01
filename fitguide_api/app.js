@@ -92,6 +92,18 @@ function createApp() {
     'Too many wrong passwords. Please wait 15 minutes and try again.',
     { skipSuccessfulRequests: true },
   ));
+  // Reset emails per network, and guesses at reset links.
+  app.use('/api/auth/forgot-password', limiter(
+    FIFTEEN_MINUTES,
+    intFromEnv('RESET_RATE_LIMIT_MAX', 5),
+    'Too many reset requests. Please wait 15 minutes and try again.',
+  ));
+  app.use('/api/auth/reset-password', limiter(
+    FIFTEEN_MINUTES,
+    intFromEnv('LOGIN_RATE_LIMIT_MAX', 10),
+    'Too many attempts. Please wait 15 minutes and try again.',
+    { skipSuccessfulRequests: true },
+  ));
   app.use('/api/auth/register', limiter(
     60 * 60 * 1000,
     intFromEnv('REGISTER_RATE_LIMIT_MAX', 10),

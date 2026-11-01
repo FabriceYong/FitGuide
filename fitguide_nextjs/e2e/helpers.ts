@@ -1,6 +1,8 @@
 import { expect, type Page } from '@playwright/test';
 
 export const API = 'http://localhost:5055/api';
+// The e2e API keeps emails here instead of sending them (fitguide_api/scripts/e2eServer.js).
+export const MAILBOX = 'http://127.0.0.1:5056';
 
 let counter = 0;
 

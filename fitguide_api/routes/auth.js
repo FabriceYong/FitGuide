@@ -10,6 +10,7 @@ const userStore = require('../stores/userStore');
 const { signToken, setAuthCookie, setRefreshCookies, clearSessionCookies, REFRESH_COOKIE } = require('../utils/jwt');
 const authTokens = require('../services/authTokens');
 const accounts = require('../services/accounts');
+const passwordReset = require('../services/passwordReset');
 const { isForeignOriginWrite } = require('../utils/config');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
@@ -192,9 +193,44 @@ router.put(
         return res.status(400).json({ success: false, message: 'Choose a password different from your current one.' });
       }
       await userStore.setPassword(req.user.id, req.body.newPassword);
-      await authTokens.revokeAll(req.user.id);
+      await Promise.all([authTokens.revokeAll(req.user.id), passwordReset.cancelLinks(req.user.id)]);
       return startSession(req, res, 200, 'Password changed.', req.user);
     } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ─── POST /api/auth/forgot-password ───────────────────────────────────────────
+// Email a reset link if an account uses this address. The answer is the same
+// either way, and it is sent before the lookup finishes, so neither the reply
+// nor its timing reveals whether the email has an account.
+router.post(
+  '/forgot-password',
+  [body('email').trim().notEmpty().withMessage('Email is required').isEmail().withMessage('Please provide a valid email address').normalizeEmail()],
+  rejectInvalid,
+  (req, res) => {
+    passwordReset.requestReset(req.body.email).catch((err) => console.error('[auth] could not send a reset link:', err.message));
+    res.status(200).json({ success: true, message: "If an account uses that email, we've sent it a link to reset the password." });
+  }
+);
+
+// ─── POST /api/auth/reset-password ────────────────────────────────────────────
+// Set a new password from an emailed link. Signs out every device, then
+// starts a session here.
+router.post(
+  '/reset-password',
+  [
+    body('token').isString().notEmpty().withMessage('The reset link is incomplete'),
+    body('password').isString().isLength({ min: PROFILE.PASSWORD_MIN }).withMessage(`Password must be at least ${PROFILE.PASSWORD_MIN} characters`),
+  ],
+  rejectInvalid,
+  async (req, res, next) => {
+    try {
+      const user = await passwordReset.resetPassword(req.body.token, req.body.password);
+      return startSession(req, res, 200, 'Your password has been reset.', user);
+    } catch (err) {
+      if (err instanceof passwordReset.ResetError) return res.status(err.status).json({ success: false, code: err.code, message: err.message });
       next(err);
     }
   }

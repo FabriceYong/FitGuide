@@ -79,6 +79,7 @@ model User {
   createdWorkouts        Workout[]            @relation("WorkoutCreator")
   coachProfile           CoachProfile?
   articles               Article[]            @relation("ArticleAuthor")
+  passwordResets         PasswordReset[]
 
   @@map("users")
 }
@@ -100,6 +101,21 @@ model RefreshToken {
   @@index([userId])
   @@index([family])
   @@map("refresh_tokens")
+}
+
+// A "forgot password" link. Only a hash of the token in the emailed link is
+// stored; the row is deleted once used, or when a newer link replaces it.
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_resets")
 }
 
 // ─── Catalog ─────────────────────────────────────────────────────────────────

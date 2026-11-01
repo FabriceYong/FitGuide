@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { LoginPage } from './LoginPage';
+import { ForgotPasswordPage } from './ForgotPasswordPage';
 import { OnboardingWizard } from '../onboarding/OnboardingWizard';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { useAuth, type AuthUser } from '../../contexts/AuthContext';
@@ -19,7 +20,8 @@ export const useStartSignUp = () => useContext(SignUpContext);
 
 /**
  * Shows the sign-in page, the sign-up wizard or the app. Linking to
- * /?signup=1 opens the wizard straight away, guests included.
+ * /?signup=1 opens the wizard straight away, guests included, and /?forgot=1
+ * the "forgot password" page for signed-out visitors.
  */
 export function AuthWrapper({ children }: { children: ReactNode }) {
   const { ready, isAuthenticated, login: signIn, startGuestSession } = useAuth();
@@ -27,6 +29,15 @@ export function AuthWrapper({ children }: { children: ReactNode }) {
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('signup'),
   );
 
+  // The email typed on the sign-in page, carried over; null while not showing. /?forgot=1 opens it.
+  const [forgotEmail, setForgotEmail] = useState<string | null>(
+    () => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('forgot') ? '' : null),
+  );
+
+  const closeForgot = () => {
+    setForgotEmail(null);
+    if (new URLSearchParams(window.location.search).has('forgot')) window.history.replaceState(null, '', '/');
+  };
   const closeRegister = () => {
     setShowRegister(false);
     if (new URLSearchParams(window.location.search).has('signup')) window.history.replaceState(null, '', '/');
@@ -59,5 +70,6 @@ export function AuthWrapper({ children }: { children: ReactNode }) {
   if (isAuthenticated) {
     return <SignUpContext.Provider value={() => setShowRegister(true)}>{children}</SignUpContext.Provider>;
   }
-  return <LoginPage onLoginSuccess={login} onSwitchToRegister={() => setShowRegister(true)} />;
+  if (forgotEmail !== null) return <ForgotPasswordPage initialEmail={forgotEmail} onBackToLogin={closeForgot} />;
+  return <LoginPage onLoginSuccess={login} onSwitchToRegister={() => setShowRegister(true)} onForgotPassword={setForgotEmail} />;
 }

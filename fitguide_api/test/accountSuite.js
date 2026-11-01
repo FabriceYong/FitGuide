@@ -1,13 +1,15 @@
 /**
- * Changing the password and deleting the account. Runs inside defineApiSuite.
+ * Changing and resetting the password, and deleting the account. Runs inside defineApiSuite.
  */
-const { describe, it, after } = require('node:test');
+const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const request = require('supertest');
 const { PROFILE } = require('@fitguide/shared');
 const billing = require('../services/billing');
+const mailer = require('../services/mailer');
+const passwordReset = require('../services/passwordReset');
 const { prisma } = require('../db/prisma');
 const { UPLOADS_ROOT } = require('../utils/storage');
 
@@ -22,6 +24,27 @@ async function uploadAvatar(agent) {
   await agent.put('/api/auth/profile').send({ avatarUrl: res.body.avatarUrl }).expect(200);
   return res.body.avatarUrl;
 }
+
+/**
+ * Collect sent emails instead of sending them. nextMail() resolves with the
+ * next one, since the forgot-password route answers before it sends.
+ */
+function captureMail() {
+  const inbox = [];
+  const waiting = [];
+  mailer.setTransport({
+    sendMail: async (message) => {
+      const resolve = waiting.shift();
+      if (resolve) resolve(message);
+      else inbox.push(message);
+    },
+  });
+  return {
+    nextMail: () => (inbox.length ? Promise.resolve(inbox.shift()) : new Promise((resolve) => { waiting.push(resolve); })),
+    count: () => inbox.length,
+  };
+}
+const tokenFrom = (mail) => new URL(mail.text.match(/https?:\/\/\S+/)[0]).searchParams.get('token');
 
 let unique = 0;
 const slug = (what) => `${what}-${Date.now()}-${(unique += 1)}`;
@@ -77,6 +100,88 @@ function defineAccountSuite(ctx) {
       assert.ok(res.body.token && res.body.refreshToken);
       await request(app).post('/api/auth/refresh').send({ refreshToken: login.body.refreshToken }).expect(401);
       await request(app).post('/api/auth/refresh').set('X-Auth-Transport', 'bearer').send({ refreshToken: res.body.refreshToken }).expect(200);
+    });
+  });
+
+  describe('forgot password', () => {
+    let mail;
+    before(() => { mail = captureMail(); });
+    after(() => mailer.setTransport(null));
+
+    it('answers the same for unknown emails and sends nothing', async () => {
+      const { app } = ctx();
+      const { creds } = await ctx().signUp('Reset Known');
+      const known = await request(app).post('/api/auth/forgot-password').send({ email: creds.email }).expect(200);
+      const unknown = await request(app).post('/api/auth/forgot-password').send({ email: `nobody-${slug('x')}@example.com` }).expect(200);
+      assert.equal(unknown.body.message, known.body.message);
+      await mail.nextMail();
+      await passwordReset.requestReset(`nobody-${slug('y')}@example.com`);
+      assert.equal(mail.count(), 0);
+      await request(app).post('/api/auth/forgot-password').send({ email: 'not-an-email' }).expect(400);
+    });
+
+    it('emails a one-time link that sets the password and signs out other devices', async () => {
+      const { app } = ctx();
+      const { agent, creds } = await ctx().signUp('Reset Me');
+      await request(app).post('/api/auth/forgot-password').send({ email: creds.email.toUpperCase() }).expect(200);
+      const message = await mail.nextMail();
+      assert.equal(message.to, creds.email);
+      assert.match(message.text, /^Hi Reset,/);
+      assert.ok(message.text.includes('http://localhost:3000/reset-password?token='));
+      const token = tokenFrom(message);
+
+      await request(app).post('/api/auth/reset-password').send({ token, password: 'x'.repeat(PROFILE.PASSWORD_MIN - 1) }).expect(400);
+      await request(app).post('/api/auth/reset-password').send({ token: 'made-up', password: NEW_PASSWORD }).expect(400);
+      const browser = request.agent(app);
+      const res = await browser.post('/api/auth/reset-password').send({ token, password: NEW_PASSWORD }).expect(200);
+      assert.equal(res.body.user.email, creds.email);
+      assert.ok(refreshValue(res), 'the browser is signed in');
+      await browser.get('/api/auth/me').expect(200);
+
+      const again = await request(app).post('/api/auth/reset-password').send({ token, password: 'yet-another-password' }).expect(400);
+      assert.equal(again.body.code, 'RESET_LINK_INVALID');
+      const old = await agent.post('/api/auth/refresh').expect(401);
+      assert.equal(old.body.code, 'SESSION_ENDED');
+      await request(app).post('/api/auth/login').send({ email: creds.email, password: creds.password }).expect(401);
+      await request(app).post('/api/auth/login').send({ email: creds.email, password: NEW_PASSWORD }).expect(200);
+    });
+
+    it('gives bearer clients their tokens', async () => {
+      const { app } = ctx();
+      const { creds } = await ctx().signUp('Reset Mobile');
+      await request(app).post('/api/auth/forgot-password').set('X-Auth-Transport', 'bearer').send({ email: creds.email }).expect(200);
+      const token = tokenFrom(await mail.nextMail());
+      const res = await request(app).post('/api/auth/reset-password').set('X-Auth-Transport', 'bearer').send({ token, password: NEW_PASSWORD }).expect(200);
+      assert.ok(res.body.token && res.body.refreshToken);
+    });
+
+    it('sends one link a minute, and a newer link replaces the old one', async () => {
+      const { app } = ctx();
+      const { user, creds } = await ctx().signUp('Reset Twice');
+      await passwordReset.requestReset(creds.email);
+      const first = tokenFrom(await mail.nextMail());
+      await passwordReset.requestReset(creds.email);
+      assert.equal(mail.count(), 0, 'no second email within a minute');
+
+      await prisma.passwordReset.updateMany({ where: { userId: user.id }, data: { createdAt: new Date(Date.now() - 2 * 60 * 1000) } });
+      await passwordReset.requestReset(creds.email);
+      const second = tokenFrom(await mail.nextMail());
+      await request(app).post('/api/auth/reset-password').send({ token: first, password: NEW_PASSWORD }).expect(400);
+      await request(app).post('/api/auth/reset-password').send({ token: second, password: NEW_PASSWORD }).expect(200);
+    });
+
+    it('refuses expired links and voids links when the password changes', async () => {
+      const { app } = ctx();
+      const { agent, user, creds } = await ctx().signUp('Reset Late');
+      await passwordReset.requestReset(creds.email);
+      const expired = tokenFrom(await mail.nextMail());
+      await prisma.passwordReset.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(Date.now() - 1000), createdAt: new Date(Date.now() - 2 * 60 * 1000) } });
+      await request(app).post('/api/auth/reset-password').send({ token: expired, password: NEW_PASSWORD }).expect(400);
+
+      await passwordReset.requestReset(creds.email);
+      const pending = tokenFrom(await mail.nextMail());
+      await agent.put('/api/auth/password').send({ currentPassword: creds.password, newPassword: NEW_PASSWORD }).expect(200);
+      await request(app).post('/api/auth/reset-password').send({ token: pending, password: 'someone-elses-choice' }).expect(400);
     });
   });
 

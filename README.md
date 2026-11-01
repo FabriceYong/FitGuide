@@ -139,6 +139,7 @@ The first run downloads a browser: `npx playwright install chromium`.
 | Admin CMS, coach applications and the coach studio (dashboard, workouts, programs, review) | `routes/admin.js`, `creator.js`, `coaches.js` | `/admin`, `/studio`, `/coaches/[id]` |
 | Articles by coaches and admins (written in the studio and the CMS, reviewed, shown on the home page), built-in guides, health news previews | `services/articles.js`, `routes/articles.js` | `/articles/[slug]`, home tab; app: `features/dashboard/article_screen.dart` |
 | Videos inside articles (uploaded MP4/WebM/MOV up to 100 MB, or a link to a video file; start muted as the reader scrolls to them, with a transcript) | `POST /api/creator/articles/video`, `utils/uploads.js` | `features/articles/ArticleVideo.tsx`; app: `features/dashboard/article_video.dart` |
+| Forgot password: a one-time link by email (expires in an hour, signs out every device) | `services/passwordReset.js`, `services/mailer.js` | `/reset-password`, "Forgot password?" on sign-in; app: `features/auth/forgot_password_screen.dart` (the link opens the website) |
 | PLUS subscriptions (Stripe) | `services/billing.js`, `routes/billing.js` | `/plus` |
 | Analytics (first-party, cookie-free) | `routes/events.js` | `lib/analytics.ts`, admin Analytics tab |
 | Offline player, install to home screen | | `public/sw.js`, `app/manifest.ts` |
@@ -150,6 +151,9 @@ Every setting is documented in `fitguide_api/.env.example` and
 `fitguide_nextjs/.env.example`. Optional services switch on when their
 keys are set, and show as unavailable otherwise:
 
+- **Email:** `SMTP_URL` and `MAIL_FROM`, for password reset links. Without
+  them the API prints each email to its console (development) or sends
+  nothing (production).
 - **AI coach:** `ANTHROPIC_API_KEY` (model `claude-opus-5-5` by default).
 - **Strava / Fitbit:** client id and secret per service; register
   `<API_PUBLIC_URL>/api/integrations/<service>/callback` with them.

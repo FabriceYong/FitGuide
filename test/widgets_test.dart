@@ -31,6 +31,23 @@ void main() {
     expect(switched, isTrue);
   });
 
+  testWidgets('forgot password carries the email over and confirms the request', (tester) async {
+    await pumpApp(tester, LoginScreen(onSwitchToRegister: () {}));
+    await tester.enterText(find.byType(TextField).first, 'demo@fitguide.com');
+    await tester.tap(find.text('Forgot password?'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Forgot your password?'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'demo@fitguide.com'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+    expect(tester.widget<InkWell>(find.widgetWithText(InkWell, 'Send reset link').last).onTap, isNull);
+
+    await tester.tap(find.text('Back to sign in').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Welcome back. Sign in to continue your training.'), findsOneWidget);
+  });
+
   testWidgets('sign-up walks through the steps and can continue as a guest', (tester) async {
     Json? finished;
     var wasRegistered = true;

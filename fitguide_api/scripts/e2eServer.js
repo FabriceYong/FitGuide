@@ -1,15 +1,30 @@
 /**
  * API for the web app's end-to-end tests: a throwaway embedded Postgres,
  * migrated and loaded with the catalog, then the API on E2E_API_PORT.
- * Never reads .env; everything it needs is set here.
+ * Never reads .env; everything it needs is set here. Emails aren't sent:
+ * GET http://127.0.0.1:<E2E_MAIL_PORT>/?to=<address> returns the latest one.
  */
 const fs = require('fs');
+const http = require('http');
 const os = require('os');
 const path = require('path');
 const { freePort, startEmbeddedPostgres, migrateDeploy } = require('../db/embedded');
 
 const API_PORT = Number(process.env.E2E_API_PORT) || 5055;
 const WEB_ORIGIN = process.env.E2E_WEB_ORIGIN || 'http://localhost:3055';
+const MAIL_PORT = Number(process.env.E2E_MAIL_PORT) || 5056;
+
+/** Keep emails in memory and serve the latest one per recipient. */
+function startMailbox() {
+  const sent = [];
+  require('../services/mailer').setTransport({ sendMail: async (message) => { sent.push(message); } });
+  http.createServer((req, res) => {
+    const to = new URL(req.url, 'http://mailbox').searchParams.get('to');
+    const mail = sent.filter((m) => m.to === to).at(-1);
+    res.writeHead(mail ? 200 : 404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(mail || null));
+  }).listen(MAIL_PORT, '127.0.0.1');
+}
 
 async function main() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fitguide-e2e-'));
@@ -31,6 +46,7 @@ async function main() {
   for (const key of ['STRIPE_SECRET_KEY', 'ANTHROPIC_API_KEY', 'STRAVA_CLIENT_ID', 'FITBIT_CLIENT_ID']) delete process.env[key];
 
   await require('../seed/catalog').seedCatalog();
+  startMailbox();
 
   const stop = async () => {
     await db.stop().catch(() => {});

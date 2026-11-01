@@ -12,7 +12,7 @@ const POINTS = [
     { icon: Sparkles, text: 'An AI coach that adjusts your plan as you go' },
 ];
 
-export const LoginPage = ({ onLoginSuccess, onSwitchToRegister }) => {
+export const LoginPage = ({ onLoginSuccess, onSwitchToRegister, onForgotPassword }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -94,6 +94,12 @@ export const LoginPage = ({ onLoginSuccess, onSwitchToRegister }) => {
                         </button>
                     </div>
                 </Field>
+
+                <div className="-mt-2 text-right text-sm">
+                    <button type="button" onClick={() => onForgotPassword(email)} disabled={isLoading} className={linkButton}>
+                        Forgot password?
+                    </button>
+                </div>
 
                 <button type="submit" disabled={isLoading || !email || !password} className={`${primaryButton} w-full`}>
                     {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Signing in…</> : 'Sign in'}

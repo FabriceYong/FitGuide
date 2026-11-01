@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { API, signUpAndSignIn } from './helpers';
+import { API, MAILBOX, newAccount, signUpAndSignIn } from './helpers';
 
 const openProfile = (page: Page) => page.getByRole('navigation', { name: 'Dashboard' }).first().getByRole('button', { name: 'Profile' }).click();
 const NEW_PASSWORD = 'e2e-new-password-456';
@@ -33,6 +33,48 @@ test('changing the password keeps you signed in', async ({ page }) => {
   const login = (password: string) => page.request.post(`${API}/auth/login`, { data: { email: account.email, password } });
   expect((await login(account.password)).status()).toBe(401);
   expect((await login(NEW_PASSWORD)).status()).toBe(200);
+});
+
+test('a forgotten password can be reset from the emailed link', async ({ page }) => {
+  const account = newAccount('Reset Tester');
+  expect((await page.request.post(`${API}/auth/register`, { data: account })).status()).toBe(201);
+  await page.context().clearCookies();
+  await page.goto('/');
+  await page.getByLabel('Email').fill(account.email);
+  await page.getByRole('button', { name: 'Forgot password?' }).click();
+
+  // The email typed on the sign-in page is carried over.
+  await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible();
+  await expect(page.getByLabel('Email')).toHaveValue(account.email);
+  await page.getByRole('button', { name: 'Send reset link' }).click();
+  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
+
+  let link = '';
+  await expect.poll(async () => {
+    const res = await page.request.get(`${MAILBOX}/?to=${encodeURIComponent(account.email)}`);
+    link = res.ok() ? (await res.json()).text.match(/https?:\/\/\S+/)?.[0] ?? '' : '';
+    return link;
+  }).toContain('/reset-password?token=');
+
+  await page.goto(link);
+  await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
+  const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+  await page.getByLabel('New password').fill(NEW_PASSWORD);
+  await page.getByRole('button', { name: 'Set new password' }).click();
+
+  // Signed straight in, and only the new password works.
+  await expect(page.getByRole('navigation', { name: 'Dashboard' }).first()).toBeVisible();
+  const login = (password: string) => page.request.post(`${API}/auth/login`, { data: { email: account.email, password } });
+  expect((await login(account.password)).status()).toBe(401);
+  expect((await login(NEW_PASSWORD)).status()).toBe(200);
+
+  // The link works once.
+  await page.goto(link);
+  await page.getByLabel('New password').fill('another-new-password');
+  await page.getByRole('button', { name: 'Set new password' }).click();
+  await expect(page.getByRole('heading', { name: 'This link has expired' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Send a new link' })).toHaveAttribute('href', '/?forgot=1');
 });
 
 test('deleting the account signs you out for good', async ({ page }) => {

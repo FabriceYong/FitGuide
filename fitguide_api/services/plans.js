@@ -178,4 +178,4 @@ async function swapDay(userId, { week, day, workoutSlug }, todayYmd) {
   return describeOne(userId, found.enrollment.id, todayYmd);
 }
 
-module.exports = { LIMITS, PlanError, options, current, create, activePersonal, proposeAdaptation, applySwaps, adapt, swapDay };
+module.exports = { LIMITS, PlanError, options, current, create, activePersonal, candidatesFor, catalog, proposeAdaptation, applySwaps, adapt, swapDay };

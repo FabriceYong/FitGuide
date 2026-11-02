@@ -9,6 +9,7 @@ const { createApp, createAppWith, useDatabase } = require('./helpers/setup');
 const { prisma } = require('../db/prisma');
 const { defineTrainingSuite } = require('./trainingSuite');
 const { definePlanCoachSuite } = require('./planCoachSuite');
+const { defineReadinessSuite } = require('./readinessSuite');
 const { defineNutritionSuite } = require('./nutritionSuite');
 const { defineMealSuite } = require('./mealSuite');
 const { defineAiSuite } = require('./aiSuite');
@@ -534,6 +535,7 @@ function defineApiSuite() {
     describe('training data', () => defineTrainingSuite(() => ({ app, signUp })));
 
     describe('plans and coach', () => definePlanCoachSuite(() => ({ app, signUp })));
+    describe('readiness', () => defineReadinessSuite(() => ({ app, signUp })));
 
     describe('nutrition', () => defineNutritionSuite(() => ({ app, signUp })));
     describe('reading meals', () => defineMealSuite(() => ({ app, signUp })));

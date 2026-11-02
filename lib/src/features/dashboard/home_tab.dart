@@ -24,9 +24,10 @@ import '../../widgets/workout_card.dart';
 import '../common/parq_modal.dart';
 import '../plan/plan_suggestion.dart';
 import 'article_screen.dart';
-import 'coach_notes.dart';
 import 'articles.dart';
+import 'coach_notes.dart';
 import 'hero_carousel.dart';
+import 'readiness_card.dart';
 import 'today_panel.dart';
 
 /// Days since 1970, used to rotate daily picks.
@@ -285,10 +286,15 @@ class _HomeTabState extends State<HomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: spaced([
-                // Coach notes and a plan suggestion, when there are any, sit above Today.
+                // Coach notes, readiness and a plan suggestion sit above Today.
                 if (auth.hasAccount)
                   Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     CoachNotes(key: ValueKey('notes-${auth.user!.id}'), bottomGap: 16),
+                    ReadinessCard(
+                      key: ValueKey('readiness-${auth.user!.id}'),
+                      onPlanChanged: () => context.read<DashboardController>().dataChanged(),
+                      bottomGap: 16,
+                    ),
                     if (enrollment != null)
                       PlanSuggestionCard(
                         key: ValueKey('suggestion-${enrollment.id}'),

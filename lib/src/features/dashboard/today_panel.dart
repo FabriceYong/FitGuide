@@ -10,6 +10,7 @@ import '../../models/catalog.dart';
 import '../../models/training.dart';
 import '../../navigation.dart';
 import '../../services/health_service.dart';
+import '../../services/home_widgets.dart';
 import '../../services/nutrition_service.dart';
 import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
@@ -49,6 +50,7 @@ class _TodayPanelState extends State<TodayPanel> {
     });
     try {
       final total = await addWater(ml);
+      syncHomeWidgets();
       if (mounted) setState(() => _water = total);
     } catch (_) {
       if (mounted) {

@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/units.dart';
 import '../../models/json.dart';
 import '../../navigation.dart';
+import '../../services/home_widgets.dart';
 import '../../services/reminders.dart';
 import '../../services/training_service.dart';
 import '../../state/auth_controller.dart';
@@ -92,7 +93,10 @@ class _SessionSummaryState extends State<SessionSummary> {
       setState(() => _saved = result);
       if (mounted) context.read<DashboardController>().dataChanged();
       // Trained today: today's reminders are no longer needed.
-      if (!result.queued) syncReminders();
+      if (!result.queued) {
+        syncReminders();
+        syncHomeWidgets();
+      }
       track('workout_completed', path: '/workouts/${widget.draft['workoutSlug']}/play', props: {'status': widget.status, 'queued': result.queued});
     } catch (err) {
       setState(() => _error = err is ApiError ? err.message : '$err');

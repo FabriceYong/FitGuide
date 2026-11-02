@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../services/home_widgets.dart';
 import '../../services/readiness_service.dart';
 import '../../widgets/progress_ring.dart';
 import '../../widgets/ui.dart';
@@ -56,6 +57,7 @@ class _ReadinessCardState extends State<ReadinessCard> {
     });
     try {
       final r = await checkInReadiness(energy, soreness);
+      syncHomeWidgets();
       if (mounted) {
         setState(() {
           _readiness = r;

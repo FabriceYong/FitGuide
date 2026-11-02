@@ -4,6 +4,7 @@ import '../core/api/api_client.dart';
 import '../core/storage.dart';
 import '../models/json.dart';
 import '../models/user.dart';
+import '../services/home_widgets.dart';
 import '../services/reminders.dart';
 
 /// The signed-in user, a guest, or nobody (contexts/AuthContext.js on the
@@ -88,6 +89,7 @@ class AuthController extends ChangeNotifier {
     _api.clearSession();
     // This phone stops showing the account's reminders.
     ReminderNotifications.clear();
+    HomeWidgets.clear();
     Storage.remove(_userKey);
     _user = null;
     notifyListeners();

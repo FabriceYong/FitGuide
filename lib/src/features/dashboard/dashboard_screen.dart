@@ -7,6 +7,7 @@ import '../../core/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../navigation.dart';
+import '../../services/home_widgets.dart';
 import '../../services/reminders.dart';
 import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
@@ -67,8 +68,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     final workouts = context.read<WorkoutsController>();
     if (workouts.workouts.isEmpty) workouts.load();
-    // Schedule the next two weeks of reminders on this phone.
-    if (context.read<AuthController>().hasAccount) syncReminders();
+    // Schedule the next two weeks of reminders on this phone, and fill in the home-screen widget.
+    if (context.read<AuthController>().hasAccount) {
+      syncReminders();
+      syncHomeWidgets();
+    }
   }
 
   Future<void> _confirmLogout() async {

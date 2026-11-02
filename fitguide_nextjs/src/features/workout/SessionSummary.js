@@ -26,7 +26,7 @@ const EFFORT_LABELS = { 1: 'Very easy', 3: 'Easy', 5: 'Moderate', 7: 'Hard', 9: 
  * @param {() => void} [props.onResume]                Go back to the workout (partial only)
  */
 export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, onDone, onResume }) {
-    const { hasAccount, user } = useAuth();
+    const { hasAccount, user, updateUser } = useAuth();
     const units = useUnits();
     const [minutes, setMinutes] = useState(Math.max(1, Math.round(draft.durationSec / 60)));
     const [effort, setEffort] = useState(null);
@@ -50,6 +50,8 @@ export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, on
                 clientId,
             }, user.id);
             setSaved(result);
+            // An invited member's first workout: PLUS for a week, for them and their friend.
+            if (result.inviteRewarded) updateUser({ plan: 'plus' });
             track('workout_completed', { status, queued: Boolean(result.queued) });
         } catch (err) {
             setError(err.message);
@@ -99,6 +101,11 @@ export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, on
                             {saved.queued && (
                                 <p className="text-sm text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
                                     You&apos;re offline. This session is saved on this device and will sync when you&apos;re back online.
+                                </p>
+                            )}
+                            {saved.inviteRewarded && (
+                                <p role="status" className="text-sm bg-lime-light/10 border border-lime-light/30 rounded-xl px-4 py-3">
+                                    🎁 Your first workout: you and the friend who invited you each get {saved.plusDays} days of FitGuide PLUS.
                                 </p>
                             )}
                             {saved.newRecords.length > 0 && (

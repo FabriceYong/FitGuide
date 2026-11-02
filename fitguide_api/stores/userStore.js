@@ -50,7 +50,9 @@ function toPublicUser(u) {
     ...Object.fromEntries(Object.entries(PROFILE_DEFAULTS).map(([k, def]) => [k, u[k] ?? def])),
     favoriteWorkouts: (u.favorites || []).map((f) => f.workoutSlug),
     role: u.role || 'user',
-    plan: u.plan || 'free',
+    // PLUS from a subscription, or for a while from invites.
+    plan: u.plan === 'plus' || (u.plusUntil && new Date(u.plusUntil) > new Date()) ? 'plus' : u.plan || 'free',
+    plusUntil: u.plusUntil || null,
     subscriptionStatus: u.subscriptionStatus || null,
     planRenewsAt: u.planRenewsAt || null,
     cancelAtPeriodEnd: Boolean(u.cancelAtPeriodEnd),

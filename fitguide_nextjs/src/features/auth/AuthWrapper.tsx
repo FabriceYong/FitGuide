@@ -8,6 +8,7 @@ import { OnboardingWizard } from '../onboarding/OnboardingWizard';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { useAuth, type AuthUser } from '../../contexts/AuthContext';
 import { track } from '../../lib/analytics';
+import { rememberInvite } from '../../lib/invite';
 
 /** Where to go after signing in: ?next=/path set by src/proxy.js (same-site paths only). */
 const nextPath = () => {
@@ -27,9 +28,11 @@ export const useStartSignUp = () => useContext(SignUpContext);
  */
 export function AuthWrapper({ children }: { children: ReactNode }) {
   const { ready, isAuthenticated, login: signIn, startGuestSession } = useAuth();
-  const [showRegister, setShowRegister] = useState(
-    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('signup'),
-  );
+  const [showRegister, setShowRegister] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    rememberInvite();
+    return new URLSearchParams(window.location.search).has('signup');
+  });
 
   // The email typed on the sign-in page, carried over; null while not showing. /?forgot=1 opens it.
   const [forgotEmail, setForgotEmail] = useState<string | null>(

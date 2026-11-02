@@ -18,6 +18,7 @@ import '../../widgets/ui.dart';
 import '../common/site_page.dart';
 import 'activity_feed.dart';
 import 'crews.dart';
+import 'invite_friends.dart';
 
 const _metricOptions = [
   ('minutes', 'Active minutes'),
@@ -171,6 +172,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ...withSidebar(context, [
             const ActivityFeed(),
             const Crews(),
+            const InviteFriends(),
             FgCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

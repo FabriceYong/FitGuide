@@ -13,6 +13,7 @@ const accounts = require('../services/accounts');
 const passwordReset = require('../services/passwordReset');
 const emailVerification = require('../services/emailVerification');
 const dataExport = require('../services/dataExport');
+const referrals = require('../services/referrals');
 const { isForeignOriginWrite } = require('../utils/config');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
@@ -90,6 +91,8 @@ router.post(
     body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
     body('email').trim().notEmpty().withMessage('Email is required').isEmail().withMessage('Please provide a valid email address').normalizeEmail(),
     body('password').isString().isLength({ min: PROFILE.PASSWORD_MIN }).withMessage(`Password must be at least ${PROFILE.PASSWORD_MIN} characters`),
+    // A friend's invite code (their friend code): optional, and an unknown one is ignored.
+    body('inviteCode').optional({ values: 'falsy' }).isString().isLength({ max: 20 }),
     ...profileRules,
   ],
   rejectInvalid,
@@ -99,6 +102,7 @@ router.post(
         return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
       }
       const user = await userStore.create(req.body);
+      await referrals.attach(user.id, req.body.inviteCode);
       await sendConfirmation(user);
       return res.status(201).json({
         success: true,

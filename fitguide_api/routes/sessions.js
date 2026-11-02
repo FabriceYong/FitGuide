@@ -6,6 +6,7 @@ const { checkProgramDay, markDayComplete, unmarkSession } = require('../services
 const { personalRecords, previousSets } = require('../services/progress');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { isPlus } = require('../services/billing');
+const referrals = require('../services/referrals');
 const { rejectInvalid, pick } = require('../utils/validate');
 const { isUniqueViolation } = require('../db/prisma');
 const { calorieFactor, heartRateCalories } = require('@fitguide/shared');
@@ -149,7 +150,10 @@ router.post('/', sessionRules, rejectInvalid, async (req, res, next) => {
     const newRecords = personalRecords(all, new Map(exercises.map((e) => [e.slug, e])))
       .filter((r) => r.sessionId === session.id);
 
-    res.status(201).json({ success: true, session, newRecords });
+    // An invited member's first workout gives them and their friend a week of PLUS.
+    const inviteRewarded = await referrals.rewardFirstWorkout(req.user.id);
+
+    res.status(201).json({ success: true, session, newRecords, ...(inviteRewarded && { inviteRewarded: true, plusDays: referrals.REWARD_DAYS }) });
   } catch (err) {
     next(err);
   }

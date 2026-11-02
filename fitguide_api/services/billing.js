@@ -61,6 +61,7 @@ async function status(user) {
     plan: user.plan || 'free',
     subscriptionStatus: user.subscriptionStatus || null,
     renewsAt: user.planRenewsAt || null,
+    plusUntil: user.plusUntil || null,
     cancelAtPeriodEnd: Boolean(user.cancelAtPeriodEnd),
     prices: await prices().catch((err) => {
       console.error('[billing] could not load prices:', err.message);
@@ -82,7 +83,8 @@ async function checkout(user, interval) {
   const price = priceIds()[interval];
   if (!isEnabled()) throw new BillingError('Subscriptions are not available on this server.', 503);
   if (!price) throw new BillingError('That billing period is not offered.');
-  if (isPlus(user)) throw new BillingError('You already have PLUS. Manage it from your billing settings.', 409);
+  // PLUS from invites alone doesn't stop subscribing.
+  if (isPlus(user) && ACTIVE_STATUSES.has(user.subscriptionStatus)) throw new BillingError('You already have PLUS. Manage it from your billing settings.', 409);
   const session = await getStripe().checkout.sessions.create({
     mode: 'subscription',
     customer: await customerFor(user),

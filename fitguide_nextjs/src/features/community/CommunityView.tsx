@@ -15,6 +15,7 @@ import { track } from '../../lib/analytics';
 import { useUnits, weightIn, weightUnit } from '../../lib/units';
 import { ActivityFeed } from './ActivityFeed';
 import { Crews } from './Crews';
+import { InviteFriends } from './InviteFriends';
 
 const METRIC_OPTIONS: { value: Metric; label: string }[] = [
   { value: 'minutes', label: 'Active minutes' },
@@ -156,6 +157,8 @@ export function CommunityView() {
           <ActivityFeed />
 
           <Crews />
+
+          <InviteFriends />
 
           <section className={`${card} space-y-4`} aria-labelledby="challenges-heading">
             <div className="flex flex-wrap items-center justify-between gap-3">

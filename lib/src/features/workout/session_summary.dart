@@ -92,6 +92,8 @@ class _SessionSummaryState extends State<SessionSummary> {
       }, user.id);
       setState(() => _saved = result);
       if (mounted) context.read<DashboardController>().dataChanged();
+      // An invited member's first workout: PLUS for a week, for them and their friend.
+      if (result.plusDays != null && mounted) context.read<AuthController>().refreshProfile();
       // Trained today: today's reminders are no longer needed.
       if (!result.queued) {
         syncReminders();
@@ -221,6 +223,10 @@ class _SessionSummaryState extends State<SessionSummary> {
                         ),
                         child: Text('You\'re offline. This session is saved on this device and will sync when you\'re back online.', style: fg(size: 14, color: AppColors.amber200)),
                       ),
+                    ],
+                    if (saved.plusDays != null) ...[
+                      const SizedBox(height: 16),
+                      StatusBox('🎁 Your first workout: you and the friend who invited you each get ${saved.plusDays} days of FitGuide PLUS.'),
                     ],
                     if (saved.newRecords.isNotEmpty) ...[
                       const SizedBox(height: 16),

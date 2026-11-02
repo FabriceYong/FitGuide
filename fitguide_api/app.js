@@ -38,6 +38,7 @@ const myWorkoutsRoutes = require('./routes/myWorkouts');
 const progressPhotosRoutes = require('./routes/progressPhotos');
 const readinessRoutes = require('./routes/readiness');
 const crewsRoutes = require('./routes/crews');
+const referralsRoutes = require('./routes/referrals');
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -164,6 +165,7 @@ function createApp() {
   app.use('/api/progress-photos', progressPhotosRoutes);
   app.use('/api/readiness', readinessRoutes);
   app.use('/api/crews', crewsRoutes);
+  app.use('/api/referrals', referralsRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

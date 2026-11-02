@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Loader2, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 import { apiRequest } from '../../../lib/api';
+import { pendingInvite } from '../../../lib/invite';
 import { heightText, weightText } from '../../../lib/units';
 import { Field, StepHeading, inputClass, primaryButton, secondaryButton } from '../ui';
 
@@ -16,6 +17,7 @@ export const ProfileStep = ({ onboardingData, onComplete, onBack }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [invited] = useState(() => Boolean(pendingInvite()));
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -43,6 +45,7 @@ export const ProfileStep = ({ onboardingData, onComplete, onBack }) => {
                     limitations: onboardingData.limitations || [],
                     workoutMinutes: onboardingData.workoutMinutes ?? null,
                     daysPerWeek: onboardingData.daysPerWeek ?? null,
+                    inviteCode: pendingInvite() || undefined,
                 },
             });
 
@@ -80,6 +83,12 @@ export const ProfileStep = ({ onboardingData, onComplete, onBack }) => {
                     </React.Fragment>
                 ))}
             </dl>
+
+            {invited && (
+                <p className="rounded-xl border border-lime-light/30 bg-lime-light/10 p-3.5 mb-6 text-sm">
+                    A friend invited you. Once you finish your first workout, you both get a week of FitGuide PLUS.
+                </p>
+            )}
 
             {error && (
                 <div role="alert" className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-lg p-3.5 mb-6">

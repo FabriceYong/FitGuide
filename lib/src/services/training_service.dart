@@ -49,10 +49,14 @@ Future<void> _writeQueue(List<Json> items) => items.isEmpty ? Storage.remove(_qu
 Future<Json> _postSession(Json session) => _api.request('/sessions', method: 'POST', auth: true, body: session);
 
 class LoggedSession {
-  LoggedSession(this.session, this.newRecords, {this.queued = false});
+  LoggedSession(this.session, this.newRecords, {this.queued = false, this.plusDays});
   final Json session;
   final List<PersonalRecord> newRecords;
   final bool queued;
+
+  /// Set when this was an invited member's first workout: days of PLUS
+  /// they and their friend each got.
+  final int? plusDays;
 }
 
 /// Save a finished session for the signed-in user. Offline (status 0), it's
@@ -61,7 +65,11 @@ Future<LoggedSession> logSession(Json session, String userId) async {
   final body = {...session, 'clientId': session['clientId'] ?? newClientId()};
   try {
     final data = await _postSession(body);
-    return LoggedSession(asJson(data['session']), asJsonList(data['newRecords']).map(PersonalRecord.new).toList());
+    return LoggedSession(
+      asJson(data['session']),
+      asJsonList(data['newRecords']).map(PersonalRecord.new).toList(),
+      plusDays: asBool(data['inviteRewarded']) ? asInt(data['plusDays']) : null,
+    );
   } catch (err) {
     if (err is! ApiError || err.status != 0) rethrow;
     await _writeQueue([..._readQueue(), {'userId': userId, 'session': body}]);

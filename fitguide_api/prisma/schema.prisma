@@ -58,6 +58,11 @@ model User {
   subscriptionStatus String?
   planRenewsAt       DateTime?
   cancelAtPeriodEnd  Boolean   @default(false)
+  // PLUS from invites (services/referrals.js), as well as or instead of a subscription.
+  plusUntil          DateTime?
+  // Who invited this member, and when the invite was rewarded (their first workout).
+  referredById       String?
+  referralRewardedAt DateTime?
   avatarUrl          String?
   // Reminders (services/reminders.js): weekdays (0 = Sunday … 6 = Saturday)
   // and a local "HH:MM" for workouts, plus an evening nudge for the streak.
@@ -109,6 +114,8 @@ model User {
   coachNotesReceived     CoachNote[]            @relation("CoachNoteTo")
   cheersGiven            Cheer[]
   readinessChecks        ReadinessCheck[]
+  referredBy             User?                  @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals              User[]                 @relation("Referrals")
   crewsCreated           Crew[]
   crewMemberships        CrewMember[]
   crewMessages           CrewMessage[]

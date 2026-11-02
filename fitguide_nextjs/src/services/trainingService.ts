@@ -170,7 +170,7 @@ const postSession = (session: NewSession) => apiRequest('/sessions', { method: '
 export async function logSession(
   session: NewSession,
   userId: string,
-): Promise<{ session: Record<string, unknown>; newRecords: PersonalRecord[]; queued?: boolean }> {
+): Promise<{ session: Record<string, unknown>; newRecords: PersonalRecord[]; queued?: boolean; inviteRewarded?: boolean; plusDays?: number }> {
   const body = { ...session, clientId: session.clientId || newClientId() };
   try {
     return await postSession(body);

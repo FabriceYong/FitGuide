@@ -28,6 +28,8 @@ class _ProfileStepState extends State<ProfileStep> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  // A friend's invite code (their friend code), optional.
+  final _invite = TextEditingController();
   bool _loading = false;
   String? _error;
 
@@ -36,6 +38,7 @@ class _ProfileStepState extends State<ProfileStep> {
     _name.dispose();
     _email.dispose();
     _password.dispose();
+    _invite.dispose();
     super.dispose();
   }
 
@@ -68,6 +71,7 @@ class _ProfileStepState extends State<ProfileStep> {
         'limitations': d['limitations'] ?? <String>[],
         'workoutMinutes': d['workoutMinutes'],
         'daysPerWeek': d['daysPerWeek'],
+        if (_invite.text.trim().isNotEmpty) 'inviteCode': _invite.text.trim().toUpperCase(),
       });
       // No session yet: the account works once its email is confirmed.
       widget.onComplete({'email': asString(data['email']) ?? _email.text.trim(), 'password': _password.text});
@@ -135,7 +139,13 @@ class _ProfileStepState extends State<ProfileStep> {
           FormFieldLabel(
             label: 'Password',
             hint: 'At least 6 characters.',
-            child: PasswordField(controller: _password, newPassword: true, enabled: !_loading, textInputAction: TextInputAction.done, onSubmitted: (_) => _submit()),
+            child: PasswordField(controller: _password, newPassword: true, enabled: !_loading, textInputAction: TextInputAction.next),
+          ),
+          const SizedBox(height: 20),
+          FormFieldLabel(
+            label: 'Invite code (optional)',
+            hint: 'From a friend’s invite: once you finish your first workout, you both get a week of PLUS.',
+            child: FgTextField(controller: _invite, maxLength: 20, enabled: !_loading, textInputAction: TextInputAction.done, onSubmitted: (_) => _submit(), semanticLabel: 'Invite code'),
           ),
           const SizedBox(height: 32),
           Container(

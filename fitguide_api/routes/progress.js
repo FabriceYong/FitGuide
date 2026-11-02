@@ -9,6 +9,7 @@ const { prisma } = require('../db/prisma');
 const healthData = require('../services/healthData');
 const starter = require('../services/starter');
 const { strengthLevels } = require('../services/strength');
+const recaps = require('../services/recap');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -54,6 +55,41 @@ router.get('/summary', async (req, res, next) => {
     const bodyweightKg = summary.body.latestWeight?.weightKg || req.user.weight;
     const strength = { bodyweightKg, levels: strengthLevels(sessions, bodyweightKg, req.user.gender) };
     res.json({ success: true, summary: { ...summary, health, strength }, recentSessions: sessions.slice(0, 10), recentActivities });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /api/progress/recap?month=YYYY-MM | year=YYYY&tzOffset= ──────────────
+// A month's (default: last month's) or a year's training in a few numbers.
+router.get('/recap', async (req, res, next) => {
+  try {
+    const tzOffset = tzOffsetFrom(req);
+    const todayYmd = today(tzOffset);
+    const { month, year } = req.query;
+    if (month !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(String(month))) return res.status(400).json({ success: false, message: 'month must be YYYY-MM' });
+    if (year !== undefined && !/^\d{4}$/.test(String(year))) return res.status(400).json({ success: false, message: 'year must be YYYY' });
+    const which = year !== undefined ? { year: Number(year) } : { month: String(month ?? recaps.lastMonth(todayYmd)) };
+    res.json({ success: true, recap: await recaps.recap(req.user.id, which, tzOffset, todayYmd) });
+  } catch (err) {
+    if (err instanceof recaps.RecapError) return res.status(err.status).json({ success: false, message: err.message });
+    next(err);
+  }
+});
+
+// ─── GET /api/progress/recap/offers?tzOffset= ─────────────────────────────────
+// Recaps to offer on the home page: last month's in a month's first week,
+// and last year's in January's first two weeks, when anything was logged.
+router.get('/recap/offers', async (req, res, next) => {
+  try {
+    const tzOffset = tzOffsetFrom(req);
+    const todayYmd = today(tzOffset);
+    const day = Number(todayYmd.slice(8));
+    const which = [];
+    if (day <= 7) which.push({ month: recaps.lastMonth(todayYmd) });
+    if (todayYmd.slice(5, 7) === '01' && day <= 14) which.push({ year: Number(todayYmd.slice(0, 4)) - 1 });
+    const found = await Promise.all(which.map((w) => recaps.recap(req.user.id, w, tzOffset, todayYmd)));
+    res.json({ success: true, offers: found.filter((r) => r.workouts > 0).map(({ kind, key, label, workouts }) => ({ kind, key, label, workouts })) });
   } catch (err) {
     next(err);
   }

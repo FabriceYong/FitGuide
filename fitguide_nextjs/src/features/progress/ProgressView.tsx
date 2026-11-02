@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import Link from 'next/link';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
-  Activity, AlertTriangle, Award, CalendarDays, Camera, PersonStanding, Clock, Dumbbell, Flame, Loader2, Lock, Play, Ruler, Scale, Trash2, TrendingDown, TrendingUp, Trophy, Zap, type LucideIcon,
+  Activity, AlertTriangle, Award, CalendarDays, Camera, PersonStanding, Clock, Dumbbell, Flame, Loader2, Lock, Play, Ruler, Scale, Trash2, TrendingDown, TrendingUp, Trophy, Zap, type LucideIcon, Film,
 } from 'lucide-react';
 import type { MeasurementField } from '@fitguide/shared';
 import { useAuth, type AuthUser } from '../../contexts/AuthContext';
@@ -20,6 +20,7 @@ import { formatDateTime, formatDay, formatRecord, scheduleHref } from './format'
 import { MusclesThisWeek } from './MusclesThisWeek';
 import { WeekStreak } from './WeekStreak';
 import { StrengthLevels } from './StrengthLevels';
+import { RecapPicker } from './RecapEntry';
 import { ProgressPhotos } from './ProgressPhotos';
 import { measureFrom, measureText, measureUnit, useUnits, weightIn, weightText, weightUnit } from '../../lib/units';
 
@@ -115,6 +116,8 @@ export function ProgressView() {
       <ActivityCalendar days={summary.days} />
 
       {summary.weekStreak && <Panel title="Week streak" icon={Zap}><WeekStreak streak={summary.weekStreak} /></Panel>}
+
+      <Panel title="Recaps" icon={Film}><RecapPicker /></Panel>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
         <Panel title="Muscles this week" icon={PersonStanding}><MusclesThisWeek counts={summary.muscles?.regions || {}} week={summary.thisWeek} /></Panel>

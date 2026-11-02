@@ -15,6 +15,8 @@ const INK = '#0A0C10';
 const FONT = '"Inter", "Segoe UI", system-ui, sans-serif';
 
 export interface WorkoutCard {
+  /** Above the title; "WORKOUT COMPLETE" by default. */
+  label?: string;
   title: string;
   /** Shown under the title, e.g. "Mon 2 Nov". */
   date: string;
@@ -103,12 +105,12 @@ function footer(ctx: CanvasRenderingContext2D) {
 
 const toBlob = (c: HTMLCanvasElement) => new Promise<Blob>((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not make the picture.'))), 'image/png'));
 
-/** A finished workout: its title, numbers and any personal records. */
+/** A finished workout (or a recap): its title, numbers and any personal records. */
 export function drawWorkoutCard(card: WorkoutCard): Promise<Blob> {
   const { c, ctx } = canvas();
   ctx.fillStyle = LIME;
   ctx.font = `700 34px ${FONT}`;
-  ctx.fillText('WORKOUT COMPLETE', 80, 250);
+  ctx.fillText(card.label ?? 'WORKOUT COMPLETE', 80, 250);
   const bottom = title(ctx, card.title, 350);
   ctx.fillStyle = 'rgba(255,255,255,0.65)';
   ctx.font = `500 34px ${FONT}`;

@@ -12,6 +12,7 @@ const { definePlanCoachSuite } = require('./planCoachSuite');
 const { defineReadinessSuite } = require('./readinessSuite');
 const { defineCrewSuite } = require('./crewSuite');
 const { defineStarterSuite } = require('./starterSuite');
+const { defineRecapSuite } = require('./recapSuite');
 const { defineNutritionSuite } = require('./nutritionSuite');
 const { defineMealSuite } = require('./mealSuite');
 const { defineAiSuite } = require('./aiSuite');
@@ -548,6 +549,7 @@ function defineApiSuite() {
     describe('community', () => defineSocialSuite(() => ({ app, signUp })));
     describe('crews', () => defineCrewSuite(() => ({ app, signUp })));
     describe('starter journey', () => defineStarterSuite(() => ({ app, signUp })));
+    describe('recap', () => defineRecapSuite(() => ({ app, signUp })));
 
     describe('admin and creators', () => defineAdminSuite(() => ({ app, signUp })));
     describe('coaches', () => defineCoachSuite(() => ({ app, signUp })));

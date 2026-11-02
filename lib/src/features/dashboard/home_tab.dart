@@ -23,6 +23,7 @@ import '../../widgets/ui.dart';
 import '../../widgets/workout_card.dart';
 import '../common/parq_modal.dart';
 import '../plan/plan_suggestion.dart';
+import '../progress/recap_story.dart';
 import 'article_screen.dart';
 import 'articles.dart';
 import 'coach_notes.dart';
@@ -291,6 +292,7 @@ class _HomeTabState extends State<HomeTab> {
                 if (auth.hasAccount)
                   Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     StarterJourney(key: ValueKey('starter-${auth.user!.id}'), bottomGap: 16),
+                    RecapOffers(key: ValueKey('recaps-${auth.user!.id}'), bottomGap: 16),
                     CoachNotes(key: ValueKey('notes-${auth.user!.id}'), bottomGap: 16),
                     ReadinessCard(
                       key: ValueKey('readiness-${auth.user!.id}'),

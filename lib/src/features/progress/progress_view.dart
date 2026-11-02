@@ -16,6 +16,7 @@ import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
 import '../../widgets/body_map.dart';
 import 'progress_photos.dart';
+import 'recap_story.dart';
 import '../../widgets/charts.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/modal.dart';
@@ -160,6 +161,7 @@ class _ProgressViewState extends State<ProgressView> {
             ), _ProgramPanel(enrollment: summary.activeEnrollment)),
         if (summary.days.isNotEmpty) _ActivityCalendar(days: summary.days),
         _WeekStreak(streak: summary.weekStreak),
+        const Panel(title: 'Recaps', icon: LucideIcons.film, child: RecapPicker()),
         if (summary.achievements.isNotEmpty)
           ...pairs(context, _MusclesThisWeek(counts: summary.muscleRegions, sessions: summary.week('sessions'), minutes: summary.week('minutes')), _Achievements(badges: summary.achievements))
         else

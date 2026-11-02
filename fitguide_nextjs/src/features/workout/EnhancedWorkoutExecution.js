@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { calorieFactor } from '@fitguide/shared';
 import { repExerciseFor } from '@fitguide/shared/repCounter';
+import { setPraise, stepCoaching } from '@fitguide/shared/voiceCoach';
 import { useAuth } from '../../contexts/AuthContext';
 import { kgFrom, useUnits, weightIn, weightUnit, weightUnitName } from '../../lib/units';
 import { SessionSummary } from './SessionSummary';
@@ -136,6 +137,8 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
   const startedAtRef = useRef(new Date().toISOString());
   const stepSecondsRef = useRef({}); // active seconds spent on each step
   const announced = useRef(-1);
+  // Praise for the step just finished, said with the next announcement.
+  const praise = useRef(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   const totalSteps = steps.length;
@@ -150,6 +153,15 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
   const color = tintColor;
 
   const cue = useCallback((text) => { if (soundEnabled) say(text); }, [soundEnabled]);
+
+  /** A step's logged set in kg, as the voice coach compares it with last time. */
+  const loggedSet = useCallback((idx) => {
+    const input = setInputs[idx] || {};
+    const reps = parseInt(input.reps, 10);
+    const weight = parseFloat(input.weightKg);
+    return { reps: Number.isFinite(reps) ? reps : undefined, weightKg: Number.isFinite(weight) ? kgFrom(weight, units) : undefined };
+  }, [setInputs, units]);
+  const praiseFor = useCallback((idx) => setPraise({ logged: loggedSet(idx), last: previous[idx]?.last, units }), [loggedSet, previous, units]);
 
   // The swap shows for accounts when the server has AI set up.
   useEffect(() => {
@@ -200,24 +212,29 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
   const completeStep = useCallback(() => {
     setCompletedSteps((prev) => new Set(prev).add(currentStepIndex));
     if (currentStepIndex >= totalSteps - 1) { handleWorkoutComplete(); return; }
+    praise.current = praiseFor(currentStepIndex);
     const rest = currentStep?.restAfter === false ? 0 : readRests()[workout?.slug] || workout?.restPeriod || (weights && repTarget(currentStep) ? LIFT_REST_SEC : 0);
     if (rest > 0) {
       setIsResting(true);
       setRestTotal(rest);
       setTimeRemaining(rest);
       setIsPlaying(true);
-      cue(`Rest. Next up: ${stepName(steps[currentStepIndex + 1])}`);
+      cue([praise.current, `Rest. Next up: ${stepName(steps[currentStepIndex + 1])}`].filter(Boolean).join(' '));
+      praise.current = null;
     } else {
       goToStep(currentStepIndex + 1);
     }
-  }, [currentStepIndex, currentStep, totalSteps, workout, weights, steps, cue, goToStep, handleWorkoutComplete]);
+  }, [currentStepIndex, currentStep, totalSteps, workout, weights, steps, cue, goToStep, handleWorkoutComplete, praiseFor]);
 
   // Announce each step as it starts.
   useEffect(() => {
     if (!isPlaying || isResting || announced.current === currentStepIndex) return;
     announced.current = currentStepIndex;
-    cue(`${stepName(currentStep)}. ${spokenTarget(currentStep)}`);
-  }, [isPlaying, isResting, currentStepIndex, currentStep, cue]);
+    const prev = previous[currentStepIndex];
+    const coaching = stepCoaching({ index: currentStepIndex, total: totalSteps, last: prev?.last, suggestion: prev?.suggestion, units });
+    cue([praise.current, `${stepName(currentStep)}. ${spokenTarget(currentStep)}`, coaching].filter(Boolean).join(' '));
+    praise.current = null;
+  }, [isPlaying, isResting, currentStepIndex, currentStep, cue, previous, totalSteps, units]);
 
   // The clock: counts down a timed step or a rest, counts up a step in reps.
   // At zero, a rest leads to the next step and a step to its rest (or the next one).
@@ -245,6 +262,7 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
   const handleNextStep = () => {
     if (currentStepIndex >= totalSteps - 1) return;
     setCompletedSteps((prev) => new Set(prev).add(currentStepIndex));
+    praise.current = praiseFor(currentStepIndex);
     goToStep(currentStepIndex + 1);
   };
 

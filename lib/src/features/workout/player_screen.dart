@@ -16,6 +16,7 @@ import '../../core/shared/tailoring.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/units.dart';
+import '../../core/voice_coach.dart';
 import '../../models/catalog.dart';
 import '../../models/json.dart';
 import '../../navigation.dart';
@@ -239,11 +240,36 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
     if (_sound) Speech.say(text);
   }
 
+  // Praise for the step just finished, said with the next announcement.
+  String? _praise;
+
+  /// The current step's logged set beside last time's (the voice coach's praise).
+  String? _praiseNow() {
+    final last = _previousAt(_current)?.last;
+    final weight = double.tryParse(_weight.text.replaceAll(',', '.'));
+    return setPraise(
+      logged: (reps: int.tryParse(_reps.text), weightKg: weight == null ? null : kgFrom(weight, _units)),
+      last: last == null ? null : (reps: last.reps, weightKg: last.weightKg),
+      units: _units,
+    );
+  }
+
   /// Say a step's name and target the first time it plays.
   void _announce() {
     if (!_playing || _resting || _announced == _current) return;
     _announced = _current;
-    _say('${stepName(_step)}. ${spokenTarget(_step)}');
+    final prev = _previousAt(_current);
+    final last = prev?.last;
+    final suggestion = prev?.suggestion;
+    final coaching = stepCoaching(
+      index: _current,
+      total: _total,
+      last: last == null ? null : (reps: last.reps, weightKg: last.weightKg),
+      suggestion: suggestion == null ? null : (reps: suggestion.reps, weightKg: suggestion.weightKg),
+      units: _units,
+    );
+    _say([?_praise, '${stepName(_step)}. ${spokenTarget(_step)}', if (coaching.isNotEmpty) coaching].join(' '));
+    _praise = null;
   }
 
   /// Show a step: reset its timer and its logged reps/weight. Paused, unless
@@ -429,6 +455,7 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
       _workoutComplete();
       return;
     }
+    _praise = _praiseNow();
     final workoutRest = widget.workout.restPeriod ?? 0;
     final rest = !_step.restAfter ? 0 : _savedRest(widget.workout.slug) ?? (workoutRest > 0 ? workoutRest : (_weights && repTarget(_step) != null ? _liftRestSec : 0));
     if (rest > 0) {
@@ -451,7 +478,8 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
       _setPlaying(true);
     }
     _beep();
-    _say('Rest. Next up: ${stepName(_next)}');
+    _say([?_praise, 'Rest. Next up: ${stepName(_next)}'].join(' '));
+    _praise = null;
   }
 
   /// Change the rest length by [delta] seconds, now and for this workout's later rests.
@@ -482,6 +510,7 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
     if (_current == _total - 1) {
       _workoutComplete();
     } else {
+      _praise = _praiseNow();
       _goTo(_current + 1);
     }
   }

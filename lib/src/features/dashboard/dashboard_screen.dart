@@ -48,7 +48,7 @@ const _tabs = [
 ];
 
 // Pages outside the dashboard (the dashboard's own tabs cover workouts, programs and progress).
-const _siteLinks = [('/plan', 'nav.plan'), ('/nutrition', 'nav.nutrition'), ('/community', 'nav.community'), ('/plus', 'nav.plus')];
+const _siteLinks = [('/plan', 'nav.plan'), ('/nutrition', 'nav.nutrition'), ('/community', 'nav.community'), ('/gyms', 'nav.gyms'), ('/plus', 'nav.plus')];
 
 /// The signed-in home: a tabbed dashboard linked to the rest of FitGuide
 /// (components/Dashboard.tsx, in its phone layout).

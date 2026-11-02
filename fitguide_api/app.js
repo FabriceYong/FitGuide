@@ -39,6 +39,7 @@ const progressPhotosRoutes = require('./routes/progressPhotos');
 const readinessRoutes = require('./routes/readiness');
 const crewsRoutes = require('./routes/crews');
 const referralsRoutes = require('./routes/referrals');
+const gymsRoutes = require('./routes/gyms');
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
@@ -126,6 +127,12 @@ function createApp() {
     intFromEnv('REGISTER_RATE_LIMIT_MAX', 10),
     'Too many accounts created from this network. Please try again later.',
   ));
+  // The gym map calls a shared free service (OpenStreetMap data via Photon).
+  app.use('/api/gyms', limiter(
+    FIFTEEN_MINUTES,
+    intFromEnv('GYMS_RATE_LIMIT_MAX', 100),
+    'Too many gym searches. Please wait a few minutes and try again.',
+  ));
   app.use('/api', limiter(
     FIFTEEN_MINUTES,
     intFromEnv('API_RATE_LIMIT_MAX', 1000),
@@ -166,6 +173,7 @@ function createApp() {
   app.use('/api/readiness', readinessRoutes);
   app.use('/api/crews', crewsRoutes);
   app.use('/api/referrals', referralsRoutes);
+  app.use('/api/gyms', gymsRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

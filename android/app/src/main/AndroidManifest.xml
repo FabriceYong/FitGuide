@@ -3,6 +3,9 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Reminders scheduled on the phone come back after a restart. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- "Find a gym near you": the map starts from where the phone is. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <!-- Read-only Health Connect access: what the phone, watch and cuff
          recorded, uploaded so the website shows the same numbers. -->
     <uses-permission android:name="android.permission.health.READ_STEPS"/>

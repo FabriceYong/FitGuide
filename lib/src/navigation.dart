@@ -7,6 +7,7 @@ import 'features/coaches/coach_screen.dart';
 import 'features/dashboard/article_screen.dart';
 import 'features/community/community_screen.dart';
 import 'features/community/crew_screen.dart';
+import 'features/gyms/gym_screen.dart';
 import 'features/nutrition/nutrition_screen.dart';
 import 'features/plan/plan_screen.dart';
 import 'features/plus/plus_screen.dart';
@@ -117,6 +118,8 @@ void openHref(BuildContext context, String href) {
       return push(const PlanScreen());
     case '/nutrition':
       return push(const NutritionScreen());
+    case '/gyms':
+      return push(const GymScreen());
     case '/community':
       return push(const CommunityScreen());
     case '/plus':

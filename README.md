@@ -2,7 +2,7 @@
 
 FitGuide is a fitness app: guided workouts, multi-week programs, personal
 plans with an AI coach, nutrition tracking, progress and wearable data,
-friends and challenges, and a PLUS subscription.
+friends and challenges, a map of gyms near you, and a PLUS subscription.
 
 | Folder | What it is |
 |---|---|
@@ -50,6 +50,13 @@ Ports and the Unsplash key are set in a `.env` file next to
 Stripe, wearables) go in `fitguide_api/.env`, which the API container also
 reads. The images run the production builds; for hot reload while you edit,
 use the local setup below.
+
+The gym map (/gyms on the website, "Find a gym near you" in the app) needs no
+key: gyms and place search come from OpenStreetMap through Photon, proxied and
+cached by the API, and the map uses the standard OpenStreetMap tiles. Both are
+free shared services meant for light use; for real traffic point `PHOTON_URL`
+(API) at your own Photon server and the tiles at a tile provider with
+`NEXT_PUBLIC_MAP_TILES_URL` (website) and `--dart-define=MAP_TILES_URL=...` (app).
 
 ## Quick start (local, without Docker)
 

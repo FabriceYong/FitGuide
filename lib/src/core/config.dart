@@ -24,6 +24,10 @@ class AppConfig {
     return url.replaceAll(RegExp(r'/+$'), '');
   }
 
+  /// Map tiles for the gym finder: standard OpenStreetMap ones unless
+  /// MAP_TILES_URL names another provider (OSM asks heavy users to bring their own).
+  static const mapTilesUrl = String.fromEnvironment('MAP_TILES_URL', defaultValue: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+
   static String _localHost() {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2';
     return 'http://localhost';

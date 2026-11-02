@@ -29,7 +29,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a photo of a meal to log it, a profile photo, or progress photos for a review.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Take a photo of a meal or scan a food's barcode to log it, or take a profile photo or progress photos for a review.</string>
+	<string>Take a photo of a meal or scan a food's barcode to log it, count squats and push-ups during a workout (the video stays on your phone), or take a profile photo or progress photos.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>https</string>

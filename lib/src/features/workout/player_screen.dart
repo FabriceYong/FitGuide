@@ -10,6 +10,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../core/analytics.dart';
 import '../../core/format.dart';
 import '../../core/images.dart';
+import '../../core/rep_counter.dart';
 import '../../core/storage.dart';
 import '../../core/shared/tailoring.dart';
 import '../../core/theme/app_colors.dart';
@@ -31,6 +32,7 @@ import '../../services/timer_notifications.dart';
 import '../plus/plus_gate.dart';
 import 'exercise_demo_view.dart';
 import 'exercise_demos.dart';
+import 'rep_camera.dart';
 import 'session_summary.dart';
 import 'swap_sheet.dart';
 import 'workout_steps.dart';
@@ -269,6 +271,14 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
       setState(apply);
     }
     if (resume) _setPlaying(true);
+  }
+
+  /// Count this step's reps with the camera, and put the count in the log.
+  Future<void> _countWithCamera(String exercise) async {
+    final count = await countRepsWithCamera(context, exercise);
+    if (count == null || !mounted) return;
+    setState(() => _reps.text = '$count');
+    _saveInputs();
   }
 
   void _saveInputs() {
@@ -1013,6 +1023,19 @@ class _PlayerState extends State<WorkoutPlayer> with WidgetsBindingObserver {
                 ],
               ],
             ),
+            if (repCameraSupported && repExerciseFor(stepName(_step)) != null) ...[
+              const SizedBox(height: 8),
+              FgButton(
+                label: 'Count reps with the camera',
+                icon: LucideIcons.camera,
+                style: FgButtonStyle.ghost,
+                height: 38,
+                radius: 8,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                onPressed: () => _countWithCamera(repExerciseFor(stepName(_step))!),
+              ),
+            ],
           ],
         ),
       ),

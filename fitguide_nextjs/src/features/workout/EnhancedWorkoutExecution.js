@@ -9,16 +9,18 @@
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { calorieFactor } from '@fitguide/shared';
+import { repExerciseFor } from '@fitguide/shared/repCounter';
 import { useAuth } from '../../contexts/AuthContext';
 import { kgFrom, useUnits, weightIn, weightUnit, weightUnitName } from '../../lib/units';
 import { SessionSummary } from './SessionSummary';
 import { StepDemo } from './StepDemo';
 import { SwapExercise } from './SwapExercise';
+import { RepCamera } from './RepCamera';
 import { repTarget, setLabel, setName, stepClock, stepName, stepsFor, suggestionReason, usesWeights } from './workoutSteps';
 import { fetchAiStatus } from '../../services/aiService';
 import { fetchPreviousSets } from '../../services/trainingService';
 import {
-  X, Play, Pause, ChevronLeft, ChevronRight, Check, Clock, Flame, AlertTriangle, Volume2, VolumeX, Info, ListOrdered, Plus, Minus, SkipForward, Shuffle, History, TrendingUp,
+  X, Play, Pause, ChevronLeft, ChevronRight, Check, Clock, Flame, AlertTriangle, Volume2, VolumeX, Info, ListOrdered, Plus, Minus, SkipForward, Shuffle, History, TrendingUp, Camera,
 } from 'lucide-react';
 
 // Rest lengths picked on the rest screen, by workout: { [slug]: seconds }.
@@ -122,6 +124,8 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
   const [isResting, setIsResting] = useState(false);
   const [restTotal, setRestTotal] = useState(0);
   const [showExitDialog, setShowExitDialog] = useState(false);
+  // The camera rep counter, for squats and push-ups.
+  const [showCamera, setShowCamera] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
   // { status: 'completed' | 'partial', completedAt } while the end-of-session summary is open
   const [summary, setSummary] = useState(null);
@@ -138,6 +142,7 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
   const currentStep = steps[currentStepIndex];
   const nextStep = steps[currentStepIndex + 1];
   const reps = repTarget(currentStep);
+  const cameraExercise = currentStep ? repExerciseFor(stepName(currentStep)) : null;
   const counting = Boolean(reps) && !isResting;
   const weights = usesWeights(workout);
   const progress = (completedSteps.size / totalSteps) * 100;
@@ -573,6 +578,11 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
                 </label>
               )}
             </div>
+            {cameraExercise && (
+              <button type="button" onClick={() => setShowCamera(true)} className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold bg-white/10 hover:bg-white/15">
+                <Camera className="w-3.5 h-3.5" aria-hidden="true" /> Count reps with the camera
+              </button>
+            )}
           </div>
 
           <button type="button" onClick={handleWorkoutComplete} className="w-full py-4 rounded-xl font-extrabold flex items-center justify-center gap-2 text-sm uppercase tracking-wider border border-white/10 hover:scale-[1.01] active:scale-[0.99] transition-transform" style={{ backgroundColor: color, color: '#0A0C10' }}>
@@ -580,6 +590,17 @@ export const EnhancedWorkoutExecution = ({ workout, tintColor = '#00C4B4', progr
           </button>
         </aside>
       </main>
+
+      {showCamera && cameraExercise && (
+        <RepCamera
+          exercise={cameraExercise}
+          onClose={() => setShowCamera(false)}
+          onDone={(n) => {
+            updateSetInput('reps', String(n));
+            setShowCamera(false);
+          }}
+        />
+      )}
 
       {showExitDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="exit-title">

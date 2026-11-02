@@ -45,6 +45,8 @@ model User {
   friendCode         String?   @unique
   // Appear by first name + initial on challenge and friend leaderboards.
   showOnLeaderboards Boolean   @default(true)
+  // Friends see this member's workouts in their feed (and can cheer them).
+  shareActivity      Boolean   @default(true)
   // metric (kg, cm) or imperial (lb, ft/in), for showing and entering
   // weights and lengths. Values are stored in metric either way.
   units              String    @default("metric")
@@ -103,6 +105,7 @@ model User {
   pushSubscriptions      PushSubscription[]
   coachNotesSent         CoachNote[]            @relation("CoachNoteFrom")
   coachNotesReceived     CoachNote[]            @relation("CoachNoteTo")
+  cheersGiven            Cheer[]
 
   @@map("users")
 }
@@ -406,6 +409,7 @@ model WorkoutSession {
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   enrollment Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
   sets       SetLog[]
+  cheers     Cheer[]
 
   @@unique([userId, clientId])
   @@index([userId, completedAt(sort: Desc)])
@@ -701,6 +705,20 @@ model Friendship {
   @@unique([requesterId, addresseeId])
   @@index([addresseeId, status])
   @@map("friendships")
+}
+
+// A friend's cheer on a workout in the feed; one per person per workout.
+model Cheer {
+  sessionId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, userId])
+  @@index([userId])
+  @@map("cheers")
 }
 
 // A time-boxed competition. Scores come from logged data in the date range.

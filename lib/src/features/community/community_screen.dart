@@ -16,6 +16,7 @@ import '../../widgets/modal.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/ui.dart';
 import '../common/site_page.dart';
+import 'activity_feed.dart';
 
 const _metricOptions = [
   ('minutes', 'Active minutes'),
@@ -165,8 +166,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
         children: spaced([
           PageTitle('Community', icon: LucideIcons.users, size: atLeast(context, Breakpoints.md) ? 36 : 30),
           if (_message != null) StatusBox(_message!),
-          // Challenges, with the leaderboard and friends in a side column on a wide tablet.
+          // Friends' activity and challenges, with the leaderboard and friends in a side column on a wide tablet.
           ...withSidebar(context, [
+            const ActivityFeed(),
             FgCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

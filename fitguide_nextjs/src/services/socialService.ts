@@ -78,3 +78,28 @@ export const joinChallengeByCode = async (code: string): Promise<Challenge> =>
   (await apiRequest('/social/challenges/join', { method: 'POST', auth: true, query: tz(), body: { code } })).challenge;
 export const leaveChallenge = (id: string) => apiRequest(`/social/challenges/${id}/membership`, { method: 'DELETE', auth: true });
 export const deleteChallenge = (id: string) => apiRequest(`/social/challenges/${id}`, { method: 'DELETE', auth: true });
+
+/** A workout in the friends' feed (yours or a friend's who shares their activity). */
+export interface FeedItem {
+  id: string;
+  person: Person;
+  isYou: boolean;
+  workoutTitle: string;
+  category: string | null;
+  completedAt: string;
+  durationSec: number;
+  calories: number;
+  setCount: number;
+  volumeKg: number;
+  records: { exerciseName: string; unit: 'kg' | 'reps' | 'sec' | 'm'; value: number; reps: number | null }[];
+  cheers: number;
+  cheeredByYou: boolean;
+  cheeredBy: string[];
+}
+
+export const fetchFeed = (before?: string): Promise<{ items: FeedItem[]; nextBefore: string | null; shareActivity: boolean }> =>
+  apiRequest('/social/feed', { auth: true, query: before ? { before } : {} });
+export const cheerWorkout = (id: string, on: boolean) =>
+  apiRequest(`/social/feed/${encodeURIComponent(id)}/cheer`, { method: on ? 'POST' : 'DELETE', auth: true });
+/** Whether friends see your workouts in their feed. */
+export const setShareActivity = (shareActivity: boolean) => apiRequest('/social/sharing', { method: 'PUT', auth: true, body: { shareActivity } });

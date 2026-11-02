@@ -195,6 +195,68 @@ function defineSocialSuite(ctx) {
     });
   });
 
+  describe('friends feed', () => {
+    let dee;
+    let eli;
+    let fay;
+    let workoutId;
+    before(async () => {
+      dee = await ctx().signUp('Dee Fox');
+      eli = await ctx().signUp('Eli Grant');
+      fay = await ctx().signUp('Fay Hill');
+      const code = (await dee.agent.get('/api/social/friends').expect(200)).body.friendCode;
+      await eli.agent.post('/api/social/friends').send({ code }).expect(201);
+      const [request] = (await dee.agent.get('/api/social/friends').expect(200)).body.incoming;
+      await dee.agent.post(`/api/social/friends/${request.friendshipId}/accept`).expect(200);
+      const saved = await dee.agent.post('/api/sessions').send({
+        workoutSlug: 'core-power-blast',
+        startedAt: minutesAgo(40),
+        completedAt: minutesAgo(5),
+        durationSec: 35 * 60,
+        sets: [{ exerciseName: 'Goblet Squat', setNumber: 1, reps: 10, weightKg: 20 }, { exerciseName: 'Goblet Squat', setNumber: 2, reps: 8, weightKg: 24 }],
+      }).expect(201);
+      workoutId = saved.body.session.id;
+    });
+
+    it("shows friends' workouts with the records they set, and not to others", async () => {
+      const res = await eli.agent.get('/api/social/feed').expect(200);
+      const item = res.body.items.find((i) => i.id === workoutId);
+      assert.equal(item.person.name, 'Dee F.');
+      assert.equal(item.isYou, false);
+      assert.deepEqual([item.setCount, item.volumeKg, item.durationSec], [2, 392, 2100]);
+      assert.ok(item.records.some((r) => r.unit === 'kg' && r.value === 24));
+      assert.equal(res.body.shareActivity, true);
+      assert.equal((await dee.agent.get('/api/social/feed').expect(200)).body.items.find((i) => i.id === workoutId).isYou, true);
+      assert.ok(!(await fay.agent.get('/api/social/feed').expect(200)).body.items.some((i) => i.id === workoutId));
+      await request(app).get('/api/social/feed').expect(401);
+      await eli.agent.get('/api/social/feed').query({ before: 'yesterday' }).expect(400);
+      const older = await eli.agent.get('/api/social/feed').query({ before: item.completedAt }).expect(200);
+      assert.ok(!older.body.items.some((i) => i.id === workoutId));
+    });
+
+    it('lets friends cheer a workout once, and take it back', async () => {
+      await fay.agent.post(`/api/social/feed/${workoutId}/cheer`).expect(404);
+      await dee.agent.post(`/api/social/feed/${workoutId}/cheer`).expect(404);
+      await eli.agent.post(`/api/social/feed/${workoutId}/cheer`).expect(200);
+      await eli.agent.post(`/api/social/feed/${workoutId}/cheer`).expect(200);
+      const mine = (await dee.agent.get('/api/social/feed').expect(200)).body.items.find((i) => i.id === workoutId);
+      assert.deepEqual([mine.cheers, mine.cheeredBy, mine.cheeredByYou], [1, ['Eli G.'], false]);
+      assert.equal((await eli.agent.get('/api/social/feed').expect(200)).body.items.find((i) => i.id === workoutId).cheeredByYou, true);
+      await eli.agent.delete(`/api/social/feed/${workoutId}/cheer`).expect(200);
+      assert.equal((await dee.agent.get('/api/social/feed').expect(200)).body.items.find((i) => i.id === workoutId).cheers, 0);
+    });
+
+    it('keeps workouts out of friends feeds when sharing is off', async () => {
+      await dee.agent.put('/api/social/sharing').send({ shareActivity: 'maybe' }).expect(400);
+      await dee.agent.put('/api/social/sharing').send({ shareActivity: false }).expect(200);
+      assert.ok(!(await eli.agent.get('/api/social/feed').expect(200)).body.items.some((i) => i.id === workoutId));
+      await eli.agent.post(`/api/social/feed/${workoutId}/cheer`).expect(404);
+      const own = (await dee.agent.get('/api/social/feed').expect(200)).body;
+      assert.equal(own.shareActivity, false);
+      assert.ok(own.items.some((i) => i.id === workoutId));
+    });
+  });
+
   describe('verified reviews', () => {
     it('marks reviews from people who completed the workout', async () => {
       // Ana logged core-power-blast above; Cleo didn't.

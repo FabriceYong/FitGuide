@@ -13,6 +13,7 @@ import {
 } from '../../services/socialService';
 import { track } from '../../lib/analytics';
 import { useUnits, weightIn, weightUnit } from '../../lib/units';
+import { ActivityFeed } from './ActivityFeed';
 
 const METRIC_OPTIONS: { value: Metric; label: string }[] = [
   { value: 'minutes', label: 'Active minutes' },
@@ -43,7 +44,7 @@ function Board({ rows, unit }: { rows: LeaderboardRow[]; unit: string }) {
   );
 }
 
-/** /community: friends, the weekly friends leaderboard and challenges. */
+/** /community: friends' activity, friends, the weekly friends leaderboard and challenges. */
 export function CommunityView() {
   const { ready, hasAccount } = useAuth();
   const [friends, setFriends] = useState<Friends | null>(null);
@@ -151,6 +152,8 @@ export function CommunityView() {
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-8 items-start">
         <div className="space-y-6 min-w-0">
+          <ActivityFeed />
+
           <section className={`${card} space-y-4`} aria-labelledby="challenges-heading">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 id="challenges-heading" className="text-xl font-extrabold flex items-center gap-2"><Trophy className="w-5 h-5 text-lime-light" /> Challenges</h2>

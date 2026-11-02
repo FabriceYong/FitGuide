@@ -1,6 +1,7 @@
 import '../core/api/api_client.dart';
 import '../core/format.dart';
 import '../models/json.dart';
+import '../models/training.dart';
 
 /// Friends, challenges and leaderboards (services/socialService.ts).
 final _api = ApiClient.instance;
@@ -99,3 +100,70 @@ Future<Challenge> joinChallengeByCode(String code) async =>
 
 Future<Json> leaveChallenge(String id) => _api.request('/social/challenges/$id/membership', method: 'DELETE', auth: true);
 Future<Json> deleteChallenge(String id) => _api.request('/social/challenges/$id', method: 'DELETE', auth: true);
+
+/// A workout in the friends' feed: yours, or a friend's who shares their activity.
+class FeedItem {
+  FeedItem(Json j)
+      : id = asString(j['id']) ?? '',
+        name = asString(asJson(j['person'])['name']) ?? '',
+        isYou = asBool(j['isYou']),
+        workoutTitle = asString(j['workoutTitle']) ?? '',
+        completedAt = asString(j['completedAt']) ?? '',
+        durationSec = asInt(j['durationSec']) ?? 0,
+        calories = asInt(j['calories']) ?? 0,
+        setCount = asInt(j['setCount']) ?? 0,
+        volumeKg = asDouble(j['volumeKg']) ?? 0,
+        records = asJsonList(j['records']).map(PersonalRecord.new).toList(),
+        cheers = asInt(j['cheers']) ?? 0,
+        cheeredByYou = asBool(j['cheeredByYou']),
+        cheeredBy = asStrings(j['cheeredBy']);
+
+  FeedItem._copy(FeedItem o, {required this.cheers, required this.cheeredByYou, required this.cheeredBy})
+      : id = o.id,
+        name = o.name,
+        isYou = o.isYou,
+        workoutTitle = o.workoutTitle,
+        completedAt = o.completedAt,
+        durationSec = o.durationSec,
+        calories = o.calories,
+        setCount = o.setCount,
+        volumeKg = o.volumeKg,
+        records = o.records;
+
+  /// The same workout with your cheer added or taken back.
+  FeedItem withCheer(bool on) => FeedItem._copy(
+        this,
+        cheers: cheers + (on ? 1 : -1),
+        cheeredByYou: on,
+        cheeredBy: on ? ['You', ...cheeredBy].take(3).toList() : cheeredBy.where((n) => n != 'You').toList(),
+      );
+
+  final String id;
+  final String name;
+  final bool isYou;
+  final String workoutTitle;
+  final String completedAt;
+  final int durationSec;
+  final int calories;
+  final int setCount;
+  final double volumeKg;
+  final List<PersonalRecord> records;
+  final int cheers;
+  final bool cheeredByYou;
+  final List<String> cheeredBy;
+}
+
+Future<({List<FeedItem> items, String? nextBefore, bool shareActivity})> fetchFeed({String? before}) async {
+  final data = await _api.request('/social/feed', auth: true, query: {if (before != null) 'before': before});
+  return (
+    items: asJsonList(data['items']).map(FeedItem.new).toList(),
+    nextBefore: asString(data['nextBefore']),
+    shareActivity: data['shareActivity'] != false,
+  );
+}
+
+Future<Json> cheerWorkout(String id, bool on) =>
+    _api.request('/social/feed/${Uri.encodeComponent(id)}/cheer', method: on ? 'POST' : 'DELETE', auth: true);
+
+/// Whether friends see your workouts in their feed.
+Future<Json> setShareActivity(bool on) => _api.request('/social/sharing', method: 'PUT', auth: true, body: {'shareActivity': on});

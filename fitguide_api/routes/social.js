@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, query } = require('express-validator');
 const social = require('../services/social');
+const feed = require('../services/feed');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { rejectInvalid } = require('../utils/validate');
 const { tzOffsetFrom, today, isValidYmd, daysBetween } = require('../utils/dates');
@@ -41,6 +42,31 @@ router.post('/friends/:id/accept', handle(async (req, res) => {
 // DELETE /api/social/friends/:id — decline, cancel or unfriend
 router.delete('/friends/:id', handle(async (req, res) => {
   await social.removeFriend(req.user.id, req.params.id);
+  res.json({ success: true });
+}));
+
+// ─── Feed ─────────────────────────────────────────────────────────────────────
+
+// GET /api/social/feed?before= — my and my friends' workouts from the last 30
+// days, newest first, with records set and cheers. nextBefore pages back.
+router.get('/feed', [query('before').optional().isISO8601()], rejectInvalid, handle(async (req, res) => {
+  const [page, shareActivity] = await Promise.all([feed.feed(req.user.id, { before: req.query.before }), feed.sharing(req.user.id)]);
+  res.json({ success: true, ...page, shareActivity });
+}));
+
+// PUT /api/social/sharing { shareActivity } — whether friends see my workouts
+router.put('/sharing', [body('shareActivity').isBoolean().toBoolean()], rejectInvalid, handle(async (req, res) => {
+  await feed.setSharing(req.user.id, req.body.shareActivity);
+  res.json({ success: true, shareActivity: req.body.shareActivity });
+}));
+
+// POST / DELETE /api/social/feed/:sessionId/cheer — cheer a friend's workout, or take it back
+router.post('/feed/:sessionId/cheer', handle(async (req, res) => {
+  await feed.cheer(req.user, req.params.sessionId);
+  res.json({ success: true });
+}));
+router.delete('/feed/:sessionId/cheer', handle(async (req, res) => {
+  await feed.uncheer(req.user.id, req.params.sessionId);
   res.json({ success: true });
 }));
 

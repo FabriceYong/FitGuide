@@ -15,7 +15,7 @@ async function everything(userId) {
   const id = String(userId);
   const [
     user, sessions, bodyMetrics, enrollments, plans, ownWorkouts, favorites, reviews, foods, foodLogs,
-    dailyMetrics, bloodPressure, activities, connections, friendships, challenges, coachMessages, water, photos, coachNotes, readinessChecks,
+    dailyMetrics, bloodPressure, activities, connections, friendships, challenges, coachMessages, water, photos, coachNotes, readinessChecks, crewMemberships, crewMessages,
   ] = await Promise.all([
     prisma.user.findUnique({ where: { id } }),
     prisma.workoutSession.findMany({ where: { userId: id }, orderBy: { completedAt: 'desc' }, include: { sets: { orderBy: { position: 'asc' } } } }),
@@ -41,6 +41,8 @@ async function everything(userId) {
     prisma.progressPhoto.findMany({ where: { userId: id }, orderBy: { date: 'asc' }, select: { date: true, note: true, createdAt: true } }),
     prisma.coachNote.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' }, select: { text: true, createdAt: true, readAt: true, coach: { select: { name: true } } } }),
     prisma.readinessCheck.findMany({ where: { userId: id }, orderBy: { date: 'desc' }, select: { date: true, energy: true, soreness: true } }),
+    prisma.crewMember.findMany({ where: { userId: id }, select: { role: true, joinedAt: true, crew: { select: { name: true, weeklyGoal: true } } } }),
+    prisma.crewMessage.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' }, select: { text: true, createdAt: true, crew: { select: { name: true } } } }),
   ]);
   if (!user) return null;
 
@@ -66,6 +68,8 @@ async function everything(userId) {
     progressPhotos: photos,
     // Morning check-ins behind the readiness score: energy and soreness, 1–5.
     readinessCheckIns: readinessChecks,
+    crews: crewMemberships.map((m) => ({ name: m.crew.name, weeklyGoal: m.crew.weeklyGoal, role: m.role, joinedAt: m.joinedAt })),
+    crewMessagesSent: crewMessages.map((m) => ({ crew: m.crew.name, text: m.text, sentAt: m.createdAt })),
     notesFromCoaches: coachNotes.map((n) => ({ from: n.coach.name, text: n.text, sentAt: n.createdAt, readAt: n.readAt })),
     dailyHealth: withoutIds(dailyMetrics),
     bloodPressure: withoutIds(bloodPressure),

@@ -6,6 +6,7 @@ import 'core/config.dart';
 import 'features/coaches/coach_screen.dart';
 import 'features/dashboard/article_screen.dart';
 import 'features/community/community_screen.dart';
+import 'features/community/crew_screen.dart';
 import 'features/nutrition/nutrition_screen.dart';
 import 'features/plan/plan_screen.dart';
 import 'features/plus/plus_screen.dart';
@@ -109,6 +110,7 @@ void openHref(BuildContext context, String href) {
   if (path.startsWith('/programs/')) return openProgram(context, path.split('/')[2]);
   if (path.startsWith('/coaches/')) return openCoach(context, path.split('/')[2]);
   if (path.startsWith('/articles/')) return openArticle(context, path.split('/')[2]);
+  if (path.startsWith('/community/crews/')) return push(CrewScreen(id: path.split('/')[3]));
   if (path == '/progress') return toDashboard(context, DashboardTab.progress);
   switch (path) {
     case '/plan':

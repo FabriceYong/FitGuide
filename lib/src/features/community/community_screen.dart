@@ -17,6 +17,7 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/ui.dart';
 import '../common/site_page.dart';
 import 'activity_feed.dart';
+import 'crews.dart';
 
 const _metricOptions = [
   ('minutes', 'Active minutes'),
@@ -169,6 +170,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           // Friends' activity and challenges, with the leaderboard and friends in a side column on a wide tablet.
           ...withSidebar(context, [
             const ActivityFeed(),
+            const Crews(),
             FgCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

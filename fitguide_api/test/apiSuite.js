@@ -10,6 +10,7 @@ const { prisma } = require('../db/prisma');
 const { defineTrainingSuite } = require('./trainingSuite');
 const { definePlanCoachSuite } = require('./planCoachSuite');
 const { defineReadinessSuite } = require('./readinessSuite');
+const { defineCrewSuite } = require('./crewSuite');
 const { defineNutritionSuite } = require('./nutritionSuite');
 const { defineMealSuite } = require('./mealSuite');
 const { defineAiSuite } = require('./aiSuite');
@@ -544,6 +545,7 @@ function defineApiSuite() {
     describe('health data and wearables', () => defineHealthSuite(() => ({ app, signUp })));
 
     describe('community', () => defineSocialSuite(() => ({ app, signUp })));
+    describe('crews', () => defineCrewSuite(() => ({ app, signUp })));
 
     describe('admin and creators', () => defineAdminSuite(() => ({ app, signUp })));
     describe('coaches', () => defineCoachSuite(() => ({ app, signUp })));

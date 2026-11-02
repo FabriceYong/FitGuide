@@ -107,6 +107,9 @@ model User {
   coachNotesReceived     CoachNote[]            @relation("CoachNoteTo")
   cheersGiven            Cheer[]
   readinessChecks        ReadinessCheck[]
+  crewsCreated           Crew[]
+  crewMemberships        CrewMember[]
+  crewMessages           CrewMessage[]
 
   @@map("users")
 }
@@ -770,6 +773,52 @@ model ChallengeMember {
   @@id([challengeId, userId])
   @@index([userId])
   @@map("challenge_members")
+}
+
+// A crew: a small invite-only group (up to 8) with a shared weekly goal,
+// its members' workouts and a chat (services/crews.js).
+model Crew {
+  id         String   @id @default(uuid())
+  name       String   @db.VarChar(50)
+  // Workouts a week, by the whole crew together.
+  weeklyGoal Int
+  inviteCode String   @unique
+  creatorId  String?
+  createdAt  DateTime @default(now())
+
+  creator  User?         @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  members  CrewMember[]
+  messages CrewMessage[]
+
+  @@map("crews")
+}
+
+model CrewMember {
+  crewId   String
+  userId   String
+  role     String   @default("member") // owner | member
+  joinedAt DateTime @default(now())
+
+  crew Crew @relation(fields: [crewId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([crewId, userId])
+  @@index([userId])
+  @@map("crew_members")
+}
+
+model CrewMessage {
+  id        String   @id @default(uuid())
+  crewId    String
+  userId    String
+  text      String   @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  crew Crew @relation(fields: [crewId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([crewId, createdAt])
+  @@map("crew_messages")
 }
 
 // Stripe webhook events already handled (Stripe can deliver an event twice).

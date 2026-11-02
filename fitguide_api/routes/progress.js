@@ -8,6 +8,7 @@ const { tzOffsetFrom, today } = require('../utils/dates');
 const { prisma } = require('../db/prisma');
 const healthData = require('../services/healthData');
 const starter = require('../services/starter');
+const { strengthLevels } = require('../services/strength');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -49,7 +50,10 @@ router.get('/summary', async (req, res, next) => {
       weeklyGoal: Math.min(7, Math.max(1, req.user.daysPerWeek || 3)),
     });
     const recentActivities = external.slice(0, 10).map(({ userId: _u, ...a }) => a);
-    res.json({ success: true, summary: { ...summary, health }, recentSessions: sessions.slice(0, 10), recentActivities });
+    // Against the latest weigh-in, else the profile's weight.
+    const bodyweightKg = summary.body.latestWeight?.weightKg || req.user.weight;
+    const strength = { bodyweightKg, levels: strengthLevels(sessions, bodyweightKg, req.user.gender) };
+    res.json({ success: true, summary: { ...summary, health, strength }, recentSessions: sessions.slice(0, 10), recentActivities });
   } catch (err) {
     next(err);
   }

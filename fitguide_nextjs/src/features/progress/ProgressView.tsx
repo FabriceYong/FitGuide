@@ -19,6 +19,7 @@ import { useStartSignUp } from '../auth/AuthWrapper';
 import { formatDateTime, formatDay, formatRecord, scheduleHref } from './format';
 import { MusclesThisWeek } from './MusclesThisWeek';
 import { WeekStreak } from './WeekStreak';
+import { StrengthLevels } from './StrengthLevels';
 import { ProgressPhotos } from './ProgressPhotos';
 import { measureFrom, measureText, measureUnit, useUnits, weightIn, weightText, weightUnit } from '../../lib/units';
 
@@ -119,6 +120,8 @@ export function ProgressView() {
         <Panel title="Muscles this week" icon={PersonStanding}><MusclesThisWeek counts={summary.muscles?.regions || {}} week={summary.thisWeek} /></Panel>
         {summary.achievements?.length > 0 && <Achievements badges={summary.achievements} />}
       </div>
+
+      {summary.strength && <Panel title="Strength levels" icon={Dumbbell}><StrengthLevels levels={summary.strength.levels} bodyweightKg={summary.strength.bodyweightKg} /></Panel>}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <PersonalRecords records={summary.personalRecords} />

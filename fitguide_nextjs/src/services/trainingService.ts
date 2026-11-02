@@ -64,6 +64,21 @@ export interface Achievement {
   progress: { value: number; goal: number };
 }
 
+/** One big lift's level: its estimated one-rep max against body weight. */
+export interface StrengthLevel {
+  lift: string;
+  exerciseSlug: string;
+  oneRepMaxKg: number;
+  ratio: number;
+  /** null below Beginner. */
+  level: string | null;
+  nextLevel: string | null;
+  nextKg: number | null;
+  toNextKg: number | null;
+  /** 0–1 from this level's mark to the next. */
+  progress: number;
+}
+
 export interface WeekStreak {
   goal: number;
   weeks: number;
@@ -81,6 +96,7 @@ export interface ProgressSummary {
   streak: { current: number; longest: number; trainedToday: boolean };
   /** Weeks in a row with at least `goal` active days (one short week a month let off). */
   weekStreak: WeekStreak;
+  strength?: { bodyweightKg: number; levels: StrengthLevel[] };
   /** The last 12 weeks, oldest first. */
   days: ActivityDay[];
   personalRecords: PersonalRecord[];

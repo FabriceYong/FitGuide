@@ -465,6 +465,11 @@ function defineTrainingSuite(ctx) {
       const squat = summary.personalRecords.find((r) => r.exerciseSlug === 'back-squat');
       assert.equal(squat.value, 70);
       assert.equal(summary.body.latestWeight.weightKg, 64.5);
+      // The squat's level is against the latest weigh-in.
+      assert.equal(summary.strength.bodyweightKg, 64.5);
+      const squatLevel = summary.strength.levels.find((l) => l.lift === 'Squat');
+      assert.ok(squatLevel.oneRepMaxKg >= 70);
+      assert.ok(squatLevel.nextLevel);
       assert.equal(summary.body.weightChangeKg, -3.5);
       assert.equal(summary.body.latestMeasurements.waistCm.value, 80);
       assert.equal(summary.activeEnrollment.programSlug, 'foundations-starter');

@@ -156,6 +156,30 @@ class BodySummary {
   final Map<String, ({double value, String date})> latestMeasurements;
 }
 
+/// One big lift's level: its estimated one-rep max against body weight
+/// (services/strength.js).
+class StrengthLevel {
+  StrengthLevel(Json j)
+      : lift = asString(j['lift']) ?? '',
+        oneRepMaxKg = asDouble(j['oneRepMaxKg']) ?? 0,
+        ratio = asDouble(j['ratio']) ?? 0,
+        level = asString(j['level']),
+        nextLevel = asString(j['nextLevel']),
+        toNextKg = asDouble(j['toNextKg']),
+        progress = asDouble(j['progress']) ?? 0;
+  final String lift;
+  final double oneRepMaxKg;
+  final double ratio;
+
+  /// null below Beginner.
+  final String? level;
+  final String? nextLevel;
+  final double? toNextKg;
+
+  /// 0–1 from this level's mark to the next.
+  final double progress;
+}
+
 /// One week of the weekly streak.
 class StreakWeek {
   StreakWeek(Json j)
@@ -205,6 +229,8 @@ class ProgressSummary {
         streakLongest = asInt(asJson(j['streak'])['longest']) ?? 0,
         trainedToday = asBool(asJson(j['streak'])['trainedToday']),
         weekStreak = WeekStreak(asJson(j['weekStreak'])),
+        strengthLevels = asJsonList(asJson(j['strength'])['levels']).map(StrengthLevel.new).toList(),
+        strengthBodyweightKg = asDouble(asJson(j['strength'])['bodyweightKg']),
         days = asJsonList(j['days']).map(ActivityDay.new).toList(),
         personalRecords = asJsonList(j['personalRecords']).map(PersonalRecord.new).toList(),
         body = BodySummary(asJson(j['body'])),
@@ -219,6 +245,8 @@ class ProgressSummary {
   final int streakLongest;
   final bool trainedToday;
   final WeekStreak weekStreak;
+  final List<StrengthLevel> strengthLevels;
+  final double? strengthBodyweightKg;
   final List<ActivityDay> days;
   final List<PersonalRecord> personalRecords;
   final BodySummary body;

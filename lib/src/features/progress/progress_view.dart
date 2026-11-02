@@ -164,6 +164,7 @@ class _ProgressViewState extends State<ProgressView> {
           ...pairs(context, _MusclesThisWeek(counts: summary.muscleRegions, sessions: summary.week('sessions'), minutes: summary.week('minutes')), _Achievements(badges: summary.achievements))
         else
           _MusclesThisWeek(counts: summary.muscleRegions, sessions: summary.week('sessions'), minutes: summary.week('minutes')),
+        _StrengthLevels(levels: summary.strengthLevels, bodyweightKg: summary.strengthBodyweightKg),
         ...pairs(context, _PersonalRecords(records: summary.personalRecords), _RecentSessions(sessions: data.recentSessions, onDelete: _deleteSession)),
         const Panel(title: 'Progress photos', icon: LucideIcons.camera, child: ProgressPhotos()),
         _BodyMetrics(
@@ -578,6 +579,56 @@ class _ProgramPanel extends StatelessWidget {
 }
 
 /// 12-week calendar, one column per week (Monday first), shaded by minutes trained.
+/// Each big lift's estimated one-rep max against body weight on the usual
+/// standards, with how far to the next level (StrengthLevels.tsx).
+class _StrengthLevels extends StatelessWidget {
+  const _StrengthLevels({required this.levels, required this.bodyweightKg});
+  final List<StrengthLevel> levels;
+  final double? bodyweightKg;
+
+  @override
+  Widget build(BuildContext context) {
+    final units = context.watch<AuthController>().user?.units ?? Units.metric;
+    return Panel(
+      title: 'Strength levels',
+      icon: LucideIcons.dumbbell,
+      child: levels.isEmpty
+          ? Text('Log squats, bench presses, deadlifts or overhead presses with a weight and your level for each shows here.', style: fg(size: 14, color: AppColors.white70))
+          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              ...spaced([
+                for (final l in levels)
+                  Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Row(children: [
+                      Expanded(child: Text(l.lift, style: fg(size: 15, weight: FontWeight.w700))),
+                      Flexible(
+                        child: Text.rich(
+                          TextSpan(children: [
+                            TextSpan(text: l.level ?? 'Starting out', style: fg(size: 14, weight: FontWeight.w700, color: AppColors.limeLight)),
+                            TextSpan(text: ' · ${numText(l.ratio)}× body weight', style: fg(size: 13, color: AppColors.white70)),
+                          ]),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 6),
+                    FgProgressBar(percent: l.progress * 100, label: '${l.lift}: on the way to ${l.nextLevel ?? 'the top'}'),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Estimated one-rep max ${weightText(l.oneRepMaxKg, units)}${l.nextLevel != null && l.toNextKg != null ? ' · ${weightText(l.toNextKg!, units)} to ${l.nextLevel}' : ' · the top level'}',
+                      style: fg(size: 12, color: AppColors.white70),
+                    ),
+                  ]),
+              ], 14),
+              if (bodyweightKg != null) ...[
+                const SizedBox(height: 12),
+                Text('Against ${weightText(bodyweightKg!, units)} body weight. Levels are a general guide from common strength standards.',
+                    style: fg(size: 11, color: AppColors.white70)),
+              ],
+            ]),
+    );
+  }
+}
+
 /// The forgiving weekly streak: the last 8 weeks and this one, met, let off
 /// with the month's pass, or short (WeekStreak.tsx).
 class _WeekStreak extends StatelessWidget {

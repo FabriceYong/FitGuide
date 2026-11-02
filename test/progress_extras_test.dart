@@ -47,4 +47,18 @@ void main() {
     expect(streak.history.map((w) => (w.met, w.saved)), [(true, false), (false, true)]);
     expect(streak.thisWeekText, '1 of 3 days this week');
   });
+
+  test('reads strength levels', () {
+    final summary = ProgressSummary({
+      'strength': {
+        'bodyweightKg': 80,
+        'levels': [
+          {'lift': 'Squat', 'oneRepMaxKg': 116.7, 'ratio': 1.46, 'level': 'Novice', 'nextLevel': 'Intermediate', 'toNextKg': 3.5, 'progress': 0.84},
+          {'lift': 'Deadlift', 'oneRepMaxKg': 46.7, 'ratio': 0.52, 'level': null, 'nextLevel': 'Beginner', 'toNextKg': 33.5, 'progress': 0.52},
+        ],
+      },
+    });
+    expect(summary.strengthBodyweightKg, 80);
+    expect(summary.strengthLevels.map((l) => (l.lift, l.level, l.toNextKg)), [('Squat', 'Novice', 3.5), ('Deadlift', null, 33.5)]);
+  });
 }

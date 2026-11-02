@@ -28,6 +28,7 @@ import 'articles.dart';
 import 'coach_notes.dart';
 import 'hero_carousel.dart';
 import 'readiness_card.dart';
+import 'starter_journey.dart';
 import 'today_panel.dart';
 
 /// Days since 1970, used to rotate daily picks.
@@ -286,9 +287,10 @@ class _HomeTabState extends State<HomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: spaced([
-                // Coach notes, readiness and a plan suggestion sit above Today.
+                // First-week steps, coach notes, readiness and a plan suggestion sit above Today.
                 if (auth.hasAccount)
                   Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    StarterJourney(key: ValueKey('starter-${auth.user!.id}'), bottomGap: 16),
                     CoachNotes(key: ValueKey('notes-${auth.user!.id}'), bottomGap: 16),
                     ReadinessCard(
                       key: ValueKey('readiness-${auth.user!.id}'),

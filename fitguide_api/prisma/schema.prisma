@@ -47,6 +47,8 @@ model User {
   showOnLeaderboards Boolean   @default(true)
   // Friends see this member's workouts in their feed (and can cheer them).
   shareActivity      Boolean   @default(true)
+  // The first-week starter checklist on the home page was hidden (services/starter.js).
+  starterHidden      Boolean   @default(false)
   // metric (kg, cm) or imperial (lb, ft/in), for showing and entering
   // weights and lengths. Values are stored in metric either way.
   units              String    @default("metric")

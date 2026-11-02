@@ -16,6 +16,7 @@ import '../../services/training_service.dart';
 import '../../state/auth_controller.dart';
 import '../../state/dashboard_controller.dart';
 import '../../widgets/forms.dart';
+import '../../widgets/share_card.dart';
 import '../../widgets/ui.dart';
 import 'workout_feedback_card.dart';
 
@@ -118,6 +119,27 @@ class _SessionSummaryState extends State<SessionSummary> {
     );
   }
 
+  void _shareCard(LoggedSession saved, int calories, int loggedSets, double volumeKg, Units units) {
+    showShareCard(
+      context,
+      ShareCardData(
+        label: 'WORKOUT COMPLETE',
+        title: '${widget.draft['workoutTitle']}',
+        subtitle: formatDayLong(localToday()),
+        stats: [
+          ('$_minutesValue', 'Minutes'),
+          ('$calories', 'Calories'),
+          if (loggedSets > 0) ('$loggedSets', loggedSets == 1 ? 'Set' : 'Sets'),
+          if (volumeKg > 0) ('${thousands(weightIn(volumeKg, units))} ${units.weight}', 'Lifted'),
+        ],
+        records: [for (final r in saved.newRecords) '${r.exerciseName} · ${formatRecord(r, units)}'],
+      ),
+      filename: 'fitguide-workout.png',
+      text: 'Just finished ${widget.draft['workoutTitle']} on FitGuide',
+      kind: 'workout',
+    );
+  }
+
   Widget _button(String label, VoidCallback? onTap, {bool primary = false}) {
     return Expanded(
       child: FgButton(
@@ -141,6 +163,7 @@ class _SessionSummaryState extends State<SessionSummary> {
     final draft = widget.draft;
     final sets = asJsonList(draft['sets']);
     final loggedSets = sets.where((s) => s['reps'] != null || s['weightKg'] != null).length;
+    final volumeKg = sets.fold<double>(0, (n, s) => n + (asDouble(s['reps']) ?? 0) * (asDouble(s['weightKg']) ?? 0));
     final saved = _saved;
     final calories = asInt(saved?.session['calories']) ?? (_minutesValue * widget.caloriesPerMinute).round();
     final completed = widget.status == 'completed';
@@ -230,6 +253,16 @@ class _SessionSummaryState extends State<SessionSummary> {
                       WorkoutFeedbackCard(sessionId: asString(saved.session['id'])!, tint: widget.tint),
                     ],
                     const SizedBox(height: 16),
+                    FgButton(
+                      label: 'Share my workout',
+                      icon: LucideIcons.share2,
+                      style: FgButtonStyle.ghost,
+                      radius: 12,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      onPressed: () => _shareCard(saved, calories, loggedSets, volumeKg, auth.user?.units ?? Units.metric),
+                    ),
+                    const SizedBox(height: 12),
                     Row(children: [
                       _button('View progress', () => toDashboard(context, DashboardTab.progress)),
                       const SizedBox(width: 12),

@@ -19,6 +19,7 @@ const EVENT_NAMES = new Set([
   'food_logged',
   'challenge_joined',
   'checkout_started',
+  'card_shared',
 ]);
 
 // Analytics shouldn't be able to flood the database.

@@ -6,8 +6,11 @@ import { Award, Clock, Flame, Trophy, Check, AlertTriangle, Loader2 } from 'luci
 import { useAuth } from '../../contexts/AuthContext';
 import { logSession, newClientId } from '../../services/trainingService';
 import { track } from '../../lib/analytics';
-import { formatRecord } from '../progress/format';
-import { useUnits } from '../../lib/units';
+import { formatDay, formatRecord } from '../progress/format';
+import { useUnits, weightIn, weightUnit } from '../../lib/units';
+import { drawWorkoutCard } from '../../lib/shareCard';
+import { localToday } from '../../services/trainingService';
+import { ShareButton } from '../../components/ShareButton';
 import { WorkoutFeedback } from './WorkoutFeedback';
 
 const EFFORT_LABELS = { 1: 'Very easy', 3: 'Easy', 5: 'Moderate', 7: 'Hard', 9: 'Very hard', 10: 'Max effort' };
@@ -56,6 +59,19 @@ export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, on
     };
 
     const loggedSets = draft.sets.filter((s) => s.reps != null || s.weightKg != null).length;
+    const volumeKg = draft.sets.reduce((n, s) => n + (s.reps || 0) * (s.weightKg || 0), 0);
+
+    const makeCard = () => drawWorkoutCard({
+        title: draft.workoutTitle,
+        date: formatDay(localToday(), { weekday: 'long', day: 'numeric', month: 'long' }),
+        stats: [
+            { label: 'Minutes', value: String(Math.round(Number(minutes) || 0)) },
+            { label: 'Calories', value: String(saved?.session?.calories ?? Math.round((Number(minutes) || 0) * caloriesPerMinute)) },
+            ...(loggedSets ? [{ label: loggedSets === 1 ? 'Set' : 'Sets', value: String(loggedSets) }] : []),
+            ...(volumeKg > 0 ? [{ label: 'Lifted', value: `${Math.round(weightIn(volumeKg, units)).toLocaleString()} ${weightUnit(units)}` }] : []),
+        ],
+        records: (saved?.newRecords || []).map((r) => `${r.exerciseName} · ${formatRecord(r, units)}`),
+    });
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0A0C10]/95 backdrop-blur-md">
@@ -101,6 +117,7 @@ export function SessionSummary({ draft, status, caloriesPerMinute, tintColor, on
                                 </div>
                             )}
                             {!saved.queued && saved.session?.id && <WorkoutFeedback sessionId={saved.session.id} color={tintColor} />}
+                            <ShareButton make={makeCard} filename="fitguide-workout.png" text={`Just finished ${draft.workoutTitle} on FitGuide`} label="Share my workout" kind="workout" className="w-full" />
                             <div className="flex gap-3">
                                 <Link href="/progress" className="flex-1 py-3.5 rounded-xl font-bold text-sm text-center bg-white/10 hover:bg-white/20 transition-all">
                                     View progress

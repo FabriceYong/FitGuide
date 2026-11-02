@@ -113,7 +113,7 @@ export function ProgressView() {
       <ActivityCalendar days={summary.days} />
 
       <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
-        <Panel title="Muscles this week" icon={PersonStanding}><MusclesThisWeek counts={summary.muscles?.regions || {}} /></Panel>
+        <Panel title="Muscles this week" icon={PersonStanding}><MusclesThisWeek counts={summary.muscles?.regions || {}} week={summary.thisWeek} /></Panel>
         {summary.achievements?.length > 0 && <Achievements badges={summary.achievements} />}
       </div>
 

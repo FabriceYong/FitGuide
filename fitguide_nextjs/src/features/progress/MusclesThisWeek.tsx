@@ -2,6 +2,8 @@
 
 import { BACK, FRONT, outline } from '../dashboard/components/BodyMap';
 import { REGIONS, type Region } from '../dashboard/muscles';
+import { drawWeekCard } from '../../lib/shareCard';
+import { ShareButton } from '../../components/ShareButton';
 
 /** Lighter for one workout, full colour from three. */
 const strength = (n: number) => (n <= 0 ? 0 : n >= 3 ? 1 : 0.35 + 0.3 * (n - 1));
@@ -25,7 +27,7 @@ function Figure({ label, paths, counts }: { label: string; paths: [Region, strin
 }
 
 /** Which body regions the last 7 days' workouts worked, and which they didn't (the app's _MusclesThisWeek). */
-export function MusclesThisWeek({ counts }: { counts: Record<string, number> }) {
+export function MusclesThisWeek({ counts, week }: { counts: Record<string, number>; week?: { sessions: number; minutes: number } }) {
   const trained = REGIONS.filter((r) => (counts[r] || 0) > 0);
   const missed = REGIONS.filter((r) => !(counts[r] || 0));
   return (
@@ -46,6 +48,15 @@ export function MusclesThisWeek({ counts }: { counts: Record<string, number> }) 
             ))}
           </ul>
           {missed.length > 0 && <p className="text-xs text-white-70">Not trained this week: {missed.join(', ')}.</p>}
+          {week && (
+            <ShareButton
+              make={() => drawWeekCard({ regions: counts, stats: [{ label: 'Workouts this week', value: String(week.sessions) }, { label: 'Minutes this week', value: String(week.minutes) }] })}
+              filename="fitguide-week.png"
+              text="My week of training on FitGuide"
+              label="Share my week"
+              kind="week"
+            />
+          )}
         </>
       )}
     </div>

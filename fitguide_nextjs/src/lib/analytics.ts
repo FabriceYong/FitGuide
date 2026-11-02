@@ -16,7 +16,8 @@ export type AnalyticsEvent =
   | 'coach_message'
   | 'food_logged'
   | 'challenge_joined'
-  | 'checkout_started';
+  | 'checkout_started'
+  | 'card_shared';
 
 const VISITOR_KEY = 'fitguide_visitor';
 

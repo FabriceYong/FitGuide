@@ -19,6 +19,7 @@ import 'progress_photos.dart';
 import '../../widgets/charts.dart';
 import '../../widgets/forms.dart';
 import '../../widgets/modal.dart';
+import '../../widgets/share_card.dart';
 import '../../widgets/ui.dart';
 
 const _accent = AppColors.limeLight;
@@ -159,9 +160,9 @@ class _ProgressViewState extends State<ProgressView> {
             ), _ProgramPanel(enrollment: summary.activeEnrollment)),
         if (summary.days.isNotEmpty) _ActivityCalendar(days: summary.days),
         if (summary.achievements.isNotEmpty)
-          ...pairs(context, _MusclesThisWeek(counts: summary.muscleRegions), _Achievements(badges: summary.achievements))
+          ...pairs(context, _MusclesThisWeek(counts: summary.muscleRegions, sessions: summary.week('sessions'), minutes: summary.week('minutes')), _Achievements(badges: summary.achievements))
         else
-          _MusclesThisWeek(counts: summary.muscleRegions),
+          _MusclesThisWeek(counts: summary.muscleRegions, sessions: summary.week('sessions'), minutes: summary.week('minutes')),
         ...pairs(context, _PersonalRecords(records: summary.personalRecords), _RecentSessions(sessions: data.recentSessions, onDelete: _deleteSession)),
         const Panel(title: 'Progress photos', icon: LucideIcons.camera, child: ProgressPhotos()),
         _BodyMetrics(
@@ -657,8 +658,10 @@ class _ActivityCalendar extends StatelessWidget {
 /// Which body regions this week's workouts worked, on a figure, with the
 /// ones not trained yet (MusclesThisWeek in ProgressView.tsx).
 class _MusclesThisWeek extends StatelessWidget {
-  const _MusclesThisWeek({required this.counts});
+  const _MusclesThisWeek({required this.counts, required this.sessions, required this.minutes});
   final Map<String, int> counts;
+  final int sessions;
+  final int minutes;
 
   @override
   Widget build(BuildContext context) {
@@ -681,6 +684,30 @@ class _MusclesThisWeek extends StatelessWidget {
             const SizedBox(height: 8),
             Text('Not trained this week: ${missed.join(', ')}.', style: fg(size: 12, color: AppColors.white70)),
           ],
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FgButton(
+              label: 'Share my week',
+              icon: LucideIcons.share2,
+              style: FgButtonStyle.ghost,
+              radius: 12,
+              fontSize: 14,
+              height: 40,
+              onPressed: () => showShareCard(
+                context,
+                ShareCardData(
+                  label: 'MY WEEK',
+                  title: 'Muscles trained',
+                  figure: MuscleHeatMap(counts: counts),
+                  stats: [('$sessions', 'Workouts this week'), ('$minutes', 'Minutes this week')],
+                ),
+                filename: 'fitguide-week.png',
+                text: 'My week of training on FitGuide',
+                kind: 'week',
+              ),
+            ),
+          ),
         ],
       ]),
     );

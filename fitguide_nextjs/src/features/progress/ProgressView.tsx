@@ -18,6 +18,7 @@ import { playHref } from '../programs/ProgramDetail';
 import { useStartSignUp } from '../auth/AuthWrapper';
 import { formatDateTime, formatDay, formatRecord, scheduleHref } from './format';
 import { MusclesThisWeek } from './MusclesThisWeek';
+import { WeekStreak } from './WeekStreak';
 import { ProgressPhotos } from './ProgressPhotos';
 import { measureFrom, measureText, measureUnit, useUnits, weightIn, weightText, weightUnit } from '../../lib/units';
 
@@ -112,6 +113,8 @@ export function ProgressView() {
 
       <ActivityCalendar days={summary.days} />
 
+      {summary.weekStreak && <Panel title="Week streak" icon={Zap}><WeekStreak streak={summary.weekStreak} /></Panel>}
+
       <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
         <Panel title="Muscles this week" icon={PersonStanding}><MusclesThisWeek counts={summary.muscles?.regions || {}} week={summary.thisWeek} /></Panel>
         {summary.achievements?.length > 0 && <Achievements badges={summary.achievements} />}
@@ -174,14 +177,14 @@ function Panel({ title, icon: Icon, action, children }: { title: string; icon?: 
 }
 
 function StatTiles({ summary }: { summary: ProgressSummary }) {
-  const { thisWeek, streak, totals } = summary;
+  const { thisWeek, weekStreak, totals } = summary;
   const tiles = [
     { label: 'Sessions this week', value: thisWeek.sessions, sub: `${thisWeek.activeDays} active day${thisWeek.activeDays === 1 ? '' : 's'}`, icon: Dumbbell, color: '#00C4B4' },
     { label: 'Minutes this week', value: thisWeek.minutes, sub: `${thisWeek.calories} kcal`, icon: Clock, color: '#8B7CF6' },
     {
-      label: 'Day streak',
-      value: streak.current,
-      sub: streak.current && !streak.trainedToday ? 'Train today to keep it' : `Best: ${streak.longest}`,
+      label: 'Week streak',
+      value: weekStreak.weeks,
+      sub: weekStreak.thisWeek.met ? 'This week done ✓' : `${weekStreak.thisWeek.activeDays} of ${weekStreak.goal} days this week`,
       icon: Zap,
       color: '#FB923C',
     },

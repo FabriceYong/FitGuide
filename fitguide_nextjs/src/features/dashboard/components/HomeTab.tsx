@@ -233,10 +233,10 @@ export function HomeTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
             <StatCard icon={<Flame className="w-6 h-6" />} label="Calories this week" value={summary.thisWeek.calories} suffix="kcal" color="#EF4444" data={lastWeek.map((d) => d.calories)} chartType="bar" chartLabel="Calories per day over the last 7 days" />
             <StatCard
               icon={<Target className="w-6 h-6" />}
-              label="Day streak"
-              value={summary.streak.current}
-              suffix={summary.streak.current === 1 ? 'day' : 'days'}
-              footnote={summary.streak.current && !summary.streak.trainedToday ? 'Train today to keep it going' : `Best: ${summary.streak.longest}`}
+              label="Week streak"
+              value={summary.weekStreak.weeks}
+              suffix={summary.weekStreak.weeks === 1 ? 'week' : 'weeks'}
+              footnote={summary.weekStreak.thisWeek.met ? 'This week done ✓' : `${summary.weekStreak.thisWeek.activeDays} of ${summary.weekStreak.goal} days this week`}
               color="#10B981"
               data={lastWeek.map((d) => d.sessions)}
               chartType="bar"

@@ -44,6 +44,8 @@ router.get('/summary', async (req, res, next) => {
       tzOffset,
       todayYmd,
       externalActivities,
+      // Weeks count when the member trains on as many days as they said they would.
+      weeklyGoal: Math.min(7, Math.max(1, req.user.daysPerWeek || 3)),
     });
     const recentActivities = external.slice(0, 10).map(({ userId: _u, ...a }) => a);
     res.json({ success: true, summary: { ...summary, health }, recentSessions: sessions.slice(0, 10), recentActivities });

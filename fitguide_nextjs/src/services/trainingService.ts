@@ -64,11 +64,23 @@ export interface Achievement {
   progress: { value: number; goal: number };
 }
 
+export interface WeekStreak {
+  goal: number;
+  weeks: number;
+  best: number;
+  thisWeek: { weekStart: string; activeDays: number; met: boolean; daysLeft: number };
+  passAvailable: boolean;
+  lastWeekSaved: boolean;
+  history: { weekStart: string; activeDays: number; met: boolean; saved: boolean }[];
+}
+
 export interface ProgressSummary {
   today: string;
   totals: { sessions: number; minutes: number; calories: number; externalActivities: number };
   thisWeek: { sessions: number; minutes: number; calories: number; activeDays: number };
   streak: { current: number; longest: number; trainedToday: boolean };
+  /** Weeks in a row with at least `goal` active days (one short week a month let off). */
+  weekStreak: WeekStreak;
   /** The last 12 weeks, oldest first. */
   days: ActivityDay[];
   personalRecords: PersonalRecord[];

@@ -159,6 +159,7 @@ class _ProgressViewState extends State<ProgressView> {
               previous: summary.days.sublist(math.max(0, summary.days.length - 14), math.max(0, summary.days.length - 7)),
             ), _ProgramPanel(enrollment: summary.activeEnrollment)),
         if (summary.days.isNotEmpty) _ActivityCalendar(days: summary.days),
+        _WeekStreak(streak: summary.weekStreak),
         if (summary.achievements.isNotEmpty)
           ...pairs(context, _MusclesThisWeek(counts: summary.muscleRegions, sessions: summary.week('sessions'), minutes: summary.week('minutes')), _Achievements(badges: summary.achievements))
         else
@@ -227,7 +228,7 @@ class _StatTiles extends StatelessWidget {
     final tiles = [
       ('Sessions this week', '${s.week('sessions')}', '${s.week('activeDays')} active day${s.week('activeDays') == 1 ? '' : 's'}', LucideIcons.dumbbell, const Color(0xFF00C4B4)),
       ('Minutes this week', '${s.week('minutes')}', '${s.week('calories')} kcal', LucideIcons.clock, const Color(0xFF8B7CF6)),
-      ('Day streak', '${s.streakCurrent}', s.streakCurrent > 0 && !s.trainedToday ? 'Train today to keep it' : 'Best: ${s.streakLongest}', LucideIcons.zap, const Color(0xFFFB923C)),
+      ('Week streak', '${s.weekStreak.weeks}', s.weekStreak.thisWeekText, LucideIcons.zap, const Color(0xFFFB923C)),
       ('Total sessions', '${s.total('sessions')}', '${s.total('minutes')} min · ${s.total('calories')} kcal', LucideIcons.flame, const Color(0xFFC084FC)),
     ];
     return FgGrid(
@@ -577,6 +578,66 @@ class _ProgramPanel extends StatelessWidget {
 }
 
 /// 12-week calendar, one column per week (Monday first), shaded by minutes trained.
+/// The forgiving weekly streak: the last 8 weeks and this one, met, let off
+/// with the month's pass, or short (WeekStreak.tsx).
+class _WeekStreak extends StatelessWidget {
+  const _WeekStreak({required this.streak});
+  final WeekStreak streak;
+
+  @override
+  Widget build(BuildContext context) {
+    final goal = streak.goal;
+    final weeks = [for (final w in streak.history) (w, false), (streak.thisWeek, true)];
+    String label(StreakWeek w, bool current) =>
+        'Week of ${formatDayMonth(w.weekStart)}: ${w.activeDays} of $goal days, ${w.met ? 'met' : w.saved ? 'let off with a pass' : current ? 'in progress' : 'short'}';
+    return Panel(
+      title: 'Week streak',
+      icon: LucideIcons.zap,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text.rich(TextSpan(style: fg(size: 14), children: [
+          TextSpan(text: '${streak.weeks}', style: fg(size: 22, weight: FontWeight.w800)),
+          TextSpan(text: ' ${streak.weeks == 1 ? 'week' : 'weeks'} in a row training at least $goal ${goal == 1 ? 'day' : 'days'} a week'),
+          TextSpan(text: ' · best ${streak.best}', style: fg(size: 14, color: AppColors.white70)),
+        ])),
+        const SizedBox(height: 12),
+        Row(children: [
+          for (final (i, (w, current)) in weeks.indexed) ...[
+            if (i > 0) const SizedBox(width: 5),
+            Expanded(
+              child: Semantics(
+                label: label(w, current),
+                excludeSemantics: true,
+                child: Container(
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: w.met ? AppColors.limeLight : w.saved ? AppColors.amber400.withValues(alpha: 0.2) : current ? Colors.transparent : AppColors.whiteA(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                    border: w.saved
+                        ? Border.all(color: AppColors.amber400.withValues(alpha: 0.4))
+                        : current && !w.met
+                            ? Border.all(color: AppColors.white30A(0.4))
+                            : null,
+                  ),
+                  child: Text('${w.activeDays}',
+                      style: fg(size: 11, weight: FontWeight.w700, color: w.met ? AppColors.noirEclipse : w.saved ? AppColors.amber300 : AppColors.white70)),
+                ),
+              ),
+            ),
+          ],
+        ]),
+        const SizedBox(height: 10),
+        Text(
+          '${streak.thisWeek.met ? 'This week is done. ' : '${streak.thisWeek.activeDays} of $goal days this week, ${streak.daysLeft} ${streak.daysLeft == 1 ? 'day' : 'days'} left. '}'
+          'Rest days never break it, and one short week a month is let off ${streak.passAvailable ? '(this month’s is still there)' : '(this month’s is used)'}.'
+          '${streak.lastWeekSaved ? ' Last week was let off.' : ''}',
+          style: fg(size: 12, color: AppColors.white70),
+        ),
+      ]),
+    );
+  }
+}
+
 class _ActivityCalendar extends StatelessWidget {
   const _ActivityCalendar({required this.days});
   final List<ActivityDay> days;

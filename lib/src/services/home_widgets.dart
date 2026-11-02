@@ -49,13 +49,13 @@ TodayWidgetLines todayLines(ProgressSummary summary, {DayLog? log, Readiness? re
     title = 'Ready when you are';
     subtitle = 'Open FitGuide to pick a workout';
   }
-  final days = summary.streakCurrent;
+  final streak = summary.weekStreak;
   final glasses = log == null ? null : (log.waterMl / 250).floor();
   final goal = log == null ? null : (log.targets.waterMl / 250).round();
   return TodayWidgetLines(
     title: title,
     subtitle: subtitle,
-    streak: days > 0 ? '🔥 $days-day streak' : 'Start a streak today',
+    streak: streak.weeks > 0 ? '🔥 ${streak.weeks}-week streak · ${streak.thisWeekText}' : '🔥 ${streak.thisWeekText}',
     water: glasses == null ? '' : '💧 $glasses of $goal glasses',
     readiness: readiness == null
         ? ''

@@ -15,7 +15,8 @@ void main() {
         'schedule': [],
       };
   ProgressSummary summary({Map<String, dynamic>? enrollment, int streak = 0, bool trainedToday = false}) => ProgressSummary({
-        'streak': {'current': streak, 'longest': streak, 'trainedToday': trainedToday},
+        'streak': {'current': 0, 'longest': 0, 'trainedToday': trainedToday},
+        'weekStreak': {'goal': 3, 'weeks': streak, 'thisWeek': {'activeDays': 1, 'met': false}},
         'activeEnrollment': enrollment,
       });
   final log = DayLog({'targets': {'waterMl': 2000}, 'water': {'ml': 750}, 'entries': []});
@@ -30,7 +31,7 @@ void main() {
     expect(lines.toMap(), {
       'title': 'Day 3: Leg Day',
       'subtitle': 'Today · week 2, day 3',
-      'streak': '🔥 5-day streak',
+      'streak': '🔥 5-week streak · 1 of 3 days this week',
       'water': '💧 3 of 8 glasses',
       'readiness': 'Readiness 78 · Ready to push',
     });
@@ -40,7 +41,7 @@ void main() {
     final lines = todayLines(summary(enrollment: plan('2026-11-04')), readiness: Readiness({'checkedIn': false}), todayYmd: today);
     expect(lines.title, 'Rest day');
     expect(lines.subtitle, startsWith('Next: Day 3: Leg Day, '));
-    expect(lines.streak, 'Start a streak today');
+    expect(lines.streak, '🔥 1 of 3 days this week');
     expect(lines.water, '');
     expect(lines.readiness, 'Check in for today’s readiness');
   });

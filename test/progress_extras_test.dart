@@ -27,4 +27,24 @@ void main() {
     expect(find.text('Front'), findsOneWidget);
     expect(find.text('Back'), findsOneWidget);
   });
+
+  test('reads the weekly streak', () {
+    final streak = ProgressSummary({
+      'weekStreak': {
+        'goal': 3,
+        'weeks': 2,
+        'best': 4,
+        'thisWeek': {'weekStart': '2026-11-02', 'activeDays': 1, 'met': false, 'daysLeft': 6},
+        'passAvailable': true,
+        'lastWeekSaved': true,
+        'history': [
+          {'weekStart': '2026-10-19', 'activeDays': 3, 'met': true, 'saved': false},
+          {'weekStart': '2026-10-26', 'activeDays': 1, 'met': false, 'saved': true},
+        ],
+      },
+    }).weekStreak;
+    expect((streak.weeks, streak.best, streak.daysLeft, streak.lastWeekSaved), (2, 4, 6, true));
+    expect(streak.history.map((w) => (w.met, w.saved)), [(true, false), (false, true)]);
+    expect(streak.thisWeekText, '1 of 3 days this week');
+  });
 }

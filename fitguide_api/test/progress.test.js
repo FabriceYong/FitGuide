@@ -2,7 +2,7 @@
 require('./helpers/setup');
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { activityByDate, streaks, personalRecords, describeEnrollment, repRange, suggestNext, previousSets } = require('../services/progress');
+const { activityByDate, streaks, weeklyStreak, personalRecords, describeEnrollment, repRange, suggestNext, previousSets } = require('../services/progress');
 const { localDate, addDays, isValidYmd } = require('../utils/dates');
 const { exerciseStore } = require('../stores/records');
 const exercisesData = require('../seed/exerciseSeeder');
@@ -142,6 +142,48 @@ describe('last time and what to aim for', () => {
     ]);
     assert.deepEqual(result.map((r) => r.suggestion?.reason ?? null), ['add_weight', 'more_reps', 'more_reps', 'more_reps', null]);
     assert.equal(result[0].suggestion.weightKg, 62.5);
+  });
+});
+
+describe('weekly streak', () => {
+  // Mondays: 5, 12, 19, 26 Oct and 2 Nov 2026.
+  const days = (...list) => new Set(list);
+
+  it('counts weeks in a row with enough active days, rest days and all', () => {
+    const active = days('2026-10-19', '2026-10-21', '2026-10-25', '2026-10-26', '2026-10-28', '2026-10-30');
+    const s = weeklyStreak(active, '2026-11-03', 3);
+    assert.deepEqual([s.weeks, s.best], [2, 2]);
+    assert.deepEqual(s.thisWeek, { weekStart: '2026-11-02', activeDays: 0, met: false, daysLeft: 6 });
+  });
+
+  it('adds this week once it is met, not before', () => {
+    const active = days('2026-10-26', '2026-10-27', '2026-10-28', '2026-11-02', '2026-11-03');
+    assert.equal(weeklyStreak(active, '2026-11-03', 3).weeks, 1);
+    active.add('2026-11-04');
+    const s = weeklyStreak(active, '2026-11-04', 3);
+    assert.equal(s.weeks, 2);
+    assert.equal(s.thisWeek.met, true);
+  });
+
+  it('lets one short week a month off, then ends the run', () => {
+    // Weeks of 28 Sep (ends 4 Oct) met, 5 Oct short (October's pass), 12 Oct met, 19 Oct short.
+    const met = (monday) => [0, 1, 2].map((i) => addDays(monday, i));
+    const active = days(...met('2026-09-28'), '2026-10-05', ...met('2026-10-12'));
+    let s = weeklyStreak(active, '2026-10-21', 3);
+    // Two met weeks with a let-off week between them: a run of 2, the week in progress not counted yet.
+    assert.deepEqual([s.weeks, s.lastWeekSaved], [2, false]);
+    assert.deepEqual(s.history.map((h) => [h.met, h.saved]), [[true, false], [false, true], [true, false]]);
+    assert.equal(s.passAvailable, false); // this week ends in October, whose pass is used
+
+    // The week of 19 Oct ended short with October's pass gone: back to 0.
+    s = weeklyStreak(active, '2026-10-27', 3);
+    assert.deepEqual([s.weeks, s.best], [0, 2]);
+    assert.equal(s.passAvailable, true); // this week ends on 1 November
+  });
+
+  it('has nothing to count with no activity', () => {
+    const s = weeklyStreak(new Set(), '2026-11-03', 4);
+    assert.deepEqual([s.weeks, s.best, s.goal, s.history.length], [0, 0, 4, 0]);
   });
 });
 

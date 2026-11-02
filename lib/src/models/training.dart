@@ -156,6 +156,46 @@ class BodySummary {
   final Map<String, ({double value, String date})> latestMeasurements;
 }
 
+/// One week of the weekly streak.
+class StreakWeek {
+  StreakWeek(Json j)
+      : weekStart = asString(j['weekStart']) ?? '',
+        activeDays = asInt(j['activeDays']) ?? 0,
+        met = asBool(j['met']),
+        saved = asBool(j['saved']);
+  final String weekStart;
+  final int activeDays;
+  final bool met;
+
+  /// Short, but let off with the month's pass.
+  final bool saved;
+}
+
+/// Weeks in a row with at least [goal] active days; rest days don't break
+/// it and one short week a month is let off (services/progress.js weeklyStreak).
+class WeekStreak {
+  WeekStreak(Json j)
+      : goal = asInt(j['goal']) ?? 3,
+        weeks = asInt(j['weeks']) ?? 0,
+        best = asInt(j['best']) ?? 0,
+        thisWeek = StreakWeek(asJson(j['thisWeek'])),
+        daysLeft = asInt(asJson(j['thisWeek'])['daysLeft']) ?? 0,
+        passAvailable = asBool(j['passAvailable']),
+        lastWeekSaved = asBool(j['lastWeekSaved']),
+        history = asJsonList(j['history']).map(StreakWeek.new).toList();
+  final int goal;
+  final int weeks;
+  final int best;
+  final StreakWeek thisWeek;
+  final int daysLeft;
+  final bool passAvailable;
+  final bool lastWeekSaved;
+  final List<StreakWeek> history;
+
+  /// "This week done ✓" or "1 of 3 days this week".
+  String get thisWeekText => thisWeek.met ? 'This week done ✓' : '${thisWeek.activeDays} of $goal days this week';
+}
+
 class ProgressSummary {
   ProgressSummary(Json j)
       : today = asString(j['today']) ?? '',
@@ -164,6 +204,7 @@ class ProgressSummary {
         streakCurrent = asInt(asJson(j['streak'])['current']) ?? 0,
         streakLongest = asInt(asJson(j['streak'])['longest']) ?? 0,
         trainedToday = asBool(asJson(j['streak'])['trainedToday']),
+        weekStreak = WeekStreak(asJson(j['weekStreak'])),
         days = asJsonList(j['days']).map(ActivityDay.new).toList(),
         personalRecords = asJsonList(j['personalRecords']).map(PersonalRecord.new).toList(),
         body = BodySummary(asJson(j['body'])),
@@ -177,6 +218,7 @@ class ProgressSummary {
   final int streakCurrent;
   final int streakLongest;
   final bool trainedToday;
+  final WeekStreak weekStreak;
   final List<ActivityDay> days;
   final List<PersonalRecord> personalRecords;
   final BodySummary body;

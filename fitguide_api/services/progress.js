@@ -46,6 +46,51 @@ function streaks(activeDates, todayYmd) {
   return { current, longest, trainedToday: activeDates.has(todayYmd) };
 }
 
+/** Monday of the week a date is in. */
+const mondayOf = (ymd) => addDays(ymd, -((new Date(`${ymd}T00:00:00Z`).getUTCDay() + 6) % 7));
+
+/**
+ * The forgiving weekly streak: weeks in a row (Monday to Sunday) with at
+ * least `goal` active days. Rest days never break it, the week in progress
+ * only adds once it's met, and one short week a month is let off (a
+ * "pass", used up automatically) so a busy week doesn't end a long run.
+ * A pass belongs to the month the week ends in.
+ */
+function weeklyStreak(activeDates, todayYmd, goal) {
+  const thisMonday = mondayOf(todayYmd);
+  const daysIn = (monday) => Array.from({ length: 7 }, (_, i) => addDays(monday, i)).filter((d) => activeDates.has(d)).length;
+  const first = [...activeDates].sort()[0];
+  const passes = new Set();
+  const history = [];
+  let run = 0;
+  let best = 0;
+  for (let monday = first ? mondayOf(first) : thisMonday; monday < thisMonday; monday = addDays(monday, 7)) {
+    const activeDays = daysIn(monday);
+    const month = addDays(monday, 6).slice(0, 7);
+    const met = activeDays >= goal;
+    let saved = false;
+    if (met) run += 1;
+    else if (run > 0 && !passes.has(month)) {
+      passes.add(month);
+      saved = true;
+    } else run = 0;
+    best = Math.max(best, run);
+    history.push({ weekStart: monday, activeDays, met, saved });
+  }
+  const activeDays = daysIn(thisMonday);
+  const met = activeDays >= goal;
+  const weeks = run + (met ? 1 : 0);
+  return {
+    goal,
+    weeks,
+    best: Math.max(best, weeks),
+    thisWeek: { weekStart: thisMonday, activeDays, met, daysLeft: daysBetween(todayYmd, addDays(thisMonday, 6)) + 1 },
+    passAvailable: !passes.has(addDays(thisMonday, 6).slice(0, 7)),
+    lastWeekSaved: Boolean(history.length && history[history.length - 1].saved),
+    history: history.slice(-8),
+  };
+}
+
 /**
  * Best set per exercise. What "best" means depends on the exercise's
  * trackingType. Ties keep the earlier record.
@@ -200,9 +245,10 @@ function muscleRegions(sessions, workoutMuscles, exercisesBySlug) {
  *   count toward activity and streaks (with completedAt, durationSec, calories)
  * @param {Map<string, string[]>} [input.workoutMuscles]  workout slug → target muscles
  */
-function buildSummary({ sessions, bodyMetrics, enrollments, exercisesBySlug, tzOffset, todayYmd, externalActivities = [], workoutMuscles = new Map() }) {
+function buildSummary({ sessions, bodyMetrics, enrollments, exercisesBySlug, tzOffset, todayYmd, externalActivities = [], workoutMuscles = new Map(), weeklyGoal = 3 }) {
   const byDate = activityByDate([...sessions, ...externalActivities], tzOffset);
   const streak = streaks(new Set(byDate.keys()), todayYmd);
+  const weekStreak = weeklyStreak(new Set(byDate.keys()), todayYmd, weeklyGoal);
   const records = personalRecords(sessions, exercisesBySlug);
   const days = [];
   for (let i = ACTIVITY_DAYS - 1; i >= 0; i -= 1) {
@@ -241,6 +287,7 @@ function buildSummary({ sessions, bodyMetrics, enrollments, exercisesBySlug, tzO
       activeDays: lastWeek.filter((d) => d.sessions > 0).length,
     },
     streak,
+    weekStreak,
     days,
     personalRecords: records,
     muscles: { regions: muscleRegions(sessions.filter((s) => localDate(s.completedAt, tzOffset) > addDays(todayYmd, -7)), workoutMuscles, exercisesBySlug) },
@@ -339,4 +386,4 @@ function previousSets(sessions, steps, keyOf, units = 'metric') {
   });
 }
 
-module.exports = { activityByDate, streaks, personalRecords, scheduledDate, shiftFor, describeEnrollment, buildSummary, muscleRegions, repRange, suggestNext, previousSets };
+module.exports = { activityByDate, streaks, weeklyStreak, personalRecords, scheduledDate, shiftFor, describeEnrollment, buildSummary, muscleRegions, repRange, suggestNext, previousSets };
